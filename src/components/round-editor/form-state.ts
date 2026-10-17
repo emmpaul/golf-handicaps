@@ -26,6 +26,8 @@ export type EditorState = {
   /** Les totaux de PAR et DISTANCE viennent de la lecture de la carte. */
   readCardTotals: boolean;
   lines: EditorLine[];
+  /** Clés de case remplies par l'IA et pas encore modifiées (spec `scorecard-ai-completion`). */
+  aiCells: string[];
 };
 
 const emptyValues = (): DraftValue[] => Array(HOLES).fill(null);
@@ -81,17 +83,47 @@ export function emptyEditorState(playedOn: string): EditorState {
     },
     readCardTotals: false,
     lines: [newLine()],
+    aiCells: [],
   };
 }
 
-/** Écran pré-rempli par la lecture d'une carte : totaux lus, à vérifier. */
-export function readEditorState(form: RoundForm, readTotals: boolean): EditorState {
+/**
+ * Écran pré-rempli par la lecture d'une carte : totaux lus, à vérifier. `aiCells` : cases
+ * complétées par l'IA, marquées dans l'écran.
+ */
+export function readEditorState(
+  form: RoundForm,
+  readTotals: boolean,
+  aiCells: readonly string[] = [],
+): EditorState {
   const { players, ...card } = form;
   return {
     form: card,
     readCardTotals: readTotals,
     lines: players.map((row) => newLine(row, readTotals)),
+    aiCells: [...aiCells],
   };
+}
+
+/** Une case modifiée à la main n'est plus marquée comme complétée par l'IA. */
+export function withoutAiCell(state: EditorState, cell: string): EditorState {
+  return { ...state, aiCells: state.aiCells.filter((key) => key !== cell) };
+}
+
+/**
+ * Retire une ligne de joueur. Ses marques IA partent avec elle, et celles des lignes
+ * suivantes suivent leur nouveau rang (les clés de case `player<n>` sont positionnelles).
+ */
+export function removeLine(state: EditorState, key: number): EditorState {
+  const removed = state.lines.findIndex((line) => line.key === key);
+  const aiCells = state.aiCells.flatMap((cell) => {
+    const match = /^player(\d+):(.+)$/.exec(cell);
+    if (!match || removed < 0) return [cell];
+    const position = Number(match[1]);
+    if (position === removed) return [];
+    return [position > removed ? `player${position - 1}:${match[2]}` : cell];
+  });
+  return { ...state, lines: state.lines.filter((line) => line.key !== key), aiCells };
 }
 
 /** Pré-remplit pars, index et distances depuis un parcours connu. */

@@ -23,7 +23,11 @@ export default async function ImportCorrectionPage({ params }: PageProps<"/impor
   const draft = row.draft as ScorecardDraft | null;
   const today = todayIso();
   const initial = draft
-    ? readEditorState({ ...formFromDraft(db, draft), playedOn: draft.playedOn ?? today }, true)
+    ? readEditorState(
+        { ...formFromDraft(db, draft), playedOn: draft.playedOn ?? today },
+        true,
+        row.aiCells ?? [],
+      )
     : emptyEditorState(today);
   return (
     <>
@@ -32,6 +36,7 @@ export default async function ImportCorrectionPage({ params }: PageProps<"/impor
         initial={initial}
         players={listPlayers(db)}
         photoUrl={`/api/imports/${row.id}/photo`}
+        aiNote={row.aiNote}
         target={{ kind: "create", importId: row.id }}
       />
     </>

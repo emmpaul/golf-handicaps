@@ -93,7 +93,13 @@ export function scoresOverPar(over: number) {
   return { holes, out, in: 71 + over - out, total: 71 + over };
 }
 
-type SeededImport = Pick<typeof imports.$inferInsert, "status" | "corners" | "draft">;
+type SeededImport = Pick<
+  typeof imports.$inferInsert,
+  "status" | "corners" | "draft" | "aiCells" | "aiNote"
+>;
+
+/** Provenance IA d'un import : cases complétées par l'IA et message affiché. */
+type SeededAi = Pick<SeededImport, "aiCells" | "aiNote">;
 
 /** Import de la photo de référence dans l'état donné, sans passer par le worker. Renvoie son id. */
 function seedImport(values: SeededImport): number {
@@ -114,10 +120,10 @@ function seedImport(values: SeededImport): number {
 
 /**
  * Import « Prêt à vérifier » de la photo de référence, avec la lecture de la tâche 6.7
- * (ou le brouillon `draft`).
+ * (ou le brouillon `draft`), et éventuellement une complétion par l'IA (`ai`).
  */
-export const seedReadyImport = (draft: ScorecardDraft = referenceDraft) =>
-  seedImport({ status: "ready", corners: {}, draft });
+export const seedReadyImport = (draft: ScorecardDraft = referenceDraft, ai: SeededAi = {}) =>
+  seedImport({ status: "ready", corners: {}, draft, ...ai });
 
 /**
  * Import « Échec » de la photo de référence, cadré à côté du panneau (coins par défaut de

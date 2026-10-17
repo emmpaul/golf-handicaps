@@ -17,7 +17,7 @@ const serverEnv = {
 };
 
 /** Parcours d'import et de correction vérifiés aussi sur iPhone (tâche 8.9). */
-const MOBILE_SPECS = /(access|home|mobile)\.spec\.ts$/;
+const MOBILE_SPECS = /(access|ai-marking|home|mobile)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./tests/e2e",
