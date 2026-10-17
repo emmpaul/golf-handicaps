@@ -1,6 +1,6 @@
 {
   "name": "golf-handicaps",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --names web,worker --prefix-colors blue,magenta \"next dev\" \"pnpm dev:worker\"",
