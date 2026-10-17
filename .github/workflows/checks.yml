@@ -1,7 +1,7 @@
 # Contrôles communs aux PR et à main (design, décisions 7, 8 et 10 ; improve-ci-pipeline, décisions 1 à 3).
 # Le job scope classe les fichiers modifiés : pour de la documentation seule (dont la PR et le push de release),
 # quality ne garde que check:pins, commitlint et le lint, et les e2e et le build Docker sont sautés.
-# Les e2e tournent en deux tranches ; l'agrégateur e2e porte le contrôle requis `checks / e2e`.
+# Les e2e tournent en trois tranches ; l'agrégateur e2e porte le contrôle requis `checks / e2e`.
 # Le job docker ne tourne que si l'appelant passe `docker: true` (main).
 name: checks
 
@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -143,11 +143,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends tesseract-ocr
-      # Les tests WebKit iPhone peuvent tomber dans l'une ou l'autre tranche : les deux navigateurs partout.
+      # Les tests WebKit iPhone peuvent tomber dans n'importe quelle tranche : les deux navigateurs partout.
       - name: Navigateurs Playwright
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Tests e2e
-        run: pnpm e2e --shard=${{ matrix.shard }}/2
+        run: pnpm e2e --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
@@ -157,7 +157,7 @@ jobs:
             test-results/
           retention-days: 7
 
-  # Contrôle requis `checks / e2e` : vert seulement si scope et les deux tranches ont réussi,
+  # Contrôle requis `checks / e2e` : vert seulement si scope et les trois tranches ont réussi,
   # sauté (donc compté réussi) pour de la documentation seule.
   e2e:
     needs: [scope, e2e-shard]
