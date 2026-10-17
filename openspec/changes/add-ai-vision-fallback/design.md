@@ -75,7 +75,7 @@ L'écran de correction reçoit `aiCells`. `GridCell` ajoute une classe visible (
 Nouvelle table `ai_usage` : `id`, `created_at`, `month` (`YYYY-MM`, heure de Montréal), `model`, `input_tokens`, `output_tokens`, `cost_micro_usd`.
 - **Tarifs** : constantes dans `src/ai/pricing.ts`, soit 4 $ et 20 $ par million de tokens pour `claude-opus-5-5`. Ils sont testés avec des valeurs écrites à la main.
 - **Coût d'un appel** : `input × 4 + output × 20` micro-dollars, avec les tokens réellement facturés renvoyés dans `usage`, réflexion comprise.
-- **Garde avant appel** : `spent(month) + MAX_CALL_COST <= budget`. `MAX_CALL_COST` correspond au pire cas, 2 000 tokens d'entrée et `max_tokens` 4 000 en sortie, soit 0,088 $.
+- **Garde avant appel** : `spent(month) + MAX_CALL_COST <= budget`. `MAX_CALL_COST` correspond au pire cas, 3 500 tokens d'entrée (mesuré à environ 2 900 sur une vraie carte : image, prompt système et schéma de sortie injecté par l'API) et `max_tokens` 4 000 en sortie, soit 0,094 $.
 - **Plafond** : `AI_MONTHLY_BUDGET_USD` (défaut 1), validé par zod comme nombre positif.
 - **Concurrence** : un seul worker tourne. On écrit l'usage après chaque appel, même après un refus, un `max_tokens` ou une réponse illisible, puisque l'appel est quand même facturé. Les erreurs typées du completer portent cet usage. `usage.output_tokens` inclut déjà la réflexion et sert de total facturé.
 

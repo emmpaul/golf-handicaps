@@ -14,7 +14,7 @@ Règle pour tout le change : TDD. Chaque comportement de production commence par
 ## 3. Budget (spec `scorecard-ai-completion`, plafond)
 
 - [x] 3.1 Migration additive : table `ai_usage`, colonnes `imports.ai_cells` (JSON) et `imports.ai_note` (texte). Vérifier : le test de migration sur base vide passe, et une base existante garde ses imports.
-- [x] 3.2 TDD : `src/ai/pricing.ts`. Pour 1 700 tokens en entrée et 900 en sortie sur `claude-opus-5-5`, le coût vaut exactement 24 800 micro-dollars. `MAX_CALL_COST` vaut 88 000.
+- [x] 3.2 TDD : `src/ai/pricing.ts`. Pour 1 700 tokens en entrée et 900 en sortie sur `claude-opus-5-5`, le coût vaut exactement 24 800 micro-dollars. `MAX_CALL_COST` vaut 94 000.
 - [x] 3.3 TDD : `AiBudget`. Avec un plafond de 1 $ et 950 000 micro-dollars dépensés en 2026-10, un appel est refusé. Le même cumul en 2026-09, avec une date courante en 2026-10, l'autorise. Un usage enregistré augmente le cumul du mois d'exactement son coût. Le mois se calcule à l'heure de Montréal : le 2026-10-31 à 23 h 30 HAE compte en 2026-10.
 
 ## 4. Fusion (spec `scorecard-ai-completion`, fusion)
@@ -65,7 +65,7 @@ Règle pour tout le change : TDD. Chaque comportement de production commence par
 
 ## 9. Vérification réelle (humain)
 
-- [ ] 9.1 Avec une vraie clé et un plafond de 1 $ : importer une photo volontairement mauvaise (reflet ou biais). Vérifier que les cases marquées IA sont correctes, et que la ligne `ai_usage` donne un coût cohérent avec le tableau de bord Anthropic (à ±10 %).
+- [x] 9.1 Avec une vraie clé et un plafond de 1 $ : importer une photo volontairement mauvaise (reflet ou biais). Vérifier que les cases marquées IA sont correctes, et que la ligne `ai_usage` donne un coût cohérent avec le tableau de bord Anthropic (à ±10 %).
 
 ## Workflow follow-up
 

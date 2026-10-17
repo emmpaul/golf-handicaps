@@ -53,7 +53,7 @@ Facultative. Sans `ANTHROPIC_API_KEY`, l'app lit les cartes en local seulement, 
 
 **Coût** : environ 2 ¢ par carte difficile, donc moins de 0,20 $ par mois pour une dizaine de cartes. Le worker calcule le coût de chaque appel à partir de l'usage renvoyé par l'API (tarifs Opus 5.5 : 4 $ et 20 $ par million de tokens en entrée et en sortie) et l'enregistre dans la table `ai_usage`, y compris après un refus ou une réponse illisible, que l'API facture aussi.
 
-**Plafond** : `AI_MONTHLY_BUDGET_USD`, 1 $ par défaut, par mois civil à l'heure de Montréal. Le worker n'appelle l'IA que si le cumul du mois plus le pire cas d'un appel (0,088 $) reste sous le plafond. Sinon, l'import arrive à « Prêt à vérifier » avec la lecture locale et le message « Budget IA du mois atteint ». Une erreur de l'API, un refus ou une réponse illisible donnent « Complétion IA indisponible ». L'import ne passe jamais en « Échec » à cause de l'IA.
+**Plafond** : `AI_MONTHLY_BUDGET_USD`, 1 $ par défaut, par mois civil à l'heure de Montréal. Le worker n'appelle l'IA que si le cumul du mois plus le pire cas d'un appel (0,094 $) reste sous le plafond. Sinon, l'import arrive à « Prêt à vérifier » avec la lecture locale et le message « Budget IA du mois atteint ». Une erreur de l'API, un refus ou une réponse illisible donnent « Complétion IA indisponible ». L'import ne passe jamais en « Échec » à cause de l'IA.
 
 **Limite côté Anthropic** : fixer aussi une limite de dépense mensuelle dans la console Anthropic. Elle protège si les tarifs changent avant `src/ai/pricing.ts`.
 

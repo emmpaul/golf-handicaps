@@ -8,7 +8,7 @@ describe("callCost", () => {
 });
 
 describe("MAX_CALL_COST", () => {
-  it("vaut le pire cas : 2 000 tokens d'entrée et 4 000 de sortie, soit 0,088 $", () => {
-    expect(MAX_CALL_COST).toBe(88_000);
+  it("vaut le pire cas : 3 500 tokens d'entrée et 4 000 de sortie, soit 0,094 $", () => {
+    expect(MAX_CALL_COST).toBe(94_000);
   });
 });

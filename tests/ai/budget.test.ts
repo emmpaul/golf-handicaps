@@ -26,9 +26,14 @@ describe("AiBudget.canSpend", () => {
     expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER)).toBe(true);
   });
 
-  it("autorise un appel dont le pire cas atteint pile le plafond (912 000 + 88 000 µ$)", () => {
-    spentBefore("2026-10", 912_000);
+  it("autorise un appel dont le pire cas atteint pile le plafond (906 000 + 94 000 µ$)", () => {
+    spentBefore("2026-10", 906_000);
     expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER)).toBe(true);
+  });
+
+  it("refuse un appel dont le pire cas dépasse le plafond d'un µ$ (906 001 + 94 000 µ$)", () => {
+    spentBefore("2026-10", 906_001);
+    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER)).toBe(false);
   });
 });
 
