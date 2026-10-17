@@ -4,7 +4,7 @@ Règle pour tout le change : le code de production (`scripts/ci-scope.ts`) suit 
 
 ## 1. Règle de classement (`scripts/ci-scope.ts` ; specs « Changement de documentation seule », « PR de release traitée comme documentation », « Repli sur la suite complète »)
 
-- [ ] 1.1 TDD : `onlyVersionChanged(before, after)`, testé dans `tests/scripts/ci-scope.test.ts`. Cas, avec des `package.json` écrits à la main :
+- [x] 1.1 TDD : `onlyVersionChanged(before, after)`, testé dans `tests/scripts/ci-scope.test.ts`. Cas, avec des `package.json` écrits à la main :
   - `version` `0.2.0` → `0.3.0`, rien d'autre → `true` ;
   - `version` `0.2.0` → `0.3.0` et `dependencies.zod` `4.1.0` → `4.2.0` → `false` ;
   - seul `scripts.test` change → `false` ;
@@ -14,7 +14,7 @@ Règle pour tout le change : le code de production (`scripts/ci-scope.ts`) suit 
   - `after` n'est pas du JSON → `false`.
 
   Mutation : ne comparer que `dependencies` et `devDependencies` (le cas `scripts.test` passe au rouge), ou comparer les textes bruts (le cas de l'ordre des clés passe au rouge).
-- [ ] 1.2 TDD : `isDocsOnly(paths, packageJsonVersionOnly)`. Cas :
+- [x] 1.2 TDD : `isDocsOnly(paths, packageJsonVersionOnly)`. Cas :
   - `["openspec/changes/x/tasks.md", "openspec/changes/x/design.md"]` → `true` ;
   - `["README.md", "CLAUDE.md"]` → `true` ;
   - `["docs/deploy.md", ".github/pull_request_template.md"]` → `true` ;
@@ -28,7 +28,7 @@ Règle pour tout le change : le code de production (`scripts/ci-scope.ts`) suit 
   - `[]` → `false`.
 
   Mutation : retourner `true` pour une liste vide, tester `startsWith("openspec")` sans le `/` (le cas `openspec-tools/x.ts` passe au rouge), ou accepter `package.json` sans regarder `packageJsonVersionOnly`.
-- [ ] 1.3 TDD : `decideScope({ docsOnly, event, parentConclusion })` rend `"true"` ou `"false"`. Cas :
+- [x] 1.3 TDD : `decideScope({ docsOnly, event, parentConclusion })` rend `"true"` ou `"false"`. Cas :
   - `pull_request`, `docsOnly: true` → `"false"` ;
   - `pull_request`, `docsOnly: false` → `"true"` ;
   - `push`, `docsOnly: true`, `parentConclusion: "success"` → `"false"` ;
@@ -37,7 +37,7 @@ Règle pour tout le change : le code de production (`scripts/ci-scope.ts`) suit 
   - `push`, `docsOnly: true`, `parentConclusion: null` (aucune exécution trouvée) → `"true"`.
 
   Mutation : ignorer `parentConclusion` sur un push (les trois derniers cas passent au rouge).
-- [ ] 1.4 TDD : le point d'entrée de `scripts/ci-scope.ts` lit la liste des fichiers sur l'entrée standard (une ligne par chemin), prend `--event`, et en option `--package-before <fichier>`, `--package-after <fichier>` et `--parent-conclusion <valeur>`, puis écrit `code=true` ou `code=false` sur la sortie standard. Tests qui lancent `node scripts/ci-scope.ts` avec `execFileSync` :
+- [x] 1.4 TDD : le point d'entrée de `scripts/ci-scope.ts` lit la liste des fichiers sur l'entrée standard (une ligne par chemin), prend `--event`, et en option `--package-before <fichier>`, `--package-after <fichier>` et `--parent-conclusion <valeur>`, puis écrit `code=true` ou `code=false` sur la sortie standard. Tests qui lancent `node scripts/ci-scope.ts` avec `execFileSync` :
   - entrée `"openspec/a.md\nsrc/b.ts\n"`, `--event pull_request` → sortie exactement `"code=true\n"` ;
   - entrée `"openspec/a.md\n"`, `--event pull_request` → `"code=false\n"` ;
   - entrée `"CHANGELOG.md\npackage.json\n"` avec deux fichiers qui ne diffèrent que par `version` → `"code=false\n"` ;
@@ -77,13 +77,13 @@ Règle pour tout le change : le code de production (`scripts/ci-scope.ts`) suit 
 
 ## 6. Tests stables et signalés (décisions 6 et 8 ; specs « Délai des tests unitaires qui lancent Tesseract », « Tests e2e instables signalés »)
 
-- [ ] 6.1 Mettre un délai de 30 s, avec un commentaire qui en donne la raison, sur les tests qui lancent le binaire Tesseract : `tests/ocr/tesseract-reader.test.ts`, `tests/ocr/read-scorecard.test.ts`, `tests/jobs/ocr-scorecard.test.ts`. Ne pas toucher au délai global de `vitest.config.mts`. Vérifier par mutation : ajouter temporairement une attente de 6 s avant la lecture dans « lit 16 dans la case INDEX du trou 2 avec le binaire tesseract natif » ; le test passe. Retirer le délai de 30 s en gardant l'attente : il échoue sur `Test timed out in 5000ms`. Revenir aux deux changements.
+- [x] 6.1 Mettre un délai de 30 s, avec un commentaire qui en donne la raison, sur les tests qui lancent le binaire Tesseract : `tests/ocr/tesseract-reader.test.ts`, `tests/ocr/read-scorecard.test.ts`, `tests/jobs/ocr-scorecard.test.ts`. Ne pas toucher au délai global de `vitest.config.mts`. Vérifier par mutation : ajouter temporairement une attente de 6 s avant la lecture dans « lit 16 dans la case INDEX du trou 2 avec le binaire tesseract natif » ; le test passe. Retirer le délai de 30 s en gardant l'attente : il échoue sur `Test timed out in 5000ms`. Revenir aux deux changements.
 - [ ] 6.2 Sur une PR brouillon jetable, jamais fusionnée, ajouter un test e2e qui échoue quand `testInfo.retry === 0` et passe ensuite. Relever ce que le résumé de l'exécution affiche. S'il ne nomme pas le test comme instable, ajouter le reporter `json` en CI dans `playwright.config.ts` et une étape `if: always()` dans `e2e-shard` qui écrit les tests au statut `flaky` dans `$GITHUB_STEP_SUMMARY`, sans `failOnFlakyTests`. Vérifier : l'exécution de la PR brouillon est verte et son résumé nomme le test comme instable. Fermer la PR et supprimer la branche.
 
 ## 7. Hygiène et documentation
 
 - [ ] 7.1 Ajouter `DOCKER_BUILD_RECORD_UPLOAD: false` à l'environnement des étapes `docker/build-push-action` de `checks.yml` et de `main.yml`. Vérifier : le push sur `main` qui suit la fusion ne crée aucun nouvel artefact `*.dockerbuild` (`gh api repos/emmpaul/golf-handicaps/actions/runs/<id>/artifacts` renvoie `total_count: 0` pour une exécution verte).
-- [ ] 7.2 Mettre à jour la section CI/CD de `README.md` et la décision 7 de `openspec/changes/add-golf-handicap-tracker/design.md` : contrôles sautés pour la documentation et la PR de release, garde sur `main`, e2e en deux tranches avec l'agrégateur `checks / e2e`, publication native par architecture. Vérifier : `grep -n "QEMU\|setup-qemu" README.md .github/workflows/*.yml` ne trouve rien.
+- [x] 7.2 Mettre à jour la section CI/CD de `README.md` et la décision 7 de `openspec/changes/add-golf-handicap-tracker/design.md` : contrôles sautés pour la documentation et la PR de release, garde sur `main`, e2e en deux tranches avec l'agrégateur `checks / e2e`, publication native par architecture. Vérifier : `grep -n "QEMU\|setup-qemu" README.md .github/workflows/*.yml` ne trouve rien.
 
 ## 8. Réglages du repo (humain)
 
