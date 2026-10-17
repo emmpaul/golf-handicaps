@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { checkRoundForm, problemCountLabel } from "@/scorecard/checks";
 import type { DraftValue } from "@/scorecard/draft";
 import { useCorrectionAutosave } from "./autosave";
+import { DateField } from "./date-field";
 import {
   applyCourse,
   courseLabel,
@@ -246,18 +247,16 @@ export function RoundEditor({
               ) : null}
               {(
                 [
-                  { field: "courseName", label: "Parcours", type: "text" },
-                  { field: "tees", label: "Tees", type: "text" },
-                  { field: "playedOn", label: "Date", type: "date" },
+                  { field: "courseName", label: "Parcours" },
+                  { field: "tees", label: "Tees" },
                 ] as const
-              ).map(({ field, label, type }) => (
+              ).map(({ field, label }) => (
                 <Field key={field}>
                   <FieldLabel htmlFor={field}>{label}</FieldLabel>
                   {/* Toujours enveloppé : retirer la marque ne remonte pas le champ en cours de saisie. */}
                   <div className="relative">
                     <Input
                       id={field}
-                      type={type}
                       value={state.form[field] ?? ""}
                       aria-invalid={invalid.has(field) || undefined}
                       aria-description={aiCells.has(field) ? AI_DESCRIPTION : undefined}
@@ -268,6 +267,16 @@ export function RoundEditor({
                   </div>
                 </Field>
               ))}
+              <Field>
+                <FieldLabel htmlFor="playedOn">Date</FieldLabel>
+                <DateField
+                  id="playedOn"
+                  value={state.form.playedOn}
+                  invalid={invalid.has("playedOn")}
+                  ai={aiCells.has("playedOn")}
+                  onChange={(iso) => setField("playedOn", iso)}
+                />
+              </Field>
             </div>
           </FieldGroup>
           <LinePlayers
