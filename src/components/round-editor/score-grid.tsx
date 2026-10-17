@@ -29,6 +29,27 @@ const COLUMNS: GridColumn[] = [
   "total",
 ];
 
+/** Description accessible d'une case remplie par l'IA (spec `scorecard-ai-completion`). */
+export const AI_DESCRIPTION = "complété par l'IA";
+
+/**
+ * Fond teinté d'une case remplie par l'IA, dans la teinte `--ai` (bleu-violet), pour ne pas
+ * se confondre avec le gris des cases en lecture seule. La variante sombre l'emporte aussi
+ * sur le fond sombre propre au composant `Input`.
+ */
+export const AI_CELL_CLASS = "bg-ai/15 dark:bg-ai/25";
+
+/** Pastille d'une case remplie par l'IA, dans un parent `relative`. */
+export function AiMark() {
+  return (
+    <span
+      aria-hidden
+      data-testid="ai-mark"
+      className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-ai"
+    />
+  );
+}
+
 const columnTitle = (column: GridColumn) =>
   typeof column === "number" ? String(column) : TOTAL_LABELS[column];
 
@@ -36,12 +57,14 @@ function GridCell({
   label,
   value,
   invalid,
+  ai,
   readOnly,
   onChange,
 }: {
   label: string;
   value: DraftValue;
   invalid: boolean;
+  ai: boolean;
   readOnly: boolean;
   onChange: (value: DraftValue) => void;
 }) {
@@ -49,6 +72,7 @@ function GridCell({
     <input
       aria-label={label}
       aria-invalid={invalid || undefined}
+      aria-description={ai ? AI_DESCRIPTION : undefined}
       inputMode="numeric"
       autoComplete="off"
       readOnly={readOnly}
@@ -58,6 +82,7 @@ function GridCell({
         "h-9 w-11 rounded-md lg:w-full border border-input bg-transparent px-0.5 text-center text-base tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm",
         "aria-invalid:border-destructive aria-invalid:bg-destructive/10 aria-invalid:ring-2 aria-invalid:ring-destructive/30",
         readOnly && "border-transparent bg-muted font-medium",
+        ai && AI_CELL_CLASS,
       )}
     />
   );
@@ -65,15 +90,18 @@ function GridCell({
 
 /**
  * Grille de la carte (colonnes 1-9, OUT, 10-18, IN, TOT). Elle défile seule à
- * l'horizontale sur téléphone, la page ne déborde pas.
+ * l'horizontale sur téléphone, la page ne déborde pas. Les cases de `aiCells` portent la
+ * marque « complété par l'IA ».
  */
 export function ScoreGrid({
   rows,
   invalid,
+  aiCells,
   onCell,
 }: {
   rows: GridRow[];
   invalid: ReadonlySet<string>;
+  aiCells: ReadonlySet<string>;
   onCell: (row: string, column: GridColumn, value: DraftValue) => void;
 }) {
   function cellValue(row: GridRow, column: GridColumn): DraftValue | undefined {
@@ -108,9 +136,11 @@ export function ScoreGrid({
               {COLUMNS.map((column) => {
                 const value = cellValue(row, column);
                 const isHole = typeof column === "number";
+                const key = `${row.key}:${column}`;
+                const ai = aiCells.has(key);
                 if (value === undefined) return <td key={column} />;
                 return (
-                  <td key={column}>
+                  <td key={column} className={cn(ai && "relative")}>
                     <GridCell
                       label={
                         isHole
@@ -118,10 +148,12 @@ export function ScoreGrid({
                           : `${row.cellLabel ?? row.label} ${TOTAL_LABELS[column]}`
                       }
                       value={value}
-                      invalid={invalid.has(`${row.key}:${column}`)}
+                      invalid={invalid.has(key)}
+                      ai={ai}
                       readOnly={!isHole && !row.totals?.editable}
                       onChange={(next) => onCell(row.key, column, next)}
                     />
+                    {ai ? <AiMark /> : null}
                   </td>
                 );
               })}

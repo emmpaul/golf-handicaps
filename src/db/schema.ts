@@ -132,6 +132,22 @@ export const imports = sqliteTable("imports", {
   draft: text("draft", { mode: "json" }),
   roundId: integer("round_id").references(() => rounds.id, { onDelete: "set null" }),
   createdAt: createdAt(),
+  /** Clés des cases complétées par l'IA (JSON), `null` sans complétion. */
+  aiCells: text("ai_cells", { mode: "json" }).$type<string[]>(),
+  /** Message sur la complétion IA (budget atteint, indisponible), `null` sinon. */
+  aiNote: text("ai_note"),
+});
+
+/** Un appel à l'IA par ligne ; coûts en micro-dollars (design, décision 6). */
+export const aiUsage = sqliteTable("ai_usage", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  createdAt: createdAt(),
+  /** Mois civil `YYYY-MM`, à l'heure de Montréal. */
+  month: text("month").notNull(),
+  model: text("model").notNull(),
+  inputTokens: integer("input_tokens").notNull(),
+  outputTokens: integer("output_tokens").notNull(),
+  costMicroUsd: integer("cost_micro_usd").notNull(),
 });
 
 export const jobStatuses = ["queued", "running", "done", "failed"] as const;

@@ -53,15 +53,15 @@ Toute erreur de l'étape 3 est attrapée dans le gestionnaire : on garde le brou
 `readScorecard` renvoie aussi le panneau redressé (`{ draft, panel }`), pour ne pas redresser deux fois.
 
 ### 3. Requête Claude
-- **Modèle** : `claude-opus-5-5`. Avec `output_config.effort: "low"`, on limite la réflexion et donc les tokens de sortie, qui sont le poste principal du coût. Sur ce modèle, la réflexion ne peut pas être coupée.
+- **Modèle** : `claude-opus-5-5`. Avec `output_config.effort: "low"`, on limite la réflexion et donc les tokens de sortie, qui sont le poste principal du coût. Sur ce modèle, la réflexion ne peut pas être coupée, et on ne passe pas de paramètre `thinking` : l'API le rejette avec une erreur 400.
 - **Image** : le panneau redressé est encodé en JPEG avec sharp, qualité 85, ramené à 1568 px sur le grand côté (1568×800), soit environ 1 700 tokens d'image. Il est envoyé en base64 : on n'utilise pas la Files API, puisqu'il n'y a qu'un seul usage par image.
-- **Sortie structurée** : `output_config.format` avec un schéma JSON strict. Il décrit `courseName`, `tees`, `par` (18 valeurs + out/in/total), `strokeIndex` (18), `distance` (18 + totaux), et `players[]` (nom, 18 scores, totaux). Chaque valeur peut être `null` quand elle est illisible. On utilise le helper de parsing du SDK, et zod valide la réponse avant la fusion. Pas de tool use forcé, qui est refusé sur ce modèle.
+- **Sortie structurée** : `output_config.format` vaut `betaZodOutputFormat(aiCardSchema)` (de `@anthropic-ai/sdk/helpers/beta/zod`). Le schéma zod décrit `courseName`, `tees`, `par` (18 valeurs + out/in/total), `strokeIndex` (18), `distance` (18 + totaux), et `players[]` (nom, 18 scores, totaux). Chaque valeur peut être `null` quand elle est illisible. L'appel passe par `client.messages.create`, pas par `parse()` : en cas d'erreur, `parse()` lève sans rendre la réponse, et on perdrait l'`usage` dont le budget a besoin (§6). Le SDK 0.135.0 accepte `output_config.effort` et `output_config.format` sur l'API non beta, et le format produit par `betaZodOutputFormat` a la même forme que `JSONOutputFormat`. Aucun beta n'est donc nécessaire. À la réception, on vérifie d'abord `stop_reason`, puis on cherche le bloc texte et on appelle `format.parse(text)` dans un try/catch. Un échec donne une erreur typée « réponse illisible » qui porte l'usage. Pas de tool use forcé, qui est refusé sur ce modèle.
 - **Prompt** : un `system` fixe décrit la carte GSPro (lignes, colonnes, totaux, cases encadrées ou cerclées) et demande de recopier ce qui est affiché, sans corriger. Il n'y a pas de cache : la requête est unique et le préfixe est trop court pour être mis en cache.
-- **Bornes** : `max_tokens: 4000` et un timeout de 60 s. Les retries du SDK sont laissés à 2.
-- **Refus** : on ajoute le paramètre serveur `fallbacks: "default"`, avec le beta `server-side-fallback-2026-07-01`. On vérifie `stop_reason` avant de lire le contenu. Un `refusal` ou un `max_tokens` est traité comme une erreur : la complétion est marquée indisponible.
+- **Bornes** : `max_tokens: 4000`. Les options de requête fixent `timeout: 60_000` ms par tentative et `maxRetries: 1`, soit environ 120 s dans le pire cas.
+- **Refus** : pas de repli côté serveur, donc ni paramètre `fallbacks` ni en-tête beta. Un `stop_reason` `refusal` ou `max_tokens` lève une erreur typée qui porte l'usage, avant toute lecture du contenu : un refus peut arriver avec un contenu vide. Le gestionnaire affiche alors « Complétion IA indisponible ».
 
 ### 4. Fusion cellule par cellule
-Les cases éligibles sont l'union des `cells` de tous les `Problem` de `checkDraft`. Pour un problème de somme, cela inclut toute la ligne concernée et son total : on ne sait pas quelle case est fausse. Pour chacune, si l'IA donne une valeur non nulle, elle remplace la valeur locale et la clé entre dans `aiCells`. Les autres cases restent intactes (spec « Fusion avec la lecture locale »). Les lignes de joueur sont alignées par leur rang, pas par leur nom. Si l'IA voit plus de lignes que la lecture locale, les lignes en plus sont ajoutées entières, et marquées IA.
+Les cases éligibles sont l'union des `cells` de tous les `Problem` de `checkDraft`. Pour un problème de somme, cela inclut toute la ligne concernée et son total : on ne sait pas quelle case est fausse. Pour chacune, si l'IA donne une valeur non nulle et différente de la valeur locale, elle la remplace et la clé entre dans `aiCells` ; une valeur égale à la locale est gardée sans marque, car elle ne vient pas de l'IA (une case vide que l'IA remplit compte comme un changement). Les autres cases restent intactes (spec « Fusion avec la lecture locale »). Les lignes de joueur sont alignées par leur rang, pas par leur nom. Si l'IA voit plus de lignes que la lecture locale, les lignes en plus sont ajoutées entières, et marquées IA.
 *Alternative* : prendre toute la carte de l'IA dès qu'elle passe les contrôles, écartée. Une case correcte lue localement pourrait être remplacée par une erreur de l'IA.
 
 ### 5. Provenance et messages dans `imports`
@@ -75,9 +75,9 @@ L'écran de correction reçoit `aiCells`. `GridCell` ajoute une classe visible (
 Nouvelle table `ai_usage` : `id`, `created_at`, `month` (`YYYY-MM`, heure de Montréal), `model`, `input_tokens`, `output_tokens`, `cost_micro_usd`.
 - **Tarifs** : constantes dans `src/ai/pricing.ts`, soit 4 $ et 20 $ par million de tokens pour `claude-opus-5-5`. Ils sont testés avec des valeurs écrites à la main.
 - **Coût d'un appel** : `input × 4 + output × 20` micro-dollars, avec les tokens réellement facturés renvoyés dans `usage`, réflexion comprise.
-- **Garde avant appel** : `spent(month) + MAX_CALL_COST <= budget`. `MAX_CALL_COST` correspond au pire cas, 2 000 tokens d'entrée et `max_tokens` 4 000 en sortie, soit 0,088 $.
+- **Garde avant appel** : `spent(month) + MAX_CALL_COST <= budget`. `MAX_CALL_COST` correspond au pire cas, 3 500 tokens d'entrée (mesuré à environ 2 900 sur une vraie carte : image, prompt système et schéma de sortie injecté par l'API) et `max_tokens` 4 000 en sortie, soit 0,094 $.
 - **Plafond** : `AI_MONTHLY_BUDGET_USD` (défaut 1), validé par zod comme nombre positif.
-- **Concurrence** : un seul worker tourne. On écrit l'usage après chaque appel, même en cas d'erreur de parsing, puisque l'appel est quand même facturé.
+- **Concurrence** : un seul worker tourne. On écrit l'usage après chaque appel, même après un refus, un `max_tokens` ou une réponse illisible, puisque l'appel est quand même facturé. Les erreurs typées du completer portent cet usage. `usage.output_tokens` inclut déjà la réflexion et sert de total facturé.
 
 ### 7. Configuration
 `src/lib/env.ts` ajoute `ANTHROPIC_API_KEY`, optionnelle, et `AI_MONTHLY_BUDGET_USD`. Le web n'en a pas besoin : seul le worker appelle l'IA. Le README et `.env.example` documentent les deux variables, et rappellent qu'il faut aussi fixer une limite de dépense dans la console Anthropic.
@@ -88,7 +88,7 @@ Nouvelle table `ai_usage` : `id`, `created_at`, `month` (`YYYY-MM`, heure de Mon
 - [Les tarifs changent] → ils sont isolés dans `pricing.ts`. La limite côté console Anthropic sert de deuxième barrière.
 - [Les tokens de réflexion font monter le coût] → effort `low`, `max_tokens` borné, coût réel mesuré par l'usage, et plafond.
 - [Données personnelles chez Anthropic : prénoms et scores] → seul le panneau redressé part. La fonction est désactivée sans clé, et le README le signale.
-- [Le worker est bloqué pendant l'appel] → timeout de 60 s, un appel par carte au maximum. Les autres imports attendent, ce qui est acceptable pour quelques cartes par semaine.
+- [Le worker est bloqué pendant l'appel] → jusqu'à environ 120 s : 60 s par tentative et une seule reprise, pour un appel par carte au maximum. Les autres imports attendent, ce qui est acceptable pour quelques cartes par semaine.
 
 ## Migration Plan
 

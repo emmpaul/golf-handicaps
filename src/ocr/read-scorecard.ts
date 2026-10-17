@@ -87,11 +87,15 @@ export async function readScorecardPanel(
   };
 }
 
+/** A draft and the rectified panel it was read from (sent to the AI fallback as is). */
+export type ScorecardReading = { draft: ScorecardDraft; panel: GrayImage };
+
 /** Full OCR of a scorecard photo, given the 4 panel corners (normalised 0–1). */
 export async function readScorecard(
   photo: Buffer,
   corners: Corners,
   reader: CellReader = createDefaultCellReader(),
-): Promise<ScorecardDraft> {
-  return readScorecardPanel(await rectifyPanel(photo, corners), reader);
+): Promise<ScorecardReading> {
+  const panel = await rectifyPanel(photo, corners);
+  return { draft: await readScorecardPanel(panel, reader), panel };
 }

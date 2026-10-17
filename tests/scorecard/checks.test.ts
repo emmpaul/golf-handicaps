@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { checkRoundForm, problemCountLabel, type RoundForm } from "@/scorecard/checks";
+import { checkDraft, checkRoundForm, problemCountLabel, type RoundForm } from "@/scorecard/checks";
+import type { ScorecardDraft } from "@/scorecard/draft";
 import { referenceForm } from "../factories";
+import referenceDraft from "../fixtures/scorecards/gspro-img3064.draft.json";
 
 /** Cases d'une ligne pour les trous `from` à `to` (numéros de trou 1 à 18). */
 const holeCells = (row: string, from: number, to: number) =>
@@ -187,6 +189,79 @@ describe("checkRoundForm — nombre de problèmes", () => {
       "Case vide",
       "Ligne sans joueur",
     ]);
+  });
+});
+
+/** Brouillon de la carte de référence (GAB = `player0`, MANU = `player1`) après `change`. */
+const checkedDraft = (change: (draft: ScorecardDraft) => void) => {
+  const draft: ScorecardDraft = structuredClone(referenceDraft);
+  change(draft);
+  return checkDraft(draft);
+};
+
+describe("checkDraft — brouillon de la lecture, sans association de joueurs", () => {
+  // Mutation : un contrôle qui signale à tort le brouillon de référence, ou « Ligne sans joueur » sur un brouillon.
+  it("ne signale aucun problème sur le brouillon de référence", () => {
+    expect(checkDraft(structuredClone(referenceDraft))).toEqual([]);
+  });
+
+  // Mutation : case vide ignorée, ou somme aller calculée avec la case vide.
+  it("signale seulement la case vide quand le score de Gab au trou 9 manque", () => {
+    expect(
+      checkedDraft((draft) => {
+        draft.players[0].scores.holes[8] = null;
+      }),
+    ).toEqual([{ message: "Case vide", cells: ["player0:9"] }]);
+  });
+
+  // Mutation : contrôles de somme absents des lignes de joueur du brouillon.
+  it("signale « Somme aller 36 ≠ OUT 38 » quand Gab a 3 au trou 9", () => {
+    const [problem, ...others] = checkedDraft((draft) => {
+      draft.players[0].scores.holes[8] = 3;
+    });
+    expect(others).toEqual([]);
+    expect(problem.message).toBe("Somme aller 36 ≠ OUT 38");
+    expect(problem.cells).toEqual([
+      "player0:1",
+      "player0:2",
+      "player0:3",
+      "player0:4",
+      "player0:5",
+      "player0:6",
+      "player0:7",
+      "player0:8",
+      "player0:9",
+      "player0:out",
+    ]);
+  });
+
+  // Mutation : date traitée comme obligatoire dans le brouillon.
+  it("accepte un brouillon sans date", () => {
+    expect(
+      checkedDraft((draft) => {
+        draft.playedOn = null;
+      }),
+    ).toEqual([]);
+  });
+
+  // Mutation : distance traitée comme obligatoire dans le brouillon.
+  it("accepte un brouillon sans distance", () => {
+    expect(
+      checkedDraft((draft) => {
+        draft.distance = { holes: Array(18).fill(null), out: null, in: null, total: null };
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("checkRoundForm — date", () => {
+  // Mutation : la date manquante n'est plus signalée une fois les contrôles du brouillon réutilisés.
+  it("signale la date vide du formulaire", () => {
+    expect(
+      checked((form) => {
+        form.playedOn = null;
+      }),
+    ).toEqual([{ message: "Case vide", cells: ["playedOn"] }]);
   });
 });
 
