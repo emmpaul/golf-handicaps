@@ -2,7 +2,7 @@ import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { type Db, openDatabase } from "../../src/db/client";
 import { prepareDatabase } from "../../src/db/prepare";
-import { imports } from "../../src/db/schema";
+import { imports, rounds } from "../../src/db/schema";
 import type { RoundForm } from "../../src/scorecard/checks";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
 import { listPlayers } from "../../src/server/players/players";
@@ -57,6 +57,13 @@ export function resetData(): Record<"Gab" | "Manu" | "Sean", number> {
 /** Enregistre un round directement en base (mise en place d'un test). */
 export function seedRound(form: RoundForm): number {
   return withDb((db) => saveRound(db, form));
+}
+
+/** Dates de jeu (`rounds.played_on`) des rounds en base, par id croissant. */
+export function roundDates(): string[] {
+  return withDb((db) =>
+    db.select({ playedOn: rounds.playedOn }).from(rounds).orderBy(rounds.id).all(),
+  ).map(({ playedOn }) => playedOn);
 }
 
 /**

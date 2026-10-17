@@ -2,7 +2,7 @@ import type { Browser, BrowserContextOptions, Page } from "@playwright/test";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
 import referenceDraft from "../fixtures/scorecards/gspro-img3064.draft.json";
 import { referenceRound, seedReadyImport, seedRound } from "./data";
-import { cell, saveButton } from "./editor";
+import { cell, pickDate, saveButton } from "./editor";
 import { expect, test } from "./fixtures";
 import { authenticate } from "./session";
 
@@ -44,12 +44,12 @@ test("le joueur choisi et la case corrigée reviennent après un rechargement", 
 
 test("la date modifiée revient après un rechargement", async ({ page }) => {
   await page.goto(`/imports/${seedReadyImport(julienDraft())}`);
-  await expect(page.getByLabel("Date")).toHaveValue("2026-10-17");
-  await page.getByLabel("Date").fill("2026-10-13");
+  await expect(page.getByLabel("Date")).toHaveText("17 octobre 2026");
+  await pickDate(page, "2026-10-13");
   await expectSaved(page);
 
   await page.reload();
-  await expect(page.getByLabel("Date")).toHaveValue("2026-10-13");
+  await expect(page.getByLabel("Date")).toHaveText("13 octobre 2026");
 });
 
 test("une case remplie par l'IA puis corrigée reste sans marque après un rechargement", async ({

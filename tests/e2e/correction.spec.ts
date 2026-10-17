@@ -22,7 +22,7 @@ test("l'écran de correction de la photo de référence est pré-rempli, photo v
   await openReferenceCorrection(page);
   await expect(page.getByLabel("Parcours", { exact: true })).toHaveValue("BETHPAGE BLACK");
   await expect(page.getByLabel("Tees")).toHaveValue("Red");
-  await expect(page.getByLabel("Date")).toHaveValue("2026-10-17");
+  await expect(page.getByLabel("Date")).toHaveText("17 octobre 2026");
   expect(await rowValues(page, "Par")).toEqual(REFERENCE_PARS);
   await expect(page.getByLabel("Joueur de la ligne 1")).toHaveValue(/^\d+$/);
   await expect(page.getByLabel("Joueur de la ligne 1").locator("option:checked")).toHaveText("Gab");
