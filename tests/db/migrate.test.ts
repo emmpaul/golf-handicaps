@@ -1,4 +1,9 @@
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { migrateDatabase, openDatabase } from "@/db/client";
+import journal from "../../drizzle/meta/_journal.json";
 import { createTestDb, type TestDb } from "../factories";
 
 let testDb: TestDb;
@@ -18,6 +23,7 @@ describe("migrations", () => {
       .all();
     expect(tables).toEqual([
       "__drizzle_migrations",
+      "ai_usage",
       "imports",
       "jobs",
       "player_aliases",
@@ -75,4 +81,83 @@ describe("migrations", () => {
       expect(() => testDb.sqlite.prepare(insert).run(second)).toThrow(/UNIQUE constraint failed/);
     },
   );
+
+  it("ajoute à imports la provenance IA, nulle par défaut", () => {
+    testDb = createTestDb();
+    const columns = testDb.sqlite
+      .prepare(
+        "SELECT name, type, \"notnull\", dflt_value AS dflt FROM pragma_table_info('imports') WHERE name LIKE 'ai_%' ORDER BY name",
+      )
+      .all();
+    expect(columns).toEqual([
+      { name: "ai_cells", type: "TEXT", notnull: 0, dflt: null },
+      { name: "ai_note", type: "TEXT", notnull: 0, dflt: null },
+    ]);
+  });
+
+  it("crée ai_usage avec les colonnes du design (décision 6)", () => {
+    testDb = createTestDb();
+    const columns = testDb.sqlite
+      .prepare("SELECT name, type FROM pragma_table_info('ai_usage') ORDER BY cid")
+      .all();
+    expect(columns).toEqual([
+      { name: "id", type: "INTEGER" },
+      { name: "created_at", type: "INTEGER" },
+      { name: "month", type: "TEXT" },
+      { name: "model", type: "TEXT" },
+      { name: "input_tokens", type: "INTEGER" },
+      { name: "output_tokens", type: "INTEGER" },
+      { name: "cost_micro_usd", type: "INTEGER" },
+    ]);
+  });
+});
+
+describe("migration d'une base existante", () => {
+  let dir: string;
+  let sqlite: ReturnType<typeof openDatabase>["sqlite"] | undefined;
+
+  afterEach(() => {
+    sqlite?.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** Dossier de migrations réduit à 0000_init, l'état d'une base livrée avant ce change. */
+  function initOnlyMigrations(): string {
+    const folder = join(dir, "drizzle-0000");
+    cpSync(join(process.cwd(), "drizzle"), folder, { recursive: true });
+    const first = { ...journal, entries: journal.entries.filter((e) => e.tag === "0000_init") };
+    writeFileSync(join(folder, "meta", "_journal.json"), JSON.stringify(first));
+    return folder;
+  }
+
+  it("garde les imports d'une base migrée en 0000_init, sans provenance IA", () => {
+    dir = mkdtempSync(join(tmpdir(), "golf-migrate-"));
+    const opened = openDatabase(join(dir, "app.db"));
+    sqlite = opened.sqlite;
+    migrateDatabase(opened.db, initOnlyMigrations());
+    sqlite
+      .prepare(
+        "INSERT INTO imports (id, status, photo_path, corners, draft, created_at) VALUES (7, 'ready', 'imports/7.jpg', '{}', '{\"courseName\":\"BETHPAGE BLACK\"}', 0)",
+      )
+      .run();
+
+    migrateDatabase(opened.db);
+
+    expect(
+      sqlite
+        .prepare(
+          "SELECT id, status, photo_path AS photoPath, draft, ai_cells AS aiCells, ai_note AS aiNote FROM imports",
+        )
+        .all(),
+    ).toEqual([
+      {
+        id: 7,
+        status: "ready",
+        photoPath: "imports/7.jpg",
+        draft: '{"courseName":"BETHPAGE BLACK"}',
+        aiCells: null,
+        aiNote: null,
+      },
+    ]);
+  });
 });

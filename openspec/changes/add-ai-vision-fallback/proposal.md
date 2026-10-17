@@ -34,6 +34,6 @@ La lecture locale (gabarit GSPro, modèles de chiffres, Tesseract) lit parfaitem
   - Écran de correction : marquage des cases remplies par l'IA.
 - **Base** : nouvelle table `ai_usage` (coût par appel et par mois). Le brouillon garde la provenance de chaque case. Migration additive.
 - **Dépendance** : `@anthropic-ai/sdk`, version exacte pinnée.
-- **Configuration** : `ANTHROPIC_API_KEY` (optionnelle) et `AI_MONTHLY_BUDGET_USD` (défaut 1). Documentées dans `.env.example` et le README. À ajouter à la main dans les deux services Dokploy, web et worker.
+- **Configuration** : `ANTHROPIC_API_KEY` (optionnelle) et `AI_MONTHLY_BUDGET_USD` (défaut 1). Documentées dans `.env.example` et le README. À ajouter à la main dans le service Dokploy du worker seulement ; le web n'en a pas besoin.
 - **Coût estimé** : environ 2 ¢ par carte qui a besoin de l'IA. Moins de 0,20 $ par mois pour une dizaine de cartes difficiles.
 - **Confidentialité** : seul le panneau redressé part (noms des joueurs, scores, parcours). La photo d'origine reste sur le volume.

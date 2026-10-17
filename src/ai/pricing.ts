@@ -1,0 +1,23 @@
+import { AI_MAX_INPUT_TOKENS, AI_MAX_TOKENS, AI_MODEL } from "./model";
+
+/** Tarifs en micro-dollars par token (= $ par million de tokens). */
+const PRICES = {
+  "claude-opus-5-5": { input: 4, output: 20 },
+} as const;
+
+export type PricedModel = keyof typeof PRICES;
+
+/** Usage renvoyé par l'API : tokens réellement facturés, réflexion comprise. */
+export type TokenUsage = { input_tokens: number; output_tokens: number };
+
+/** Coût d'un appel en micro-dollars. */
+export function callCost(model: PricedModel, usage: TokenUsage): number {
+  const price = PRICES[model];
+  return usage.input_tokens * price.input + usage.output_tokens * price.output;
+}
+
+/** Coût du pire appel, réservé avant chaque appel (design, décision 6). */
+export const MAX_CALL_COST = callCost(AI_MODEL, {
+  input_tokens: AI_MAX_INPUT_TOKENS,
+  output_tokens: AI_MAX_TOKENS,
+});

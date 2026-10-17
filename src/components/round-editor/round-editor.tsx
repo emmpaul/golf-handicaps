@@ -21,12 +21,21 @@ import {
   MAX_LINES,
   newLine,
   type PlayerOption,
+  removeLine,
   toRoundForm,
+  withoutAiCell,
 } from "./form-state";
 import { LinePlayers } from "./line-players";
 import { ProblemList } from "./problem-list";
 import { type SaveTarget, saveRound } from "./save-round";
-import { type GridColumn, type GridRow, ScoreGrid } from "./score-grid";
+import {
+  AI_CELL_CLASS,
+  AI_DESCRIPTION,
+  AiMark,
+  type GridColumn,
+  type GridRow,
+  ScoreGrid,
+} from "./score-grid";
 
 type Notice =
   | { kind: "duplicate"; roundId: number; message: string }
@@ -46,6 +55,10 @@ function setHoleRow<T extends { holes: DraftValue[] }>(
 }
 
 function updateCell(state: EditorState, row: string, column: GridColumn, value: DraftValue) {
+  return setCell(withoutAiCell(state, `${row}:${column}`), row, column, value);
+}
+
+function setCell(state: EditorState, row: string, column: GridColumn, value: DraftValue) {
   const { form } = state;
   if (row === "par" || row === "distance") {
     return { ...state, form: { ...form, [row]: setHoleRow(form[row], column, value) } };
@@ -99,19 +112,22 @@ function gridRows(state: EditorState, players: readonly PlayerOption[]): GridRow
 /**
  * Écran de correction, partagé par l'import, la saisie manuelle et la correction d'un
  * round. Les contrôles de cohérence se recalculent à chaque modification ; le bouton
- * d'enregistrement compte les problèmes restants.
+ * d'enregistrement compte les problèmes restants. `aiNote` : message de la complétion par
+ * l'IA, affiché au-dessus de la grille.
  */
 export function RoundEditor({
   initial,
   players,
   courses,
   photoUrl,
+  aiNote,
   target,
 }: {
   initial: EditorState;
   players: PlayerOption[];
   courses?: KnownCourse[];
   photoUrl?: string;
+  aiNote?: string | null;
   target: SaveTarget;
 }) {
   const router = useRouter();
@@ -123,6 +139,7 @@ export function RoundEditor({
   const form = useMemo(() => toRoundForm(state), [state]);
   const problems = useMemo(() => checkRoundForm(form), [form]);
   const invalid = useMemo(() => new Set(problems.flatMap(({ cells }) => cells)), [problems]);
+  const aiCells = useMemo(() => new Set(state.aiCells), [state.aiCells]);
 
   function change(next: EditorState) {
     setState(next);
@@ -130,7 +147,8 @@ export function RoundEditor({
   }
 
   function setField(field: "courseName" | "tees" | "playedOn", value: string) {
-    change({ ...state, form: { ...state.form, [field]: value || null } });
+    const next = withoutAiCell(state, field);
+    change({ ...next, form: { ...next.form, [field]: value || null } });
   }
 
   function associate(key: number, playerId: number | null) {
@@ -224,13 +242,19 @@ export function RoundEditor({
               ).map(({ field, label, type }) => (
                 <Field key={field}>
                   <FieldLabel htmlFor={field}>{label}</FieldLabel>
-                  <Input
-                    id={field}
-                    type={type}
-                    value={state.form[field] ?? ""}
-                    aria-invalid={invalid.has(field) || undefined}
-                    onChange={(event) => setField(field, event.currentTarget.value)}
-                  />
+                  {/* Toujours enveloppé : retirer la marque ne remonte pas le champ en cours de saisie. */}
+                  <div className="relative">
+                    <Input
+                      id={field}
+                      type={type}
+                      value={state.form[field] ?? ""}
+                      aria-invalid={invalid.has(field) || undefined}
+                      aria-description={aiCells.has(field) ? AI_DESCRIPTION : undefined}
+                      className={cn(aiCells.has(field) && AI_CELL_CLASS)}
+                      onChange={(event) => setField(field, event.currentTarget.value)}
+                    />
+                    {aiCells.has(field) ? <AiMark /> : null}
+                  </div>
                 </Field>
               ))}
             </div>
@@ -242,16 +266,20 @@ export function RoundEditor({
             canAdd={state.lines.length < MAX_LINES}
             onAssociate={associate}
             onCreate={createPlayer}
-            onRemove={(key) =>
-              change({ ...state, lines: state.lines.filter((line) => line.key !== key) })
-            }
+            onRemove={(key) => change(removeLine(state, key))}
             onAdd={() => change({ ...state, lines: [...state.lines, newLine()] })}
           />
         </div>
       </div>
+      {aiNote ? (
+        <Alert>
+          <AlertTitle>{aiNote}</AlertTitle>
+        </Alert>
+      ) : null}
       <ScoreGrid
         rows={gridRows(state, playerOptions)}
         invalid={invalid}
+        aiCells={aiCells}
         onCell={(row, column, value) => change(updateCell(state, row, column, value))}
       />
       <ProblemList problems={problems} />

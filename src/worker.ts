@@ -3,6 +3,9 @@
  * `tsx watch src/worker.ts` avec `pnpm dev`. Interroge la file `jobs` toutes les secondes.
  */
 import { join } from "node:path";
+import Anthropic from "@anthropic-ai/sdk";
+import { AiBudget } from "@/ai/budget";
+import { ClaudeDraftCompleter } from "@/ai/completer";
 import { openDatabase } from "@/db/client";
 import { createJobHandlers } from "@/jobs/ocr-scorecard";
 import { runNextJob } from "@/jobs/runner";
@@ -14,9 +17,16 @@ import { assertEnvOrExit } from "@/lib/env-startup";
 const POLL_INTERVAL_MS = 1000;
 
 assertEnvOrExit();
-const { DATA_DIR } = getEnv();
+const { DATA_DIR, ANTHROPIC_API_KEY, AI_MONTHLY_BUDGET_USD } = getEnv();
 const { db, sqlite } = openDatabase(join(DATA_DIR, "app.db"));
-const handlers = createJobHandlers(db, DATA_DIR);
+// Sans clé, pas de complétion IA : le worker lit les cartes comme avant.
+const ai = ANTHROPIC_API_KEY
+  ? {
+      completer: new ClaudeDraftCompleter(new Anthropic({ apiKey: ANTHROPIC_API_KEY })),
+      budget: new AiBudget(db, AI_MONTHLY_BUDGET_USD),
+    }
+  : null;
+const handlers = createJobHandlers(db, DATA_DIR, { ai });
 
 let schemaReady = false;
 let waitingLogged = false;

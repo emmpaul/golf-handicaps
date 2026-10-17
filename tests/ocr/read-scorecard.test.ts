@@ -13,6 +13,9 @@ const EXPECTED: ScorecardDraft = JSON.parse(
 describe("readScorecard", () => {
   it("lit la carte de référence IMG_3064 sans aucune erreur ni case null", async () => {
     const { photo, corners } = referencePhoto();
-    expect(await readScorecard(photo, corners)).toEqual(EXPECTED);
+    const { draft, panel } = await readScorecard(photo, corners);
+    expect(draft).toEqual(EXPECTED);
+    // Le panneau redressé est rendu avec le brouillon, pour l'envoyer à l'IA sans redresser deux fois.
+    expect([panel.width, panel.height]).toEqual([2400, 1224]);
   }, 60_000);
 });

@@ -89,9 +89,11 @@ function holeRowProblems(row: string, values: DraftHoleRow, range: Range): Probl
   ];
 }
 
-function fieldProblems(form: RoundForm): Problem[] {
-  return (["courseName", "tees", "playedOn"] as const)
-    .filter((field) => !form[field]?.trim())
+type TextField = "courseName" | "tees" | "playedOn";
+
+function fieldProblems(card: ScorecardDraft, fields: readonly TextField[]): Problem[] {
+  return fields
+    .filter((field) => !card[field]?.trim())
     .map((field) => ({ message: EMPTY, cells: [field] }));
 }
 
@@ -113,17 +115,22 @@ function strokeIndexProblems(indexes: readonly DraftValue[]): Problem[] {
   return problems;
 }
 
-function playerCountProblems(rows: readonly RoundFormRow[]): Problem[] {
+function playerCountProblems(rows: readonly DraftPlayerRow[]): Problem[] {
   if (rows.length === 0) return [{ message: "Aucune ligne de joueur", cells: [] }];
   if (rows.length > MAX_PLAYERS) return [{ message: "4 joueurs au plus", cells: [] }];
   return [];
 }
 
-function playerRowProblems(row: RoundFormRow, position: number): Problem[] {
-  const key = `player${position}`;
-  const association =
-    row.playerId === null ? [{ message: "Ligne sans joueur", cells: [`${key}:player`] }] : [];
-  return [...association, ...holeRowProblems(key, row.scores, SCORE_RANGE)];
+function playerScoreProblems(row: DraftPlayerRow, position: number): Problem[] {
+  return holeRowProblems(`player${position}`, row.scores, SCORE_RANGE);
+}
+
+function unassignedRowProblems(rows: readonly RoundFormRow[]): Problem[] {
+  return rows.flatMap(({ playerId }, position) =>
+    playerId === null
+      ? [{ message: "Ligne sans joueur", cells: [`player${position}:player`] }]
+      : [],
+  );
 }
 
 function duplicatePlayerProblems(rows: readonly RoundFormRow[]): Problem[] {
@@ -142,18 +149,32 @@ function duplicatePlayerProblems(rows: readonly RoundFormRow[]): Problem[] {
 }
 
 /**
- * Contrôles de cohérence d'une carte (spec `scorecard-import`), partagés par l'écran de
- * correction et l'enregistrement côté serveur. Liste vide : la carte peut être enregistrée.
+ * Contrôles d'un brouillon tel que lu, avant toute association de joueurs : ceux de
+ * `checkRoundForm`, sans la date ni les problèmes de joueur. Liste non vide : la lecture
+ * locale demande une complétion par IA (spec `scorecard-ai-completion`).
  * La distance, facultative, n'est pas contrôlée : le simulateur arrondit chaque trou, et
  * sur la carte de référence la somme aller (3138) diffère déjà de OUT (3139).
  */
+export function checkDraft(draft: ScorecardDraft): Problem[] {
+  return [
+    ...fieldProblems(draft, ["courseName", "tees"]),
+    ...holeRowProblems("par", draft.par, PAR_RANGE),
+    ...strokeIndexProblems(draft.strokeIndex),
+    ...playerCountProblems(draft.players),
+    ...draft.players.flatMap(playerScoreProblems),
+  ];
+}
+
+/**
+ * Contrôles de cohérence d'une carte (spec `scorecard-import`), partagés par l'écran de
+ * correction et l'enregistrement côté serveur. Liste vide : la carte peut être enregistrée.
+ * Ceux du brouillon, plus la date et l'association des joueurs.
+ */
 export function checkRoundForm(form: RoundForm): Problem[] {
   return [
-    ...fieldProblems(form),
-    ...holeRowProblems("par", form.par, PAR_RANGE),
-    ...strokeIndexProblems(form.strokeIndex),
-    ...playerCountProblems(form.players),
-    ...form.players.flatMap(playerRowProblems),
+    ...checkDraft(form),
+    ...fieldProblems(form, ["playedOn"]),
+    ...unassignedRowProblems(form.players),
     ...duplicatePlayerProblems(form.players),
   ];
 }
