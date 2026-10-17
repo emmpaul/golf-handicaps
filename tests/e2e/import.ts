@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
+import sharp from "sharp";
 import type { Corners } from "../../src/ocr/corners";
 
 const FIXTURES = join(__dirname, "..", "fixtures", "scorecards");
@@ -20,6 +21,18 @@ export const HANDLE_NAMES = {
 
 export async function choosePhoto(page: Page, file = REFERENCE_PHOTO) {
   await page.getByLabel("Photo de la carte").setInputFiles(file);
+}
+
+/** Choisit une photo JPEG unie de 4000 × 3000, plus grande que les 3000 px envoyés. */
+export async function chooseLargePhoto(page: Page) {
+  const photo = await sharp({
+    create: { width: 4000, height: 3000, channels: 3, background: "#204020" },
+  })
+    .jpeg()
+    .toBuffer();
+  await page
+    .getByLabel("Photo de la carte")
+    .setInputFiles({ name: "carte.jpg", mimeType: "image/jpeg", buffer: photo });
 }
 
 /** Glisse une poignée à la souris jusqu'au point normalisé `target` de la photo. */

@@ -1,18 +1,11 @@
-import sharp from "sharp";
 import { expect, test } from "./fixtures";
+import { chooseLargePhoto } from "./import";
 
 test("une photo JPEG s'affiche à l'écran de cadrage, réduite à 3000 px de grand côté", async ({
   page,
 }) => {
-  const photo = await sharp({
-    create: { width: 4000, height: 3000, channels: 3, background: "#204020" },
-  })
-    .jpeg()
-    .toBuffer();
   await page.goto("/import");
-  await page
-    .getByLabel("Photo de la carte")
-    .setInputFiles({ name: "carte.jpg", mimeType: "image/jpeg", buffer: photo });
+  await chooseLargePhoto(page);
   const shown = page.getByRole("img", { name: "Carte à cadrer" });
   await expect(shown).toBeVisible();
   const size = await shown.evaluate((img: HTMLImageElement) => [

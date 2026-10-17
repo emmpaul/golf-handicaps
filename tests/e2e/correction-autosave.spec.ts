@@ -15,7 +15,8 @@ function julienDraft(): ScorecardDraft {
   return draft;
 }
 
-const status = (page: Page) => page.getByRole("status");
+/** Région de la sauvegarde automatique ; « Enregistrement du round… » a la sienne à côté. */
+const status = (page: Page) => page.getByTestId("autosave-status");
 const chosenPlayer = (page: Page, line: number) =>
   page.getByLabel(`Joueur de la ligne ${line}`).locator("option:checked");
 
@@ -153,4 +154,19 @@ test("en saisie manuelle, modifier une case n'envoie rien vers /api/imports", as
   await page.waitForTimeout(1_500);
   expect(importRequests).toEqual([]);
   await expect(status(page)).toHaveText("");
+});
+
+test("l'orbe accompagne « Enregistrement… » et disparaît à « Enregistré »", async ({ page }) => {
+  // Sauvegarde retardée d'1 s pour observer « Enregistrement… ».
+  await page.route("**/api/imports/*/correction", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await route.continue();
+  });
+  await page.goto(`/imports/${seedReadyImport()}`);
+  await cell(page, "Ligne 1", 9).fill("4");
+
+  await expect(status(page)).toHaveText("Enregistrement…");
+  await expect(status(page).locator("canvas")).toHaveAttribute("aria-hidden", "true");
+  await expectSaved(page);
+  await expect(status(page).locator("canvas")).toHaveCount(0);
 });

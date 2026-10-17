@@ -5,6 +5,7 @@ import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Pending } from "@/components/ui/pending";
 import type { EditorLine, PlayerOption } from "./form-state";
 
 /** Valeur de l'option « Nouveau joueur… » du choix du joueur. */
@@ -52,6 +53,7 @@ function NewPlayerForm({
           Créer
         </Button>
       </div>
+      <Pending label={pending ? "Création du joueur…" : null} orb="save" />
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}

@@ -1,8 +1,10 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { eq } from "drizzle-orm";
 import { type Db, openDatabase } from "../../src/db/client";
 import { prepareDatabase } from "../../src/db/prepare";
 import { imports, rounds } from "../../src/db/schema";
+import type { ImportStatus } from "../../src/jobs/imports";
 import type { RoundForm } from "../../src/scorecard/checks";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
 import { listPlayers } from "../../src/server/players/players";
@@ -35,17 +37,44 @@ function withDb<T>(use: (db: Db, sqlite: Connection["sqlite"]) => T): T {
   }
 }
 
+/** Délai maximal d'attente de la fin du job que le worker exécute (lecture locale de la carte). */
+const RUNNING_JOB_DEADLINE_MS = 30_000;
+const RUNNING_JOB_POLL_MS = 100;
+
+/**
+ * Vide les tables si le worker n'exécute aucun job ; renvoie `false` sinon. Transaction
+ * `IMMEDIATE` : le worker ne peut pas réserver un job entre la vérification et l'effacement.
+ */
+function wipeUnlessJobRunning(db: Db, sqlite: Connection["sqlite"]): boolean {
+  prepareDatabase(db);
+  return sqlite
+    .transaction(() => {
+      const running = sqlite.prepare("SELECT 1 FROM jobs WHERE status = 'running'").get();
+      if (running) return false;
+      for (const table of TABLES) sqlite.prepare(`DELETE FROM ${table}`).run();
+      sqlite.prepare("DELETE FROM sqlite_sequence").run();
+      return true;
+    })
+    .immediate();
+}
+
 /**
  * Remet la base du serveur e2e dans l'état d'un premier démarrage : aucun round, aucun
  * import, les joueurs initiaux Gab, Manu et Sean. Appelée avant chaque test.
+ *
+ * Attend d'abord la fin du job que le worker exécute peut-être pour le test précédent : sinon
+ * il finit après l'effacement et écrit son état (« Prêt à vérifier ») sur l'import du test
+ * suivant, qui reprend le même id.
  */
-export function resetData(): Record<"Gab" | "Manu" | "Sean", number> {
-  return withDb((db, sqlite) => {
-    prepareDatabase(db);
-    sqlite.transaction(() => {
-      for (const table of TABLES) sqlite.prepare(`DELETE FROM ${table}`).run();
-      sqlite.prepare("DELETE FROM sqlite_sequence").run();
-    })();
+export async function resetData(): Promise<Record<"Gab" | "Manu" | "Sean", number>> {
+  const deadline = Date.now() + RUNNING_JOB_DEADLINE_MS;
+  while (!withDb(wipeUnlessJobRunning)) {
+    if (Date.now() > deadline) {
+      throw new Error(`Job du worker toujours en cours après ${RUNNING_JOB_DEADLINE_MS} ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, RUNNING_JOB_POLL_MS));
+  }
+  return withDb((db) => {
     prepareDatabase(db);
     return Object.fromEntries(listPlayers(db).map(({ id, name }) => [name, id])) as Record<
       "Gab" | "Manu" | "Sean",
@@ -132,19 +161,29 @@ function seedImport(values: SeededImport): number {
 export const seedReadyImport = (draft: ScorecardDraft = referenceDraft, ai: SeededAi = {}) =>
   seedImport({ status: "ready", corners: {}, draft, ...ai });
 
+/** Coins par défaut de l'éditeur, à côté du panneau de la photo de référence. */
+const DEFAULT_CORNERS = {
+  topLeft: { x: 0.1, y: 0.1 },
+  topRight: { x: 0.9, y: 0.1 },
+  bottomRight: { x: 0.9, y: 0.9 },
+  bottomLeft: { x: 0.1, y: 0.9 },
+};
+
 /**
  * Import « Échec » de la photo de référence, cadré à côté du panneau (coins par défaut de
  * l'éditeur) : la lecture a échoué deux fois. `correction` simule une correction enregistrée.
  */
 export const seedFailedImport = (correction: SeededImport["correction"] = null) =>
-  seedImport({
-    correction,
-    status: "failed",
-    corners: {
-      topLeft: { x: 0.1, y: 0.1 },
-      topRight: { x: 0.9, y: 0.1 },
-      bottomRight: { x: 0.9, y: 0.9 },
-      bottomLeft: { x: 0.1, y: 0.9 },
-    },
-    draft: null,
-  });
+  seedImport({ correction, status: "failed", corners: DEFAULT_CORNERS, draft: null });
+
+/**
+ * Import « En attente » ou « Lecture en cours » sans job : le worker ne le touche pas, il
+ * garde son état jusqu'à `setImportStatus`.
+ */
+export const seedQueuedImport = (status: "queued" | "reading") =>
+  seedImport({ status, corners: DEFAULT_CORNERS, draft: null });
+
+/** Change l'état d'un import en base, comme le ferait le worker. */
+export function setImportStatus(id: number, status: ImportStatus) {
+  withDb((db) => db.update(imports).set({ status }).where(eq(imports.id, id)).run());
+}

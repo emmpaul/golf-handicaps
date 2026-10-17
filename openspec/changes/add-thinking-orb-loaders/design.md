@@ -54,17 +54,21 @@ Contraintes du projet : versions exactes (`.npmrc` `save-exact=true`, `pnpm chec
 ### 2. Un composant `Pending` qui seul importe la bibliothèque
 `src/components/ui/pending.tsx`, `"use client"` :
 ```tsx
-<Pending label="Envoi de la photo…" orb="working" />
-// rend :
+<Pending label={busy ? "Envoi de la photo…" : null} orb="send" />
+// pendant l'attente, rend :
 <span role="status" class="inline-flex items-center gap-2 text-sm text-muted-foreground">
   <ThinkingOrb state="working" size={20} theme="light" aria-hidden role="presentation" />
   <span>Envoi de la photo…</span>
 </span>
+// au repos (`label={null}`), rend :
+<span role="status" class="sr-only"></span>
 ```
 - Le texte visible porte l'annonce, via `role="status"` (équivaut à `aria-live="polite"`). L'orbe est décorative : `aria-hidden`, ce qui écarte le libellé anglais par défaut.
+- La région `role="status"` est toujours montée, vide au repos, comme l'indicateur de la sauvegarde automatique : seul son contenu change au début et à la fin de l'attente. Un lecteur d'écran (VoiceOver surtout) n'annonce pas toujours une région insérée déjà remplie. Vide, elle est `sr-only` : hors du flux, elle n'ajoute ni espace (`gap`) ni décalage.
 - Une variante `PendingOrb` (orbe seule, `aria-hidden`) sert là où un texte existe déjà, comme le badge de la liste des imports.
 - `size={20}` partout : c'est le format prévu pour une ligne de texte.
 - `theme="light"` fixé : l'app est toujours claire, mais `auto` suivrait `prefers-color-scheme` et dessinerait des points clairs sur fond clair sur un téléphone en mode sombre. À revoir avec un éventuel mode sombre.
+*Alternative* : monter `<Pending>` seulement pendant l'attente (`{busy ? <Pending …/> : null}`), écartée pour la raison ci-dessus : la région arriverait déjà remplie.
 *Alternative* : passer `aria-label` en français à l'orbe et la laisser en `role="img"`, écartée. Une image n'est pas une région annoncée : le lecteur d'écran ne dirait rien quand elle apparaît.
 
 ### 3. Une animation par type d'attente
@@ -78,15 +82,16 @@ Dans `pending.tsx`, une table `ORB_FOR` qui associe le type d'attente à l'anima
 *Alternative* : une seule animation partout, plus sobre. Gardée en question ouverte : changer la table ne change ni les specs ni les tâches.
 
 ### 4. Placement
-- **Import** : `ImportFlow` passe par un état `preparing` pendant `decodePhoto` et affiche `<Pending>` sous le champ. `CropSteps` remplace son booléen `busy` par `busy: "rectify" | "send" | null` et affiche `<Pending>` à côté des boutons, qui restent désactivés. `RecropImport` en profite sans changement.
+- Chaque `<Pending>` est rendu sans condition, dans un élément déjà affiché avant l'attente ; seul `label` passe de `null` au texte puis revient à `null`.
+- **Import** : `ImportFlow` passe par un état `preparing` pendant `decodePhoto` et remplit le `<Pending>` placé sous le champ. `CropSteps` remplace son booléen `busy` par `busy: "rectify" | "send" | null` et place `<Pending>` dans la barre d'actions de chaque étape, à côté des boutons, qui restent désactivés. `RecropImport` en profite sans changement.
 - **Liste des imports** : `<PendingOrb>` devant le badge quand `orbForImport` n'est pas `null`. Pas de `role="status"` par import : le libellé du badge change déjà au rafraîchissement et la liste entière se rafraîchit toutes les 2 s, une annonce à chaque passage serait du bruit.
 - **Écran de correction** : `<Pending label="Enregistrement du round…">` dans la barre collée en bas, à côté du bouton. `submit` ne remet plus `saving` à `false` quand l'enregistrement réussit : l'indicateur reste jusqu'à l'arrivée sur la page suivante. Sur doublon ou erreur, `saving` revient à `false` comme aujourd'hui. `LinePlayers` affiche `<Pending label="Création du joueur…">` à côté du bouton « Créer ».
-- **Ailleurs** : `LoginForm` et `InlineForm` affichent `<Pending>` sous le bouton quand `pending` est vrai ; `DeleteRound` dans le pied de la boîte de confirmation.
+- **Ailleurs** : `LoginForm` et `InlineForm` placent `<Pending>` sous le bouton, rempli quand `pending` est vrai ; `DeleteRound` dans le pied de la boîte de confirmation, monté à l'ouverture de la boîte.
 - Les libellés des boutons ne changent pas : les e2e existants qui les ciblent par leur nom restent valides.
 
 ### 5. Tests
 - Unitaire : `orbForImport` et la table `ORB_FOR`.
-- E2e : on ralentit la réponse avec `page.route` (par exemple 1 s sur `POST /api/imports`) pour observer l'indicateur, puis on vérifie qu'il disparaît. On contrôle le `role="status"`, le texte exact, et que le `<canvas>` est `aria-hidden`.
+- E2e : on ralentit la réponse avec `page.route` (par exemple 1 s sur `POST /api/imports`) pour observer l'indicateur, puis on vérifie qu'il disparaît. On contrôle le `role="status"`, le texte exact, et que le `<canvas>` est `aria-hidden`. Sur `/login`, la région existe et est vide avant le clic sur « Entrer » : un `<Pending>` monté seulement pendant l'attente fait échouer ce test.
 - Mouvement réduit : `page.emulateMedia({ reducedMotion: "reduce" })`, puis deux `canvas.toDataURL()` à 300 ms d'écart doivent être égaux ; sans l'émulation, ils diffèrent. Cette garantie vient de la bibliothèque : le test protège contre une mise à jour qui la casserait et contre un `Pending` qui forcerait l'animation.
 
 ## Risks / Trade-offs
