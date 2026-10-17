@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { PlayerFormState } from "@/app/(app)/players/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pending } from "@/components/ui/pending";
 
 type Action = (previous: PlayerFormState, formData: FormData) => Promise<PlayerFormState>;
 
@@ -43,6 +44,7 @@ export function InlineForm({
           {submit}
         </Button>
       </div>
+      <Pending label={pending ? "Enregistrement du joueur…" : null} orb="save" />
       {state.error ? (
         <p role="alert" className="text-sm text-destructive">
           {state.error}

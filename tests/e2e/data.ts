@@ -1,8 +1,10 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { eq } from "drizzle-orm";
 import { type Db, openDatabase } from "../../src/db/client";
 import { prepareDatabase } from "../../src/db/prepare";
 import { imports, rounds } from "../../src/db/schema";
+import type { ImportStatus } from "../../src/jobs/imports";
 import type { RoundForm } from "../../src/scorecard/checks";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
 import { listPlayers } from "../../src/server/players/players";
@@ -132,19 +134,29 @@ function seedImport(values: SeededImport): number {
 export const seedReadyImport = (draft: ScorecardDraft = referenceDraft, ai: SeededAi = {}) =>
   seedImport({ status: "ready", corners: {}, draft, ...ai });
 
+/** Coins par défaut de l'éditeur, à côté du panneau de la photo de référence. */
+const DEFAULT_CORNERS = {
+  topLeft: { x: 0.1, y: 0.1 },
+  topRight: { x: 0.9, y: 0.1 },
+  bottomRight: { x: 0.9, y: 0.9 },
+  bottomLeft: { x: 0.1, y: 0.9 },
+};
+
 /**
  * Import « Échec » de la photo de référence, cadré à côté du panneau (coins par défaut de
  * l'éditeur) : la lecture a échoué deux fois. `correction` simule une correction enregistrée.
  */
 export const seedFailedImport = (correction: SeededImport["correction"] = null) =>
-  seedImport({
-    correction,
-    status: "failed",
-    corners: {
-      topLeft: { x: 0.1, y: 0.1 },
-      topRight: { x: 0.9, y: 0.1 },
-      bottomRight: { x: 0.9, y: 0.9 },
-      bottomLeft: { x: 0.1, y: 0.9 },
-    },
-    draft: null,
-  });
+  seedImport({ correction, status: "failed", corners: DEFAULT_CORNERS, draft: null });
+
+/**
+ * Import « En attente » ou « Lecture en cours » sans job : le worker ne le touche pas, il
+ * garde son état jusqu'à `setImportStatus`.
+ */
+export const seedQueuedImport = (status: "queued" | "reading") =>
+  seedImport({ status, corners: DEFAULT_CORNERS, draft: null });
+
+/** Change l'état d'un import en base, comme le ferait le worker. */
+export function setImportStatus(id: number, status: ImportStatus) {
+  withDb((db) => db.update(imports).set({ status }).where(eq(imports.id, id)).run());
+}

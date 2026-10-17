@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { ORB_FOR, Pending, PendingOrb } from "@/components/ui/pending";
 import { cn } from "@/lib/utils";
 import { checkRoundForm, problemCountLabel } from "@/scorecard/checks";
 import type { DraftValue } from "@/scorecard/draft";
-import { useCorrectionAutosave } from "./autosave";
+import { SAVING, useCorrectionAutosave } from "./autosave";
 import { DateField } from "./date-field";
 import {
   applyCourse,
@@ -197,8 +198,11 @@ export function RoundEditor({
           : { kind: "error", message: result.message },
       );
     } finally {
-      setSaving(false);
-      if (!saved) autosave.resume();
+      // Round enregistré : l'indicateur reste jusqu'à l'arrivée sur la page suivante.
+      if (!saved) {
+        setSaving(false);
+        autosave.resume();
+      }
     }
   }
 
@@ -335,13 +339,16 @@ export function RoundEditor({
         >
           {problems.length > 0 ? problemCountLabel(problems.length) : "Enregistrer"}
         </Button>
+        <Pending label={saving ? "Enregistrement du round…" : null} orb="save" />
         <p
           role="status"
+          data-testid="autosave-status"
           className={cn(
-            "text-sm",
+            "inline-flex items-center gap-2 text-sm",
             autosave.status.error ? "text-destructive" : "text-muted-foreground",
           )}
         >
+          {autosave.status.message === SAVING ? <PendingOrb state={ORB_FOR.save} /> : null}
           {autosave.status.message}
         </p>
       </div>

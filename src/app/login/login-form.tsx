@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { Pending } from "@/components/ui/pending";
 import { type LoginState, login } from "./actions";
 
 const initialState: LoginState = { error: null };
@@ -29,6 +30,7 @@ export function LoginForm() {
       <Button type="submit" size="lg" disabled={pending}>
         Entrer
       </Button>
+      <Pending label={pending ? "Connexion…" : null} orb="send" />
     </form>
   );
 }
