@@ -4,6 +4,8 @@ Mini web app privée pour le groupe : import des photos de carte GSPro (OCR Tess
 
 Next.js (standalone) + SQLite. Une seule image Docker, deux processus : le web (`node server.js`) et le worker de lecture OCR (`node worker.js`).
 
+**Photos DNG** : Safari iOS et Safari macOS ne décodent pas les photos DNG (ProRAW, par exemple `IMG_3064.DNG`). L'app affiche alors « Format de photo non lisible, exporte-la en JPEG ». Exporter la photo en JPEG avant l'import, ou la prendre en HEIC ou en JPEG.
+
 ## Développement local
 
 Prérequis : Node (version de `.nvmrc`), pnpm via corepack, `tesseract` dans le `PATH` (`brew install tesseract`).
