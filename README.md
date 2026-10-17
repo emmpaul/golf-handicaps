@@ -45,14 +45,17 @@ Le web et le worker refusent de démarrer si une variable obligatoire manque. Au
 
 **Releases** : à chaque push sur `main`, la CI (`.github/workflows/main.yml`) lance les contrôles puis release-please, qui tient à jour une PR de release (version, `CHANGELOG.md`). Avant 1.0, un `feat` donne une version mineure et un `fix` un patch. Fusionner cette PR crée le tag `vX.Y.Z` et publie l'image `ghcr.io/<owner>/golf-handicaps` avec les tags `vX.Y.Z`, `latest` et `<sha>`. Un simple push sur `main` ne publie aucune image.
 
+`main` est protégée : tout changement passe par une PR, avec les contrôles CI au vert.
+
 1. Une seule fois, avant le premier push : Settings → Actions → General → cocher **Allow GitHub Actions to create and approve pull requests**. Sans ça, release-please ne peut pas ouvrir sa PR.
-2. Après la première release, une seule fois : GitHub → profil → Packages → `golf-handicaps` → Package settings → Change visibility → **Public**. Dokploy tire alors l'image sans identifiants (vérifier : `docker logout ghcr.io && docker pull ghcr.io/<owner>/golf-handicaps:latest`).
-3. Dans Dokploy, créer l'application `golf-web` de type Docker :
+2. Une seule fois : créer un PAT fine-grained limité à ce repo (Contents et Pull requests en lecture/écriture), puis l'enregistrer comme secret de repo `RELEASE_PLEASE_TOKEN`. release-please ouvre sa PR avec ce jeton, ce qui déclenche les contrôles requis (une PR ouverte avec `GITHUB_TOKEN` n'en déclenche aucun).
+3. Après la première release, une seule fois : GitHub → profil → Packages → `golf-handicaps` → Package settings → Change visibility → **Public**. Dokploy tire alors l'image sans identifiants (vérifier : `docker logout ghcr.io && docker pull ghcr.io/<owner>/golf-handicaps:latest`).
+4. Dans Dokploy, créer l'application `golf-web` de type Docker :
    - image `ghcr.io/<owner>/golf-handicaps:<tag>` (`vX.Y.Z` ou `latest`) ;
    - port 3000, domaine en HTTPS (le cookie de session est `Secure`) ;
    - volume nommé `golf-data` monté sur `/data` ;
    - variables `APP_PASSCODE` et `SESSION_SECRET`.
-4. Créer l'application `golf-worker` : même image, **même hôte**, **même volume** `golf-data:/data`, mêmes variables, commande `node worker.js`, aucun port ni domaine. Les deux processus écrivent dans le même fichier SQLite : ils doivent tourner sur le même hôte.
+5. Créer l'application `golf-worker` : même image, **même hôte**, **même volume** `golf-data:/data`, mêmes variables, commande `node worker.js`, aucun port ni domaine. Les deux processus écrivent dans le même fichier SQLite : ils doivent tourner sur le même hôte.
 
 **Déployer une release** : à la main dans Dokploy. Choisir le tag (`vX.Y.Z`, ou garder `latest`) puis redéployer **les deux** applications, `golf-web` et `golf-worker`.
 
