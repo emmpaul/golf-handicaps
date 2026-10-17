@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard", "helpers:pinGitHubActionDigests"],
+  "rangeStrategy": "pin",
+  "pinDigests": true,
+  "schedule": ["before 6am on monday"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Toutes les mises à jour regroupées dans une PR hebdomadaire",
+      "matchPackageNames": ["*"],
+      "groupName": "weekly dependencies"
+    },
+    {
+      "description": "GitHub Actions pinnées par SHA de commit complet, version en commentaire",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true,
+      "groupName": "weekly github-actions"
+    },
+    {
+      "description": "Images Docker pinnées par tag exact et digest sha256",
+      "matchDatasources": ["docker"],
+      "pinDigests": true,
+      "groupName": "weekly docker images"
+    }
+  ]
+}

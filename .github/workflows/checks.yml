@@ -1,0 +1,125 @@
+# Contrôles communs aux PR et à main (design, décisions 7, 8 et 10).
+name: checks
+
+on:
+  workflow_call:
+    inputs:
+      commit-from:
+        description: Premier commit exclu de la plage vérifiée par commitlint (vide = dernier commit seul)
+        required: false
+        default: ""
+        type: string
+      commit-to:
+        description: Dernier commit de la plage vérifiée par commitlint
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: golf-handicaps:ci
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Tesseract (tests OCR)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr
+          tesseract --version
+      - name: Versions exactes
+        run: pnpm check:pins
+      - name: Commitlint
+        env:
+          FROM: ${{ inputs.commit-from }}
+          TO: ${{ inputs.commit-to }}
+        run: |
+          if [ -n "$FROM" ]; then
+            pnpm exec commitlint --verbose --from "$FROM" --to "$TO"
+          else
+            pnpm exec commitlint --verbose --last
+          fi
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Tests unitaires
+        run: pnpm test
+      - name: Duplication (jscpd 0 %)
+        run: pnpm jscpd
+
+  e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Tesseract (worker)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr
+      - name: Navigateurs Playwright
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Tests e2e
+        run: pnpm e2e
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build de l'image (sans push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha,scope=golf-handicaps
+          cache-to: type=gha,mode=max,scope=golf-handicaps
+      - name: Aucune fixture ni secret dans l'image
+        run: |
+          docker run --rm "$IMAGE" ls -A /app
+          docker run --rm "$IMAGE" sh -c '! find /app -path /app/node_modules -prune -o \( -name tests -o -name fixtures -o -name ".env*" -o -name "*.jpg" \) -print | grep .'
+      - uses: ./.github/actions/setup
+      - name: Navigateur Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Test de fumée compose
+        env:
+          GOLF_IMAGE: ${{ env.IMAGE }}
+          GOLF_ENV_FILE: ${{ runner.temp }}/smoke.env
+          APP_PASSCODE: ci-code-du-groupe
+          SESSION_SECRET: ci-secret-de-session-de-32-caracteres-min
+        run: |
+          printf 'APP_PASSCODE=%s\nSESSION_SECRET=%s\n' "$APP_PASSCODE" "$SESSION_SECRET" > "$GOLF_ENV_FILE"
+          docker compose up --no-build --wait
+          pnpm e2e:compose
+      - name: Logs compose
+        if: failure()
+        env:
+          GOLF_IMAGE: ${{ env.IMAGE }}
+          GOLF_ENV_FILE: ${{ runner.temp }}/smoke.env
+        run: |
+          touch "$GOLF_ENV_FILE"
+          docker compose logs --no-color
+      - name: Arrêt compose
+        if: always()
+        env:
+          GOLF_IMAGE: ${{ env.IMAGE }}
+          GOLF_ENV_FILE: ${{ runner.temp }}/smoke.env
+        run: |
+          touch "$GOLF_ENV_FILE"
+          docker compose down -v

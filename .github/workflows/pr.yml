@@ -1,0 +1,20 @@
+# PR : tous les contrôles, commitlint sur les commits de la PR, build Docker sans push et
+# test de fumée compose (design, décision 7).
+name: pr
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+    with:
+      commit-from: ${{ github.event.pull_request.base.sha }}
+      commit-to: ${{ github.event.pull_request.head.sha }}
