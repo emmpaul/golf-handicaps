@@ -111,7 +111,7 @@ Durées de ce test dans les 23 logs : de 434 ms à 5 043 ms, dont 7 au-dessus de
 - Si la CI ne sait pas classer un changement, elle lance tout. Un contrôle requis n'est jamais sauté par erreur.
 
 **Non-Goals :**
-- Plusieurs workers Playwright sur une même machine (`workers > 1`). Les tests remettent la base à zéro et partagent un serveur. Il faudrait une base par worker. Le découpage en deux machines (décision 3) contourne la contrainte sans y toucher.
+- Plusieurs workers Playwright sur une même machine (`workers > 1`). Les tests remettent la base à zéro et partagent un serveur. Il faudrait une base par worker. Le découpage en trois machines (décision 3) contourne la contrainte sans y toucher.
 - Mettre en cache `.next/cache`, les navigateurs Playwright ou les paquets apt. Gains mesurés : 15 à 25 s de build, 39 s de navigateurs (dont l'essentiel en dépendances système que `--with-deps` réinstalle de toute façon), 11 s d'apt. Pas assez pour la complexité et les clés de cache à maintenir.
 - Toucher à release-please, au PAT, au déploiement Dokploy ou à la protection de `main`.
 
@@ -160,14 +160,14 @@ Pourquoi c'est sûr pour la release : l'option « branche à jour » reste coch�
 
 Coût accepté : l'image publiée n'a pas son propre test de fumée. Elle est construite à partir du même arbre que le commit parent, qui l'a passé, à la version près.
 
-### 3. E2e en deux machines, avec un agrégateur nommé `e2e` (gain : environ 1,5 min par PR de code ; risque moyen)
+### 3. E2e en trois machines, avec un agrégateur nommé `e2e` (gain : environ 1,5 min par PR de code ; risque moyen)
 
 `checks.yml` remplace le job `e2e` par :
-- `e2e-shard`, en matrice `shard: [1, 2]`, `fail-fast: false`. Chaque entrée fait le setup, apt `tesseract-ocr`, `playwright install --with-deps chromium webkit`, puis `pnpm e2e --shard=${{ matrix.shard }}/2`. Le rapport d'échec est téléversé sous `playwright-report-${{ matrix.shard }}`.
-- `e2e`, l'agrégateur : `needs: [scope, e2e-shard]`, `if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}`. Son unique étape échoue sauf si `needs.scope.result` et `needs.e2e-shard.result` valent tous les deux `success`. Le contrôle requis garde son nom `checks / e2e`. Les entrées `checks / e2e-shard (1)` et `(2)` ne sont pas requises.
+- `e2e-shard`, en matrice `shard: [1, 2, 3]`, `fail-fast: false`. Chaque entrée fait le setup, apt `tesseract-ocr`, `playwright install --with-deps chromium webkit`, puis `pnpm e2e --shard=${{ matrix.shard }}/3`. Le rapport d'échec est téléversé sous `playwright-report-${{ matrix.shard }}`.
+- `e2e`, l'agrégateur : `needs: [scope, e2e-shard]`, `if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}`. Son unique étape échoue sauf si `needs.scope.result` et `needs.e2e-shard.result` valent tous les deux `success`. Le contrôle requis garde son nom `checks / e2e`. Les entrées `checks / e2e-shard (1)`, `(2)` et `(3)` ne sont pas requises.
 
 Comportement de l'agrégateur :
-- code, deux tranches vertes : réussi ;
+- code, trois tranches vertes : réussi ;
 - une tranche rouge ou annulée : échec, PR non fusionnable ;
 - documentation seule : sauté, donc réussi pour la protection ;
 - `scope` en échec : les tranches tournent (repli), et l'agrégateur échoue puisque `needs.scope.result` n'est pas `success`.
@@ -176,12 +176,21 @@ Comportement de l'agrégateur :
 
 **Build refait dans chaque tranche.** Il coûte 15 à 25 s (mesures Docker). Le partager voudrait un job de build en amont, un artefact `.next/` d'environ 100 Mo à téléverser puis à télécharger, et un `webServer` qui saute le build en CI. Ce job en série coûterait plus que les 15 à 25 s gagnés.
 
-**Répartition et WebKit iPhone.** Sans `fullyParallel`, Playwright répartit les fichiers de test entiers entre les tranches, tous projets confondus. Les 57 tests se partagent en environ 44 Chromium et 13 WebKit iPhone (`access`, `ai-marking`, `home`, `mobile`). Les tests WebKit peuvent tomber dans l'une ou l'autre tranche, donc chaque tranche installe les deux navigateurs (39 s, déjà payé aujourd'hui). L'équilibre se vérifie sur la première exécution : les étapes « Tests e2e » des deux tranches doivent être à moins de 30 % l'une de l'autre (tâche 4.2).
+**Trois tranches, découpées test par test avec `fullyParallel: true`.** Le premier essai répartissait des fichiers entiers entre deux tranches. Sur trois exécutions de la PR #14, l'étape « Tests e2e » prenait 161 à 166 s dans la tranche 1/2 et 76 à 102 s dans la 2/2, bien au-delà des 30 % de la tâche 4.2. Playwright coupe la liste en blocs contigus d'un même nombre de tests, et la version 1.64 n'a aucune option pour couper selon la durée. Avec deux tranches, `fullyParallel: true` donne le même découpage qu'avant : la 1/2 reçoit 38 tests Chromium, dont 7 lectures OCR, et la 2/2 reçoit 15 tests Chromium et les 22 WebKit iPhone, avec 3 lectures OCR. Tesseract est lent sur les runners GitHub, donc la 1/2 reste la plus longue.
 
-*Alternative* : une tranche par projet (Chromium, WebKit iPhone). Écartée : 44 tests contre 13, la tranche Chromium garderait les trois quarts du temps.
-*Alternative* : `fullyParallel: true` pour répartir au test près. Écartée pour l'instant : l'ordre des tests à l'intérieur d'un fichier changerait, alors que la base est partagée. Voir Open Questions.
+La matrice passe donc à trois tranches, avec `fullyParallel: true` et toujours `workers: 1`. Rien ne tourne en parallèle sur une machine : l'option sert seulement à `--shard`, qui coupe alors la liste test par test. En local, `--list` compte 75 tests, et `--shard=N/3` en donne 25 à chaque tranche :
+- 1/3 : Chromium, de `access` aux deux premiers tests de `desktop-grid`, avec 3 lectures OCR ;
+- 2/3 : Chromium, des deux derniers tests de `desktop-grid` à `rounds:67`, avec 4 lectures OCR ;
+- 3/3 : Chromium `rounds:82` et `strokes`, puis les 22 tests WebKit iPhone.
 
-Coût : une machine de plus par PR de code (environ 1,5 min de setup, Tesseract, navigateurs et build), donc plus de minutes de runner, gratuites pour un repo public.
+Avant d'activer l'option, on a vérifié que chaque test part d'un état connu. La fixture automatique de `tests/e2e/fixtures.ts` appelle `resetData()` (`tests/e2e/data.ts`) puis ouvre une session avant chaque test : la base revient aux trois joueurs initiaux, les tables `jobs` et `imports` sont vidées et les compteurs d'id repartent à 1. Tous les fichiers l'utilisent, sauf `access` et `home`, qui ne lisent aucune donnée. Aucun `describe.serial`, aucun `describe.configure`, aucun `beforeAll` ni variable partagée entre tests. Les tests qui lancent une lecture OCR attendent qu'elle finisse, donc le worker n'a plus de job en cours quand le test suivant remet la base à zéro. Les cinq exécutions locales (`--shard` 1/2, 2/2, puis 1/3, 2/3, 3/3, qui changent les voisins de chaque test) sont toutes vertes, sans nouvelle tentative.
+
+Les tests WebKit tombent aujourd'hui tous dans la 3/3, mais un test ajouté décale les blocs. Chaque tranche installe donc les deux navigateurs (39 s, déjà payé aujourd'hui).
+
+*Alternative* : une tranche par projet (Chromium, WebKit iPhone). Écartée : 53 tests contre 22, la tranche Chromium garderait l'essentiel du temps.
+*Alternative* : garder la répartition par fichier et déplacer un fichier lourd à la main. Écartée : l'équilibre casserait au premier fichier ajouté.
+
+Coût : deux machines de plus par PR de code (environ 1,5 min chacune de setup, Tesseract, navigateurs et build), donc plus de minutes de runner, gratuites pour un repo public.
 
 ### 4. Bump de version traité comme de la documentation (gain : 5 à 7 min par PR de release ; risque faible)
 
@@ -235,7 +244,7 @@ On garde `retries: 1` en CI, sans `failOnFlakyTests`. Un test qui passe à la de
 - [`scope` en échec fait sauter un contrôle requis] → repli `code != 'false'` et `!cancelled()` (décision 1), vérifié par la tâche 2.3.
 - [La garde lit mal la conclusion du parent (API en panne, exécution relancée)] → tout ce qui n'est pas exactement « success » donne la suite complète. On perd du temps, pas de la sûreté.
 - [Le nom du contrôle requis change avec la matrice] → l'agrégateur garde `checks / e2e`. La tâche humaine 8.1 revérifie la liste après fusion.
-- [Tranches déséquilibrées] → mesure sur la première exécution (tâche 4.2). Si l'écart dépasse 30 %, on déplace un fichier lourd ou on reprend l'Open Question sur `fullyParallel`.
+- [Tranches déséquilibrées] → Playwright coupe par nombre de tests, pas par durée, et une lecture OCR pèse bien plus qu'un test d'écran. On mesure la première exécution à trois tranches (tâche 4.2). Si l'écart dépasse 30 %, on compte les lectures OCR de chaque tranche avant de toucher au nombre de tranches.
 - [`release-please` sauté si le workflow appelé ne finit pas « success » quand des jobs sont sautés] → vérifié sur le premier push de documentation (tâche 3.3), avec la condition de repli prête.
 - [L'index multi-arch perd les annotations OCI ou un tag] → la tâche 5.2 compare l'index publié avec `imagetools inspect --raw`, et la vérification réelle tire l'image sur arm64.
 - [Le runner `ubuntu-24.04-arm` est en file plus longtemps que l'amd64] → acceptable pour une release, qui n'arrive que quelques fois par semaine. On le mesure à la première release.
@@ -243,12 +252,12 @@ On garde `retries: 1` en CI, sans `failOnFlakyTests`. Un test qui passe à la de
 
 ## Migration Plan
 
-1. Fusionner la PR de ce change. Elle touche `.github/` et `scripts/`, donc elle prend la suite complète, en deux tranches : c'est le premier test des décisions 1 et 3.
+1. Fusionner la PR de ce change. Elle touche `.github/` et `scripts/`, donc elle prend la suite complète, en trois tranches : c'est le premier test des décisions 1 et 3.
 2. La première PR de documentation suivante, puis son push sur `main`, vérifient le saut, la fusionnabilité et la garde.
 3. La première release suivante vérifie la PR de release sautée, le push de release qui va directement à `publish`, et la publication native.
 4. Retour arrière : revenir sur la PR. Aucun état n'est gardé en dehors des workflows, sauf les nouvelles portées de cache Docker, que GitHub purge seul après 7 jours sans usage.
 
 ## Open Questions
 
-- Faut-il passer à `fullyParallel: true` pour équilibrer les tranches au test près ? Seulement si la tâche 4.2 mesure un écart de plus de 30 %, et après avoir vérifié que chaque test remet bien la base à zéro au début. Ça ne change ni les specs ni les tâches.
-- Faut-il une troisième tranche quand les e2e dépasseront 5 min ? Il suffira de changer la matrice et le `/2`.
+- ~~Faut-il passer à `fullyParallel: true` pour équilibrer les tranches au test près ?~~ Réglée : oui, et chaque test remet bien la base à zéro (décision 3). Seule, l'option ne suffit pas : avec deux tranches, elle donne le même découpage que par fichier.
+- ~~Faut-il une troisième tranche quand les e2e dépasseront 5 min ?~~ Réglée : oui, dès maintenant. La CI mesurait 161 à 166 s contre 76 à 102 s avec deux tranches (décision 3). La spec « E2e répartis sur trois machines » et les tâches 4.1 à 4.3 suivent.
