@@ -21,7 +21,10 @@ const MOBILE_SPECS = /(access|ai-marking|correction-autosave|home|mobile)\.spec\
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  // Un seul serveur et une seule base : les tests la remettent à zéro, donc un à la fois.
+  // Un seul serveur et une seule base par machine : les tests la remettent à zéro, donc un à
+  // la fois. fullyParallel ne lance rien en parallèle ici, il permet seulement à `--shard` de
+  // répartir les tests un par un entre les machines, et non par fichier entier.
+  fullyParallel: true,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

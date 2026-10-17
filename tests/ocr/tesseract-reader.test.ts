@@ -7,12 +7,14 @@ import { createLimiter, createTesseractCellReader } from "@/ocr/tesseract";
 import { referencePhoto } from "./reference";
 
 describe("TesseractCellReader", () => {
+  // 30 s : la vitesse des runners CI varie du simple au double et les fichiers qui lancent
+  // Tesseract se disputent les 4 vCPU ; ce test a déjà pris 5 043 ms en CI.
   it("lit 16 dans la case INDEX du trou 2 avec le binaire tesseract natif", async () => {
     const { photo, corners } = referencePhoto();
     const panel = await rectifyPanel(photo, corners);
     const cell = prepareCell(cropRelative(panel, cellRect("strokeIndex", 2)));
     expect(await createTesseractCellReader().read(cell)).toBe(16);
-  });
+  }, 30_000);
 });
 
 describe("createLimiter", () => {

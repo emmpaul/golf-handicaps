@@ -31,6 +31,8 @@ const testDb = freshTestDb();
 const importReference = () => createImport(testDb().db, testDb().dir, referencePhoto(), NOW);
 
 describe("gestionnaire ocr-scorecard", () => {
+  // 60 s pour les tests qui lisent la photo de référence avec le vrai binaire Tesseract :
+  // la lecture complète de la carte varie du simple au double selon le runner CI.
   it("passe l'import à « Prêt à vérifier » avec le brouillon de la photo de référence", async () => {
     const { id } = importReference();
     await runNextJob(testDb().db, createJobHandlers(testDb().db, testDb().dir), NOW);
@@ -184,6 +186,8 @@ async function runWithAi(
 }
 
 describe("gestionnaire ocr-scorecard, complétion IA", () => {
+  // 60 s : le premier test lancé lit la photo de référence avec le vrai binaire Tesseract (les
+  // suivants réutilisent sa lecture), et la lecture complète varie du simple au double en CI.
   it("n'appelle pas l'IA quand la lecture locale de référence est sans problème", async () => {
     const fake = answersReferenceCard();
     const id = await runWithAi(realRead, fake.completer);
