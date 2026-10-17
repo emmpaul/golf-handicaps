@@ -25,12 +25,26 @@ test("avec un code faux, affiche « Code incorrect » et reste sur /login", asyn
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test("avec le bon code, ouvre une session et affiche l'accueil", async ({ page, context }) => {
+test("avec le bon code, ouvre une session et affiche l'accueil", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Code d'accès").fill(E2E_PASSCODE);
+  const loginResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" && new URL(response.url()).pathname === "/login",
+  );
   await page.getByRole("button", { name: "Entrer" }).click();
+  // Le cookie est lu dans l'en-tête Set-Cookie et non dans context.cookies() : WebKit sous Linux
+  // ne stocke pas un cookie Secure reçu en http://127.0.0.1, alors que la prod est en HTTPS.
+  const setCookie = await (await loginResponse).headerValue("set-cookie");
+  const [nameValue, ...attributes] = (setCookie ?? "").split("; ");
+  expect(nameValue).toMatch(/^golf_session=\d+\.[\w-]+$/);
+  expect(attributes.filter((attribute) => !attribute.startsWith("Expires=")).sort()).toEqual([
+    "HttpOnly",
+    "Max-Age=7776000",
+    "Path=/",
+    "SameSite=lax",
+    "Secure",
+  ]);
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Handicaps golf");
-  const [cookie] = (await context.cookies()).filter(({ name }) => name === "golf_session");
-  expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: "Lax" });
 });
