@@ -1,4 +1,5 @@
 # Contrôles communs aux PR et à main (design, décisions 7, 8 et 10).
+# Le job docker ne tourne que si l'appelant passe `docker: true` (main).
 name: checks
 
 on:
@@ -13,6 +14,11 @@ on:
         description: Dernier commit de la plage vérifiée par commitlint
         required: true
         type: string
+      docker:
+        description: Build de l'image sans push et test de fumée compose (push sur main seulement)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -77,6 +83,7 @@ jobs:
           retention-days: 7
 
   docker:
+    if: inputs.docker
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
