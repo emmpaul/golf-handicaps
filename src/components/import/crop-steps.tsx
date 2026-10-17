@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Pending } from "@/components/ui/pending";
 import { cn } from "@/lib/utils";
 import type { Corners } from "@/ocr/corners";
 import { CornerEditor } from "./corner-editor";
@@ -16,6 +17,15 @@ const LAYOUT =
 const MAIN = "@4xl:col-start-1 @4xl:row-span-2 @4xl:row-start-1";
 const SIDE_TOP = "@4xl:col-start-2 @4xl:row-start-1";
 const SIDE_BOTTOM = "@4xl:col-start-2 @4xl:row-start-2 @4xl:self-start";
+const ACTIONS = cn("flex flex-wrap items-center gap-2", SIDE_BOTTOM);
+
+/** Attente en cours : calcul de l'aperçu redressé ou envoi des coins validés. */
+type Busy = "rectify" | "send";
+
+const BUSY_LABEL = {
+  rectify: "Redressement de la photo…",
+  send: "Envoi de la photo…",
+} as const satisfies Record<Busy, string>;
 
 /**
  * Cadrage des 4 coins sur `photoUrl`, aperçu redressé, puis « Lancer la lecture » qui
@@ -33,20 +43,22 @@ export function CropSteps({
 }) {
   const [corners, setCorners] = useState(initialCorners);
   const [preview, setPreview] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<Busy | null>(null);
 
-  async function during(task: () => Promise<void>) {
-    setBusy(true);
+  async function during(kind: Busy, task: () => Promise<void>) {
+    setBusy(kind);
     try {
       await task();
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
-  const launchCorners = () => void during(() => onLaunch(corners));
+  const launchCorners = () => void during("send", () => onLaunch(corners));
   const showPreview = () =>
-    void during(async () => setPreview(await rectifyPreview(photoUrl, corners)));
+    void during("rectify", async () => setPreview(await rectifyPreview(photoUrl, corners)));
+  // Région montée avec la barre d'actions, avant le clic : seul son contenu change.
+  const pending = <Pending label={busy && BUSY_LABEL[busy]} orb={busy ?? "send"} />;
 
   return (
     <div className="@container">
@@ -58,13 +70,19 @@ export function CropSteps({
             alt="Carte redressée"
             className={cn("max-h-[70vh] w-auto max-w-full self-start rounded-lg border", MAIN)}
           />
-          <div className={cn("flex flex-wrap gap-2", SIDE_BOTTOM)}>
-            <Button size="lg" disabled={busy} onClick={launchCorners}>
+          <div className={ACTIONS}>
+            <Button size="lg" disabled={busy !== null} onClick={launchCorners}>
               Lancer la lecture
             </Button>
-            <Button size="lg" variant="outline" disabled={busy} onClick={() => setPreview(null)}>
+            <Button
+              size="lg"
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => setPreview(null)}
+            >
               Recadrer
             </Button>
+            {pending}
           </div>
         </div>
       ) : (
@@ -76,9 +94,12 @@ export function CropSteps({
           <div className={MAIN}>
             <CornerEditor photoUrl={photoUrl} corners={corners} onChange={setCorners} />
           </div>
-          <Button size="lg" className={SIDE_BOTTOM} disabled={busy} onClick={showPreview}>
-            Valider le cadrage
-          </Button>
+          <div className={ACTIONS}>
+            <Button size="lg" disabled={busy !== null} onClick={showPreview}>
+              Valider le cadrage
+            </Button>
+            {pending}
+          </div>
         </div>
       )}
     </div>

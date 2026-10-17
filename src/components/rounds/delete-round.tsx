@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Pending } from "@/components/ui/pending";
 
 /** Suppression d'un round après confirmation ; les index sont recalculés côté serveur. */
 export function DeleteRound({ roundId }: { roundId: number }) {
@@ -44,6 +45,7 @@ export function DeleteRound({ roundId }: { roundId: number }) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
+          <Pending label={deleting ? "Suppression du round…" : null} orb="send" />
           <AlertDialogCancel>Annuler</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"

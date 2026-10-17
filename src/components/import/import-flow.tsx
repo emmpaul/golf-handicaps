@@ -6,6 +6,7 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Pending } from "@/components/ui/pending";
 import { cn } from "@/lib/utils";
 import type { Corners } from "@/ocr/corners";
 import { INITIAL_CORNERS } from "./corner-editor";
@@ -15,7 +16,11 @@ import { UnreadablePhoto } from "./unreadable-photo";
 
 type Photo = { blob: Blob; url: string };
 
-type Step = { kind: "pick" } | { kind: "unreadable" } | { kind: "crop"; photo: Photo };
+type Step =
+  | { kind: "pick" }
+  | { kind: "preparing" }
+  | { kind: "unreadable" }
+  | { kind: "crop"; photo: Photo };
 
 async function enqueue(photo: Blob, corners: Corners): Promise<boolean> {
   const form = new FormData();
@@ -43,6 +48,8 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
   async function choose(file: File | undefined) {
     if (!file) return;
     setMessage(null);
+    // Décodage et réduction à 3000 px : une à deux secondes sur téléphone.
+    setStep({ kind: "preparing" });
     try {
       const blob = await decodePhoto(file);
       setStep({ kind: "crop", photo: { blob, url: URL.createObjectURL(blob) } });
@@ -91,6 +98,10 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
         <Input id="photo" type="file" accept="image/*" onChange={pickFrom} />
         <FieldDescription>Photo de l'écran de fin de round, prise au téléphone.</FieldDescription>
       </Field>
+      <Pending
+        label={step.kind === "preparing" ? "Préparation de la photo…" : null}
+        orb="prepare"
+      />
       {message ? (
         <Alert>
           <AlertTitle>{message}</AlertTitle>

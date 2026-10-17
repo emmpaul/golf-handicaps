@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { orbForImport, PendingOrb } from "@/components/ui/pending";
 import type { ImportListItem } from "@/server/imports/list";
 
 /** L'UI interroge l'état des imports toutes les 2 s tant que l'un d'eux attend (décision 4). */
@@ -23,6 +24,12 @@ function keepLoading(apply: (items: ImportListItem[]) => void, { repeat }: { rep
     stopped = true;
     clearInterval(timer);
   };
+}
+
+/** Orbe d'un import qui attend sa lecture, rien une fois la lecture finie. */
+function ImportOrb({ item }: { item: ImportListItem }) {
+  const state = orbForImport(item.status);
+  return state && <PendingOrb state={state} />;
 }
 
 const time = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
@@ -85,6 +92,8 @@ export function ImportList({
             >
               {time.format(new Date(item.createdAt))}
             </time>
+            {/* Orbe seule, sans `role="status"` : le badge change déjà à chaque rafraîchissement. */}
+            <ImportOrb item={item} />
             <Badge
               data-testid="import-status"
               variant={item.status === "failed" ? "destructive" : "secondary"}

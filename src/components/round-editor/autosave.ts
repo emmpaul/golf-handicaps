@@ -8,6 +8,8 @@ const DEBOUNCE_MS = 1000;
 const RETRY_MS = 5000;
 
 const NOT_SAVED = "Modifications non enregistrées";
+/** Envoi en cours : seul état accompagné de l'orbe. */
+export const SAVING = "Enregistrement…";
 
 /** Texte de l'indicateur d'enregistrement ; `error` : à afficher en couleur d'erreur. */
 export type AutosaveStatus = { message: string; error: boolean };
@@ -91,7 +93,7 @@ export function createCorrectionAutosave(options: AutosaveOptions) {
     }
     const body = latest;
     inFlight = true;
-    options.onStatus({ message: "Enregistrement…", error: false });
+    options.onStatus({ message: SAVING, error: false });
     options
       .fetch(url, {
         method: "PUT",
