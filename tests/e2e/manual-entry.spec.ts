@@ -1,5 +1,5 @@
 import { referenceRound, seedRound } from "./data";
-import { cell, fillRow, rowValues, saveButton } from "./editor";
+import { cell, fillRow, pickDate, rowValues, saveButton } from "./editor";
 import { expect, test } from "./fixtures";
 
 const asText = (values: readonly number[]) => values.map(String);
@@ -29,7 +29,7 @@ test("en saisie manuelle, choisir « Bethpage Black / Red » pré-remplit pars, 
   await expect(cell(page, "Par", "TOT")).toHaveValue("71");
   await expect(saveButton(page)).toHaveText("19 problèmes à corriger");
 
-  await page.getByLabel("Date").fill("2026-10-17");
+  await pickDate(page, "2026-10-17");
   await page.getByLabel("Joueur de la ligne 1").selectOption({ label: "Sean" });
   await fillRow(page, "Ligne 1", Array(18).fill(5));
   await saveButton(page).click();
