@@ -16,8 +16,9 @@ const serverEnv = {
   DATA_DIR: process.env.E2E_DATA_DIR,
 };
 
-/** Parcours d'import et de correction vérifiés aussi sur iPhone (tâche 8.9). */
-const MOBILE_SPECS = /(access|ai-marking|correction-autosave|home|mobile)\.spec\.ts$/;
+/** Parcours d'import, de correction et de prise de photo vérifiés aussi sur iPhone. */
+const MOBILE_SPECS =
+  /(access|ai-marking|camera-capture|correction-autosave|home|mobile)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./tests/e2e",
