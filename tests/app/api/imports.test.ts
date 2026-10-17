@@ -1,13 +1,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { createTestDb, type TestDb } from "../../factories";
+import { readEditorState, toSavedCorrection } from "@/components/round-editor/form-state";
+import { listPlayers } from "@/server/players/players";
+import { seedInitialPlayers } from "@/server/players/seed";
+import { saveRound } from "@/server/rounds/save";
+import { createTestDb, referenceForm, type TestDb } from "../../factories";
 import { NEW_CORNERS, referenceCorners } from "../../jobs/helpers";
 
 type Routes = {
   upload: typeof import("@/app/api/imports/route");
   status: typeof import("@/app/api/imports/[id]/route");
   recrop: typeof import("@/app/api/imports/[id]/corners/route");
+  correction: typeof import("@/app/api/imports/[id]/correction/route");
 };
 
 let testDb: TestDb;
@@ -22,6 +28,7 @@ beforeAll(async () => {
     upload: await import("@/app/api/imports/route"),
     status: await import("@/app/api/imports/[id]/route"),
     recrop: await import("@/app/api/imports/[id]/corners/route"),
+    correction: await import("@/app/api/imports/[id]/correction/route"),
   };
 });
 
@@ -156,5 +163,91 @@ describe("POST /api/imports/[id]/corners", () => {
       404,
       { error: "Import introuvable" },
     ]);
+  });
+});
+
+describe("PUT /api/imports/[id]/correction", () => {
+  /** Correction de la carte de référence, lignes non associées. */
+  const body = () =>
+    JSON.stringify(toSavedCorrection(readEditorState(referenceForm([null, null]), true)));
+
+  function seededImport(status: "queued" | "reading" | "ready" | "failed") {
+    return String(
+      testDb.sqlite
+        .prepare(
+          "INSERT INTO imports (status, photo_path, corners, created_at) VALUES (?, 'uploads/ref.jpg', '{}', 0)",
+        )
+        .run(status).lastInsertRowid,
+    );
+  }
+
+  const put = (id: string, payload: string) =>
+    routes.correction.PUT(
+      new Request(`http://localhost/api/imports/${id}/correction`, {
+        method: "PUT",
+        body: payload,
+      }),
+      { params: Promise.resolve({ id }) },
+    );
+
+  // Mutation : réponse 200 avec un corps au lieu de 204.
+  it("répond 204 sans corps et enregistre la correction d'un import prêt à vérifier", async () => {
+    const id = seededImport("ready");
+    const response = await put(id, body());
+    expect([response.status, await response.text()]).toEqual([204, ""]);
+    expect(
+      testDb.sqlite.prepare("SELECT correction FROM imports WHERE id = ?").pluck().get(id),
+    ).toBe(body());
+  });
+
+  // Mutation : renvoyer 400 au lieu de 409 pour un import lié à un round.
+  it("répond 409 « Cette carte est déjà enregistrée » pour un import lié à un round", async () => {
+    const id = seededImport("ready");
+    seedInitialPlayers(testDb.db);
+    const [gab, manu] = listPlayers(testDb.db).map((player) => player.id);
+    saveRound(testDb.db, referenceForm([gab, manu]), { importId: Number(id) });
+    const response = await put(id, body());
+    expect([response.status, await response.json()]).toEqual([
+      409,
+      { error: "Cette carte est déjà enregistrée" },
+    ]);
+  });
+
+  // Mutation : statut de lecture traduit en 404 ou en 204.
+  it.each(["queued", "reading"] as const)(
+    "répond 409 « Lecture en cours » pour un import au statut %s",
+    async (status) => {
+      const response = await put(seededImport(status), body());
+      expect([response.status, await response.json()]).toEqual([
+        409,
+        { error: "Lecture en cours" },
+      ]);
+    },
+  );
+
+  // Mutation : corps illisible laissé remonter en 500 au lieu de 400.
+  it.each([
+    ["`players` à la place de `lines`", body().replace('"lines"', '"players"')],
+    ["un JSON illisible", "{"],
+  ])("répond 400 « Requête invalide » pour %s", async (_case, payload) => {
+    const response = await put(seededImport("ready"), payload);
+    expect([response.status, await response.json()]).toEqual([400, { error: "Requête invalide" }]);
+  });
+
+  it.each(["999", "abc"])("répond 404 « Import introuvable » pour l'import %s", async (id) => {
+    const response = await put(id, body());
+    expect([response.status, await response.json()]).toEqual([
+      404,
+      { error: "Import introuvable" },
+    ]);
+  });
+
+  // Mutation : `/api/imports/…` exclu du contrôle de session du proxy.
+  it("répond 401 sans session, via le proxy", async () => {
+    const { proxy } = await import("@/proxy");
+    const response = proxy(
+      new NextRequest("http://localhost/api/imports/1/correction", { method: "PUT", body: body() }),
+    );
+    expect([response.status, await response.json()]).toEqual([401, { error: "Session requise" }]);
   });
 });

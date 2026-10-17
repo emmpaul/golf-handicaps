@@ -95,7 +95,7 @@ export function scoresOverPar(over: number) {
 
 type SeededImport = Pick<
   typeof imports.$inferInsert,
-  "status" | "corners" | "draft" | "aiCells" | "aiNote"
+  "status" | "corners" | "draft" | "aiCells" | "aiNote" | "correction"
 >;
 
 /** Provenance IA d'un import : cases complétées par l'IA et message affiché. */
@@ -127,10 +127,11 @@ export const seedReadyImport = (draft: ScorecardDraft = referenceDraft, ai: Seed
 
 /**
  * Import « Échec » de la photo de référence, cadré à côté du panneau (coins par défaut de
- * l'éditeur) : la lecture a échoué deux fois.
+ * l'éditeur) : la lecture a échoué deux fois. `correction` simule une correction enregistrée.
  */
-export const seedFailedImport = () =>
+export const seedFailedImport = (correction: SeededImport["correction"] = null) =>
   seedImport({
+    correction,
     status: "failed",
     corners: {
       topLeft: { x: 0.1, y: 0.1 },

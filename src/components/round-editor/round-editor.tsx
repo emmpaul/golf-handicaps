@@ -12,6 +12,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { cn } from "@/lib/utils";
 import { checkRoundForm, problemCountLabel } from "@/scorecard/checks";
 import type { DraftValue } from "@/scorecard/draft";
+import { useCorrectionAutosave } from "./autosave";
 import {
   applyCourse,
   courseLabel,
@@ -140,6 +141,11 @@ export function RoundEditor({
   const problems = useMemo(() => checkRoundForm(form), [form]);
   const invalid = useMemo(() => new Set(problems.flatMap(({ cells }) => cells)), [problems]);
   const aiCells = useMemo(() => new Set(state.aiCells), [state.aiCells]);
+  // Sauvegarde automatique : correction d'un import seulement.
+  const autosave = useCorrectionAutosave(
+    target.kind === "create" ? (target.importId ?? null) : null,
+    state,
+  );
 
   function change(next: EditorState) {
     setState(next);
@@ -172,10 +178,14 @@ export function RoundEditor({
   }
 
   async function submit(force: boolean) {
+    autosave.pause();
     setSaving(true);
+    // Round non enregistré (doublon, refus, erreur réseau) : la sauvegarde reprend.
+    let saved = false;
     try {
       const result = await saveRound(target, form, force);
       if (result.kind === "saved") {
+        saved = true;
         router.push(target.kind === "create" ? "/rounds" : `/rounds/${result.id}`);
         router.refresh();
         return;
@@ -187,6 +197,7 @@ export function RoundEditor({
       );
     } finally {
       setSaving(false);
+      if (!saved) autosave.resume();
     }
   }
 
@@ -306,7 +317,7 @@ export function RoundEditor({
           <AlertTitle>{notice.message}</AlertTitle>
         </Alert>
       ) : null}
-      <div className="sticky bottom-0 z-20 -mx-4 border-t bg-background/95 px-4 py-3">
+      <div className="sticky bottom-0 z-20 -mx-4 flex flex-col gap-2 border-t bg-background/95 px-4 py-3 sm:flex-row sm:items-center">
         <Button
           size="lg"
           className="w-full sm:w-auto"
@@ -315,6 +326,15 @@ export function RoundEditor({
         >
           {problems.length > 0 ? problemCountLabel(problems.length) : "Enregistrer"}
         </Button>
+        <p
+          role="status"
+          className={cn(
+            "text-sm",
+            autosave.status.error ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {autosave.status.message}
+        </p>
       </div>
     </div>
   );

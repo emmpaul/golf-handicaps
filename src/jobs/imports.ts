@@ -87,7 +87,11 @@ export function recropImport(db: Db, id: number, corners: Corners, now: Date): R
     const row = tx.select({ status: imports.status }).from(imports).where(eq(imports.id, id)).get();
     if (!row) return "not-found";
     if (row.status !== "failed") return "not-failed";
-    tx.update(imports).set({ status: "queued", corners }).where(eq(imports.id, id)).run();
+    // La nouvelle lecture remplace les corrections enregistrées.
+    tx.update(imports)
+      .set({ status: "queued", corners, correction: null })
+      .where(eq(imports.id, id))
+      .run();
     const payload: OcrScorecardPayload = { importId: id };
     enqueueJob(tx, OCR_SCORECARD_JOB, payload, now);
     return "queued";

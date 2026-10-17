@@ -136,6 +136,8 @@ export const imports = sqliteTable("imports", {
   aiCells: text("ai_cells", { mode: "json" }).$type<string[]>(),
   /** Message sur la complétion IA (budget atteint, indisponible), `null` sinon. */
   aiNote: text("ai_note"),
+  /** État de l'écran de correction enregistré automatiquement (JSON), `null` sans correction. */
+  correction: text("correction", { mode: "json" }),
 });
 
 /** Un appel à l'IA par ligne ; coûts en micro-dollars (design, décision 6). */
