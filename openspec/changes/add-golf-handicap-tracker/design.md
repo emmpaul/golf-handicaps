@@ -107,6 +107,7 @@ Un seul type de job au départ : `ocr-scorecard`. L'UI interroge l'état des imp
   - Sur `main` : les mêmes contrôles (workflow réutilisable `checks.yml`), plus le build Docker sans push (aucune fixture ni secret dans l'image) et le test de fumée compose, puis release-please (`googleapis/release-please-action`, pinnée par SHA). Il tient à jour une PR de release : version dans `package.json`, `CHANGELOG.md` et `.release-please-manifest.json` (type `node`, sémantique avant 1.0 : `feat` → mineure, `fix` → patch). Aucun push d'image sur un simple push sur `main`. Manifeste à 0.0.0 et `initial-version: 0.1.0` dans la config ; la première PR de release propose v0.1.0.
   - À la fusion de la PR de release : release-please crée le tag `vX.Y.Z` et la release GitHub. Seulement quand il signale `release_created`, un job du **même** workflow (les releases créées avec `GITHUB_TOKEN` ne déclenchent pas d'autre workflow) construit l'image multi-arch (`linux/amd64,linux/arm64`, car l'architecture de l'hôte n'est pas fixée) et pousse `ghcr.io/<owner>/golf-handicaps:{vX.Y.Z,latest,sha}`, avec les labels OCI (`org.opencontainers.image.version` = la version de la release). Le build ne tourne qu'après les contrôles au vert.
   - Permissions minimales par job : `contents: write` et `pull-requests: write` pour release-please, `packages: write` pour le job image.
+  - `main` protégée (PR obligatoire, contrôles requis, admins inclus) ; release-please utilise le secret `RELEASE_PLEASE_TOKEN` (PAT fine-grained, Contents + Pull requests en écriture) pour que sa PR de release déclenche les contrôles.
   - Déploiement **manuel** dans Dokploy : on choisit le tag (`vX.Y.Z` ou `latest`) et on redéploie les deux services. Aucun webhook, aucun secret Dokploy dans GitHub.
   - Renovate n'est pas concerné : ses PR passent par le workflow PR comme les autres.
 
@@ -157,6 +158,7 @@ Renovate tient tout à jour sans casser les pins : `rangeStrategy: "pin"`, `pinD
 ## Migration Plan
 
 1. Dans les réglages du repo (Settings → Actions → General), cocher « Allow GitHub Actions to create and approve pull requests », sinon release-please ne peut pas ouvrir sa PR.
+   Une fois aussi : `main` protégée (PR obligatoire, contrôles requis, admins inclus) ; release-please utilise le secret `RELEASE_PLEASE_TOKEN` (PAT fine-grained, Contents + Pull requests en écriture) pour que sa PR de release déclenche les contrôles.
 2. Premier push sur `main` (un commit `feat:` ; manifeste à 0.0.0 et `initial-version: 0.1.0` dans la config) : release-please ouvre la PR de release v0.1.0. La fusionner publie l'image `:v0.1.0` et `:latest`. Passer le package GHCR en public.
 3. Dans Dokploy, créer le service `golf-web` (image `ghcr.io/<owner>/golf-handicaps:latest`, port 3000, volume `golf-data:/data`, variables `APP_PASSCODE`, `SESSION_SECRET`, domaine en HTTPS).
 4. Créer le service `golf-worker` : même image, même volume, commande `node worker.js`, mêmes variables, sans port.
