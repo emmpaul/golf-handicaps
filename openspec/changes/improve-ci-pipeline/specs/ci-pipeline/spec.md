@@ -84,15 +84,15 @@ Les contrôles requis par la protection de `main`, `checks / quality` et `checks
 - **WHEN** une PR ne modifie que `openspec/` avec un commit `bad message`
 - **THEN** `checks / quality` échoue sur commitlint et la PR n'est pas fusionnable
 
-### Requirement: E2e répartis sur deux machines
-Les e2e d'une PR ou d'un push de code SHALL tourner en deux tranches, chacune sur sa propre machine avec son serveur et sa base. Chaque test des projets Chromium et WebKit iPhone MUST tourner une fois en tout. Le contrôle `checks / e2e` réunit les tranches : il réussit si les deux réussissent, échoue si l'une échoue ou est annulée, et est sauté pour un changement de documentation.
+### Requirement: E2e répartis sur trois machines
+Les e2e d'une PR ou d'un push de code SHALL tourner en trois tranches, chacune sur sa propre machine avec son serveur et sa base. Chaque test des projets Chromium et WebKit iPhone MUST tourner exactement une fois en tout, toutes tranches confondues. Le contrôle `checks / e2e` réunit toutes les tranches : il réussit si toutes réussissent, échoue si l'une échoue ou est annulée, et est sauté pour un changement de documentation.
 
-#### Scenario: Deux tranches vertes
-- **WHEN** une PR modifie `src/` et que les deux tranches passent
-- **THEN** `checks / e2e-shard (1)`, `checks / e2e-shard (2)` et `checks / e2e` sont réussis, et la somme des tests passés des deux tranches vaut le nombre de tests de `pnpm exec playwright test --list`
+#### Scenario: Trois tranches vertes
+- **WHEN** une PR modifie `src/` et que les trois tranches passent
+- **THEN** `checks / e2e-shard (1)`, `checks / e2e-shard (2)`, `checks / e2e-shard (3)` et `checks / e2e` sont réussis, et la somme des tests passés des trois tranches vaut le nombre de tests de `pnpm exec playwright test --list`
 
 #### Scenario: Une tranche rouge
-- **WHEN** un test e2e échoue dans la tranche 2
+- **WHEN** un test e2e échoue dans la tranche 3
 - **THEN** `checks / e2e` finit en échec et la PR n'est pas fusionnable
 
 #### Scenario: Documentation seule

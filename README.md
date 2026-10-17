@@ -61,7 +61,13 @@ Facultative. Sans `ANTHROPIC_API_KEY`, l'app lit les cartes en local seulement, 
 
 ## Déploiement Dokploy
 
-**Releases** : à chaque push sur `main`, la CI (`.github/workflows/main.yml`) lance les contrôles puis release-please, qui tient à jour une PR de release (version, `CHANGELOG.md`). Avant 1.0, un `feat` donne une version mineure et un `fix` un patch. Fusionner cette PR crée le tag `vX.Y.Z` et publie l'image `ghcr.io/<owner>/golf-handicaps` avec les tags `vX.Y.Z`, `latest` et `<sha>`. Un simple push sur `main` ne publie aucune image.
+**CI** : `pr.yml` (chaque PR) et `main.yml` (chaque push sur `main`) appellent `.github/workflows/checks.yml`. Son premier job, `scope`, passe la liste des fichiers modifiés à `scripts/ci-scope.ts`. Si tous sont de la documentation (`openspec/`, `docs/`, `*.md`, `.release-please-manifest.json`, ou `package.json` quand seule sa `version` change), `checks / quality` ne lance que `check:pins`, commitlint et le lint, et les e2e sont sautés. La PR de release entre dans ce cas. Un autre fichier, ou un `scope` en échec, lance la suite complète.
+
+Sur `main`, un push de documentation saute aussi le build Docker et le test de fumée compose, à une condition : l'exécution `main` du commit parent a réussi. Sinon tout tourne. La fusion de la PR de release va donc directement à release-please puis à la publication.
+
+Les e2e tournent en trois tranches sur trois machines, `checks / e2e-shard (1)`, `(2)` et `(3)`. Le job `checks / e2e` réunit leurs résultats et échoue si une tranche échoue. La protection de `main` exige `checks / quality` et `checks / e2e`. Un job sauté compte comme réussi, donc une PR de documentation reste fusionnable.
+
+**Releases** : à chaque push sur `main`, la CI (`.github/workflows/main.yml`) lance les contrôles puis release-please, qui tient à jour une PR de release (version, `CHANGELOG.md`). Avant 1.0, un `feat` donne une version mineure et un `fix` un patch. Fusionner cette PR crée le tag `vX.Y.Z` et publie l'image `ghcr.io/<owner>/golf-handicaps` avec les tags `vX.Y.Z`, `latest` et `<sha>`. Chaque architecture se construit sur un runner natif (`linux/amd64` sur `ubuntu-24.04`, `linux/arm64` sur `ubuntu-24.04-arm`), puis un index multi-arch réunit les deux images sous ces tags. Un simple push sur `main` ne publie aucune image.
 
 `main` est protégée : tout changement passe par une PR, avec les contrôles CI au vert.
 

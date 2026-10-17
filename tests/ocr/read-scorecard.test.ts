@@ -11,6 +11,8 @@ const EXPECTED: ScorecardDraft = JSON.parse(
 );
 
 describe("readScorecard", () => {
+  // 60 s : la lecture complète de la carte lance Tesseract sur chaque case, et les runners CI
+  // varient du simple au double en vitesse en se disputant les 4 vCPU.
   it("lit la carte de référence IMG_3064 sans aucune erreur ni case null", async () => {
     const { photo, corners } = referencePhoto();
     const { draft, panel } = await readScorecard(photo, corners);
