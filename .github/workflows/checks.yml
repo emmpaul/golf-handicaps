@@ -1,4 +1,7 @@
-# Contrôles communs aux PR et à main (design, décisions 7, 8 et 10).
+# Contrôles communs aux PR et à main (design, décisions 7, 8 et 10 ; improve-ci-pipeline, décisions 1 à 3).
+# Le job scope classe les fichiers modifiés : pour de la documentation seule (dont la PR et le push de release),
+# quality ne garde que check:pins, commitlint et le lint, et les e2e et le build Docker sont sautés.
+# Les e2e tournent en deux tranches ; l'agrégateur e2e porte le contrôle requis `checks / e2e`.
 # Le job docker ne tourne que si l'appelant passe `docker: true` (main).
 name: checks
 
@@ -20,21 +23,80 @@ on:
         default: false
         type: boolean
 
-permissions:
-  contents: read
+# Pas de permissions au niveau du workflow : elles plafonneraient celles de l'appelant pour tous les jobs.
+# Chaque job déclare `contents: read`, sauf scope, qui hérite de l'appelant : `contents: read` depuis pr.yml,
+# `contents: read` et `actions: read` depuis main.yml. Un job appelé qui demande `actions: read` ferait
+# échouer pr.yml au démarrage, puisque pr.yml ne l'accorde pas.
 
 env:
   IMAGE: golf-handicaps:ci
 
 jobs:
-  quality:
+  # Sortie `code` : `false` pour de la documentation seule, `true` sinon. Les jobs testent `code != 'false'` :
+  # si scope échoue, la sortie est vide et tout tourne (repli sur la suite complète).
+  scope:
     runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # Node de .nvmrc (24) pour lancer le script TypeScript sans dépendances ; pas de pnpm ni d'install.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Classement des fichiers modifiés
+        id: scope
+        env:
+          FROM: ${{ inputs.commit-from }}
+          TO: ${{ inputs.commit-to }}
+          # Dans un workflow appelé, l'événement est celui de l'appelant (pull_request ou push).
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "$FROM" ]; then
+            echo "commit-from vide (premier push) : suite complète"
+            echo "code=true" | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          paths="$RUNNER_TEMP/changed-paths.txt"
+          git diff --name-only "$FROM" "$TO" > "$paths"
+          echo "Fichiers modifiés :"
+          cat "$paths"
+          args=(--event "$EVENT")
+          # Un package.json absent d'un côté n'est pas un simple bump : sans les deux fichiers, la suite complète tourne.
+          if grep -qx 'package.json' "$paths" \
+            && git show "$FROM:package.json" > "$RUNNER_TEMP/package-before.json" \
+            && git show "$TO:package.json" > "$RUNNER_TEMP/package-after.json"; then
+            args+=(--package-before "$RUNNER_TEMP/package-before.json" --package-after "$RUNNER_TEMP/package-after.json")
+          fi
+          # Garde sur main : la documentation n'est sautée que si l'exécution main du commit parent a réussi.
+          # Une erreur de l'API donne une conclusion vide, donc la suite complète.
+          if [ "$EVENT" = "push" ]; then
+            parent=$(gh run list --workflow main.yml --commit "$FROM" --json conclusion --jq '.[0].conclusion' || true)
+            echo "Conclusion de l'exécution main du commit parent $FROM : ${parent:-(aucune)}"
+            args+=(--parent-conclusion "$parent")
+          fi
+          node scripts/ci-scope.ts "${args[@]}" < "$paths" | tee -a "$GITHUB_OUTPUT"
+
+  # Toujours lancé (même si scope échoue) : check:pins, commitlint et le lint passent sur toute PR.
+  quality:
+    needs: scope
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
       - name: Tesseract (tests OCR)
+        if: needs.scope.outputs.code != 'false'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends tesseract-ocr
@@ -54,14 +116,26 @@ jobs:
       - name: Lint
         run: pnpm lint
       - name: Typecheck
+        if: needs.scope.outputs.code != 'false'
         run: pnpm typecheck
       - name: Tests unitaires
+        if: needs.scope.outputs.code != 'false'
         run: pnpm test
       - name: Duplication (jscpd 0 %)
+        if: needs.scope.outputs.code != 'false'
         run: pnpm jscpd
 
-  e2e:
+  # Une machine par tranche : chacune lance son build, son serveur, son worker et sa base (workers: 1).
+  e2e-shard:
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -69,27 +143,51 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends tesseract-ocr
+      # Les tests WebKit iPhone peuvent tomber dans l'une ou l'autre tranche : les deux navigateurs partout.
       - name: Navigateurs Playwright
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Tests e2e
-        run: pnpm e2e
+        run: pnpm e2e --shard=${{ matrix.shard }}/2
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
           retention-days: 7
 
-  docker:
-    if: inputs.docker
+  # Contrôle requis `checks / e2e` : vert seulement si scope et les deux tranches ont réussi,
+  # sauté (donc compté réussi) pour de la documentation seule.
+  e2e:
+    needs: [scope, e2e-shard]
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Résultat des tranches
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          SHARDS_RESULT: ${{ needs.e2e-shard.result }}
+        run: |
+          echo "scope : $SCOPE_RESULT ; e2e-shard : $SHARDS_RESULT"
+          [ "$SCOPE_RESULT" = "success" ] && [ "$SHARDS_RESULT" = "success" ]
+
+  docker:
+    needs: scope
+    if: ${{ !cancelled() && inputs.docker && needs.scope.outputs.code != 'false' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build de l'image (sans push)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        env:
+          # Pas d'artefact *.dockerbuild gardé 90 jours ; le résumé de build reste.
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           load: true
