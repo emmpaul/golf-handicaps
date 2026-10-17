@@ -1,4 +1,4 @@
-# main : mêmes contrôles que les PR, puis release-please (PR de release, CHANGELOG.md, tag vX.Y.Z).
+# main : contrôles des PR plus build Docker et test de fumée compose, puis release-please (PR de release, CHANGELOG.md, tag vX.Y.Z).
 # Seulement quand une release est créée : image multi-arch publiée sur GHCR
 # (ghcr.io/<owner>/golf-handicaps:{vX.Y.Z,latest,sha}). Déploiement manuel dans Dokploy (design, décision 7).
 name: main
@@ -22,6 +22,7 @@ jobs:
       # Premier push d'une branche : `before` vaut 000…0, on ne vérifie que le dernier commit.
       commit-from: ${{ github.event.before != '0000000000000000000000000000000000000000' && github.event.before || '' }}
       commit-to: ${{ github.sha }}
+      docker: true
 
   release-please:
     needs: checks
