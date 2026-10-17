@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { CameraIcon } from "lucide-react";
+import { type ChangeEvent, useEffect, useState } from "react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
+import { buttonVariants } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import type { Corners } from "@/ocr/corners";
 import { INITIAL_CORNERS } from "./corner-editor";
 import { CropSteps } from "./crop-steps";
@@ -48,6 +51,12 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
     }
   }
 
+  /** Passe le fichier reçu à `choose`, puis vide le champ pour pouvoir rechoisir le même. */
+  function pickFrom(event: ChangeEvent<HTMLInputElement>) {
+    void choose(event.currentTarget.files?.[0]);
+    event.currentTarget.value = "";
+  }
+
   async function launch(photo: Photo, corners: Corners) {
     if (await enqueue(photo.blob, corners)) {
       setStep({ kind: "pick" });
@@ -60,17 +69,26 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Field>
-        <FieldLabel htmlFor="photo">Photo de la carte</FieldLabel>
-        <Input
-          id="photo"
+      {/* Pointeur grossier (téléphone, tablette) : ouvre directement l'appareil photo arrière. */}
+      <label
+        className={cn(
+          buttonVariants({ size: "lg" }),
+          "hidden h-11 cursor-pointer focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 pointer-coarse:inline-flex",
+        )}
+      >
+        <CameraIcon aria-hidden="true" />
+        Prendre une photo
+        <input
           type="file"
           accept="image/*"
-          onChange={(event) => {
-            void choose(event.currentTarget.files?.[0]);
-            event.currentTarget.value = "";
-          }}
+          capture="environment"
+          className="sr-only"
+          onChange={pickFrom}
         />
+      </label>
+      <Field>
+        <FieldLabel htmlFor="photo">Photo de la carte</FieldLabel>
+        <Input id="photo" type="file" accept="image/*" onChange={pickFrom} />
         <FieldDescription>Photo de l'écran de fin de round, prise au téléphone.</FieldDescription>
       </Field>
       {message ? (
