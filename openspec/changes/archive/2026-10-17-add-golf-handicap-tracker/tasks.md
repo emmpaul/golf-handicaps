@@ -86,8 +86,8 @@ Règle pour tout le change : TDD. Chaque tâche qui touche du code de production
 
 ## 10. Vérifications d'intégration
 
-- [ ] 10.1 Ouvrir `IMG_3064.DNG` depuis Safari iOS et macOS dans l'app déployée. Noter si le DNG se décode, ou si le message JPEG apparaît, et le consigner dans le README.
-- [ ] 10.2 Déployer sur Dokploy (web + worker), importer une vraie nouvelle photo de round à 3 joueurs, la corriger si besoin et l'enregistrer. Vérifier les index et les coups à donner affichés.
+- [x] 10.1 Ouvrir `IMG_3064.DNG` depuis Safari iOS et macOS dans l'app déployée. Noter si le DNG se décode, ou si le message JPEG apparaît, et le consigner dans le README.
+- [x] 10.2 Déployer sur Dokploy (web + worker), importer une vraie nouvelle photo de round à 3 joueurs, la corriger si besoin et l'enregistrer. Vérifier les index et les coups à donner affichés.
 
 ## Workflow follow-up
 
