@@ -9,9 +9,18 @@ import { CropSteps } from "./crop-steps";
 
 /**
  * Recadrage d'un import en échec sur sa photo enregistrée, à partir de ses anciens coins,
- * puis retour à la liste des imports.
+ * puis retour à la liste des imports. Avec une correction enregistrée (`hasCorrection`),
+ * prévient que la nouvelle lecture la remplacera.
  */
-export function RecropImport({ id, corners }: { id: number; corners: Corners | null }) {
+export function RecropImport({
+  id,
+  corners,
+  hasCorrection,
+}: {
+  id: number;
+  corners: Corners | null;
+  hasCorrection: boolean;
+}) {
   const router = useRouter();
   const [failed, setFailed] = useState(false);
 
@@ -29,6 +38,11 @@ export function RecropImport({ id, corners }: { id: number; corners: Corners | n
       {failed ? (
         <Alert variant="destructive">
           <AlertTitle>L'envoi a échoué, réessaie.</AlertTitle>
+        </Alert>
+      ) : null}
+      {hasCorrection ? (
+        <Alert>
+          <AlertTitle>Recadrer relance la lecture et remplace tes corrections</AlertTitle>
         </Alert>
       ) : null}
       <CropSteps

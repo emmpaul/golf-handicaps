@@ -95,6 +95,16 @@ describe("migrations", () => {
     ]);
   });
 
+  it("ajoute à imports la correction enregistrée, nulle par défaut", () => {
+    testDb = createTestDb();
+    const columns = testDb.sqlite
+      .prepare(
+        "SELECT name, type, \"notnull\", dflt_value AS dflt FROM pragma_table_info('imports') WHERE name = 'correction'",
+      )
+      .all();
+    expect(columns).toEqual([{ name: "correction", type: "TEXT", notnull: 0, dflt: null }]);
+  });
+
   it("crée ai_usage avec les colonnes du design (décision 6)", () => {
     testDb = createTestDb();
     const columns = testDb.sqlite
@@ -121,12 +131,13 @@ describe("migration d'une base existante", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  /** Dossier de migrations réduit à 0000_init, l'état d'une base livrée avant ce change. */
-  function initOnlyMigrations(): string {
-    const folder = join(dir, "drizzle-0000");
+  /** Dossier de migrations arrêté à `lastTag`, l'état d'une base livrée à ce moment-là. */
+  function migrationsUntil(lastTag: string): string {
+    const folder = join(dir, `drizzle-${lastTag}`);
     cpSync(join(process.cwd(), "drizzle"), folder, { recursive: true });
-    const first = { ...journal, entries: journal.entries.filter((e) => e.tag === "0000_init") };
-    writeFileSync(join(folder, "meta", "_journal.json"), JSON.stringify(first));
+    const last = journal.entries.findIndex((e) => e.tag === lastTag);
+    const kept = { ...journal, entries: journal.entries.slice(0, last + 1) };
+    writeFileSync(join(folder, "meta", "_journal.json"), JSON.stringify(kept));
     return folder;
   }
 
@@ -134,7 +145,7 @@ describe("migration d'une base existante", () => {
     dir = mkdtempSync(join(tmpdir(), "golf-migrate-"));
     const opened = openDatabase(join(dir, "app.db"));
     sqlite = opened.sqlite;
-    migrateDatabase(opened.db, initOnlyMigrations());
+    migrateDatabase(opened.db, migrationsUntil("0000_init"));
     sqlite
       .prepare(
         "INSERT INTO imports (id, status, photo_path, corners, draft, created_at) VALUES (7, 'ready', 'imports/7.jpg', '{}', '{\"courseName\":\"BETHPAGE BLACK\"}', 0)",
@@ -157,6 +168,34 @@ describe("migration d'une base existante", () => {
         draft: '{"courseName":"BETHPAGE BLACK"}',
         aiCells: null,
         aiNote: null,
+      },
+    ]);
+  });
+
+  it("garde les imports d'une base migrée en 0001_ai_completion, sans correction", () => {
+    dir = mkdtempSync(join(tmpdir(), "golf-migrate-"));
+    const opened = openDatabase(join(dir, "app.db"));
+    sqlite = opened.sqlite;
+    migrateDatabase(opened.db, migrationsUntil("0001_ai_completion"));
+    sqlite
+      .prepare(
+        "INSERT INTO imports (id, status, photo_path, corners, draft, ai_cells, created_at) VALUES (7, 'ready', 'imports/7.jpg', '{}', '{\"courseName\":\"BETHPAGE BLACK\"}', '[\"player0:9\"]', 0)",
+      )
+      .run();
+
+    migrateDatabase(opened.db);
+
+    expect(
+      sqlite
+        .prepare("SELECT id, status, draft, ai_cells AS aiCells, correction FROM imports")
+        .all(),
+    ).toEqual([
+      {
+        id: 7,
+        status: "ready",
+        draft: '{"courseName":"BETHPAGE BLACK"}',
+        aiCells: '["player0:9"]',
+        correction: null,
       },
     ]);
   });
