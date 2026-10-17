@@ -33,10 +33,11 @@ const COLUMNS: GridColumn[] = [
 export const AI_DESCRIPTION = "complété par l'IA";
 
 /**
- * Fond teinté d'une case remplie par l'IA. La variante sombre l'emporte aussi sur le fond
- * sombre propre au composant `Input`.
+ * Fond teinté d'une case remplie par l'IA, dans la teinte `--ai` (bleu-violet), pour ne pas
+ * se confondre avec le gris des cases en lecture seule. La variante sombre l'emporte aussi
+ * sur le fond sombre propre au composant `Input`.
  */
-export const AI_CELL_CLASS = "bg-primary/10 dark:bg-primary/20";
+export const AI_CELL_CLASS = "bg-ai/15 dark:bg-ai/25";
 
 /** Pastille d'une case remplie par l'IA, dans un parent `relative`. */
 export function AiMark() {
@@ -44,7 +45,7 @@ export function AiMark() {
     <span
       aria-hidden
       data-testid="ai-mark"
-      className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-primary"
+      className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full bg-ai"
     />
   );
 }

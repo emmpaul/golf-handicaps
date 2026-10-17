@@ -16,6 +16,25 @@ const marks = (page: Page) => page.getByTestId("ai-mark");
 const background = (field: Locator) =>
   field.evaluate((element) => getComputedStyle(element).backgroundColor);
 
+/** Fond du champ posé sur du blanc, en [r, g, b] 0-255, tel que l'œil le voit. */
+const shownRgb = (field: Locator) =>
+  field.evaluate((element) => {
+    const context = document.createElement("canvas").getContext("2d");
+    if (!context) throw new Error("Canvas 2D indisponible");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, 1, 1);
+    context.fillStyle = getComputedStyle(element).backgroundColor;
+    context.fillRect(0, 0, 1, 1);
+    const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
+    return [r, g, b];
+  });
+
+/** Teinte IA bleu-violet : le bleu dépasse le rouge et le vert d'au moins 10 sur 255. */
+async function expectAiTint(field: Locator) {
+  const [r, g, b] = await shownRgb(field);
+  expect(b - Math.max(r, g)).toBeGreaterThanOrEqual(10);
+}
+
 test("la case remplie par l'IA porte la marque visible et la description, elle seule", async ({
   page,
 }) => {
@@ -26,6 +45,20 @@ test("la case remplie par l'IA porte la marque visible et la description, elle s
   await expect(marks(page)).toHaveCount(1);
   await expect(page.getByRole("cell").filter({ has: gab9 }).getByTestId("ai-mark")).toBeVisible();
   expect(await background(gab9)).not.toBe(await background(cell(page, "Ligne 1", 8)));
+});
+
+test("la case remplie par l'IA a un fond bleuté, distinct du gris des cases en lecture seule", async ({
+  page,
+}) => {
+  await openAiImport(page, ["player0:9"]);
+  const gab9 = cell(page, "Ligne 1", 9);
+  await expectAiTint(gab9);
+  expect(await background(gab9)).not.toBe(await background(cell(page, "Ligne 1", "OUT")));
+});
+
+test("le champ Tees rempli par l'IA a le même fond bleuté", async ({ page }) => {
+  await openAiImport(page, ["tees"]);
+  await expectAiTint(page.getByLabel("Tees"));
 });
 
 test("la note de l'IA s'affiche au-dessus de la grille", async ({ page }) => {
