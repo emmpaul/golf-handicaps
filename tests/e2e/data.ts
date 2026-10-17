@@ -37,17 +37,44 @@ function withDb<T>(use: (db: Db, sqlite: Connection["sqlite"]) => T): T {
   }
 }
 
+/** Délai maximal d'attente de la fin du job que le worker exécute (lecture locale de la carte). */
+const RUNNING_JOB_DEADLINE_MS = 30_000;
+const RUNNING_JOB_POLL_MS = 100;
+
+/**
+ * Vide les tables si le worker n'exécute aucun job ; renvoie `false` sinon. Transaction
+ * `IMMEDIATE` : le worker ne peut pas réserver un job entre la vérification et l'effacement.
+ */
+function wipeUnlessJobRunning(db: Db, sqlite: Connection["sqlite"]): boolean {
+  prepareDatabase(db);
+  return sqlite
+    .transaction(() => {
+      const running = sqlite.prepare("SELECT 1 FROM jobs WHERE status = 'running'").get();
+      if (running) return false;
+      for (const table of TABLES) sqlite.prepare(`DELETE FROM ${table}`).run();
+      sqlite.prepare("DELETE FROM sqlite_sequence").run();
+      return true;
+    })
+    .immediate();
+}
+
 /**
  * Remet la base du serveur e2e dans l'état d'un premier démarrage : aucun round, aucun
  * import, les joueurs initiaux Gab, Manu et Sean. Appelée avant chaque test.
+ *
+ * Attend d'abord la fin du job que le worker exécute peut-être pour le test précédent : sinon
+ * il finit après l'effacement et écrit son état (« Prêt à vérifier ») sur l'import du test
+ * suivant, qui reprend le même id.
  */
-export function resetData(): Record<"Gab" | "Manu" | "Sean", number> {
-  return withDb((db, sqlite) => {
-    prepareDatabase(db);
-    sqlite.transaction(() => {
-      for (const table of TABLES) sqlite.prepare(`DELETE FROM ${table}`).run();
-      sqlite.prepare("DELETE FROM sqlite_sequence").run();
-    })();
+export async function resetData(): Promise<Record<"Gab" | "Manu" | "Sean", number>> {
+  const deadline = Date.now() + RUNNING_JOB_DEADLINE_MS;
+  while (!withDb(wipeUnlessJobRunning)) {
+    if (Date.now() > deadline) {
+      throw new Error(`Job du worker toujours en cours après ${RUNNING_JOB_DEADLINE_MS} ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, RUNNING_JOB_POLL_MS));
+  }
+  return withDb((db) => {
     prepareDatabase(db);
     return Object.fromEntries(listPlayers(db).map(({ id, name }) => [name, id])) as Record<
       "Gab" | "Manu" | "Sean",

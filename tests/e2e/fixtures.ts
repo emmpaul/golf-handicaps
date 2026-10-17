@@ -11,7 +11,7 @@ type PlayerIds = Record<"Gab" | "Manu" | "Sean", number>;
 export const test = base.extend<{ players: PlayerIds }>({
   players: [
     async ({ context, baseURL }, use) => {
-      const ids = resetData();
+      const ids = await resetData();
       await authenticate(context, baseURL);
       await use(ids);
     },
