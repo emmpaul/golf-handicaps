@@ -17,7 +17,11 @@ export default async function RecropPage({ params }: PageProps<"/imports/[id]/re
   return (
     <>
       <PageTitle>Recadrer la photo</PageTitle>
-      <RecropImport id={row.id} corners={parseCorners(JSON.stringify(row.corners))} />
+      <RecropImport
+        id={row.id}
+        corners={parseCorners(JSON.stringify(row.corners))}
+        hasCorrection={row.correction !== null}
+      />
     </>
   );
 }

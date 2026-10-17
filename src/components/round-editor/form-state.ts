@@ -1,8 +1,9 @@
-import type { RoundForm, RoundFormRow } from "@/scorecard/checks";
+import { MAX_PLAYERS, type RoundForm, type RoundFormRow } from "@/scorecard/checks";
 import type { DraftHoleRow, DraftValue } from "@/scorecard/draft";
+import type { SavedCorrection } from "@/scorecard/form-schema";
 
 export const HOLES = 18;
-export const MAX_LINES = 4;
+export const MAX_LINES = MAX_PLAYERS;
 
 /** Parcours connu (nom, tees) et ses valeurs de référence (spec `rounds`). */
 export type KnownCourse = {
@@ -102,6 +103,41 @@ export function readEditorState(
     readCardTotals: readTotals,
     lines: players.map((row) => newLine(row, readTotals)),
     aiCells: [...aiCells],
+  };
+}
+
+/** État de l'éditeur vers sa forme enregistrée : tout sauf la `key` des lignes, locale à l'onglet. */
+export function toSavedCorrection(state: EditorState): SavedCorrection {
+  return {
+    version: 1,
+    card: state.form,
+    readCardTotals: state.readCardTotals,
+    lines: state.lines.map(({ name, playerId, scores, readTotals }) => ({
+      name,
+      playerId,
+      scores,
+      readTotals,
+    })),
+    aiCells: state.aiCells,
+  };
+}
+
+/**
+ * Reprise d'une correction enregistrée : totaux gardés tels quels, nouvelles `key`. Un joueur
+ * absent de `players` redevient `null`, pour ne pas envoyer une clé étrangère invalide.
+ */
+export function restoreEditorState(
+  saved: SavedCorrection,
+  players: readonly PlayerOption[],
+): EditorState {
+  const known = (id: number | null) => players.some((player) => player.id === id);
+  return {
+    form: saved.card,
+    readCardTotals: saved.readCardTotals,
+    lines: saved.lines.map(({ readTotals, ...row }) =>
+      newLine({ ...row, playerId: known(row.playerId) ? row.playerId : null }, readTotals),
+    ),
+    aiCells: [...saved.aiCells],
   };
 }
 

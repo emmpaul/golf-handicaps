@@ -1,24 +1,14 @@
 import { z } from "zod";
 import type { Db } from "@/db/client";
 import type { RoundForm } from "@/scorecard/checks";
+import { cardSchema, holeRow, value } from "@/scorecard/form-schema";
 import { findDuplicateRound } from "./courses";
 import { deleteRound, RoundNotFoundError, updateRound } from "./edit";
 import { assertCoherent, ImportNotFoundError, RoundCheckError, saveRound } from "./save";
 
 export const DUPLICATE_ROUND = "Ce round semble déjà enregistré";
 
-const value = z.number().int().nullable();
-const holeRow = z.object({ holes: z.array(value).length(18), out: value, in: value, total: value });
-const formSchema = z.object({
-  courseName: z.string().nullable(),
-  tees: z.string().nullable(),
-  playedOn: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable(),
-  par: holeRow,
-  strokeIndex: z.array(value).length(18),
-  distance: holeRow,
+const formSchema = cardSchema.extend({
   players: z.array(z.object({ name: z.string().nullable(), playerId: value, scores: holeRow })),
 }) satisfies z.ZodType<RoundForm>;
 

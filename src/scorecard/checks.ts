@@ -13,7 +13,7 @@ export type RoundForm = Omit<ScorecardDraft, "players"> & { players: RoundFormRo
  */
 export type Problem = { message: string; cells: string[] };
 
-const MAX_PLAYERS = 4;
+export const MAX_PLAYERS = 4;
 const EMPTY = "Case vide";
 
 type Range = { min: number; max: number; label: string };

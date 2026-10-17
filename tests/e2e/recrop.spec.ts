@@ -33,3 +33,24 @@ test("un import en échec se recadre sur sa photo, repasse en attente puis est l
   });
   await expect(item.getByRole("link", { name: "Vérifier" })).toBeVisible();
 });
+
+const WARNING = "Recadrer relance la lecture et remplace tes corrections";
+
+test("le recadrage d'un import corrigé prévient qu'il remplace les corrections", async ({
+  page,
+}) => {
+  const id = seedFailedImport({
+    version: 1,
+    card: { courseName: "BETHPAGE BLACK", playedOn: "2026-10-13" },
+  });
+  await page.goto(`/imports/${id}/recadrer`);
+  await expect(page.getByRole("img", { name: "Carte à cadrer" })).toBeVisible();
+  await expect(page.getByText(WARNING)).toBeVisible();
+});
+
+test("le recadrage d'un import sans correction n'affiche pas l'avertissement", async ({ page }) => {
+  const id = seedFailedImport();
+  await page.goto(`/imports/${id}/recadrer`);
+  await expect(page.getByRole("img", { name: "Carte à cadrer" })).toBeVisible();
+  await expect(page.getByText(WARNING)).toHaveCount(0);
+});

@@ -96,6 +96,17 @@ describe("recropImport", () => {
     ]);
   });
 
+  it("efface la correction enregistrée : la nouvelle lecture repart de zéro", () => {
+    const id = failedImport();
+    testDb()
+      .sqlite.prepare("UPDATE imports SET correction = ? WHERE id = ?")
+      .run(JSON.stringify({ version: 1, card: { playedOn: "2026-10-13" } }), id);
+    expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("queued");
+    expect(testDb().sqlite.prepare("SELECT status, correction FROM imports").all()).toEqual([
+      { status: "queued", correction: null },
+    ]);
+  });
+
   it("refuse de recadrer un import qui n'est pas en échec, sans rien changer", () => {
     const { id } = upload();
     expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("not-failed");
