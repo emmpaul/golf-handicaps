@@ -12,9 +12,8 @@ import sharp from "sharp";
 import type { Corners } from "../src/ocr/corners";
 import { detectPlayerRows, type GridCell, gridCells } from "../src/ocr/grid";
 import type { GrayImage } from "../src/ocr/image";
-import { readScorecardPanel } from "../src/ocr/read-scorecard";
+import { readScorecard } from "../src/ocr/read-scorecard";
 import { createDefaultCellReader } from "../src/ocr/readers";
-import { rectifyPanel } from "../src/ocr/rectify";
 
 const TILE_WIDTH = 290;
 const TILE_HEIGHT = 200;
@@ -84,11 +83,10 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const corners = JSON.parse(readFileSync(cornersPath, "utf8")) as Corners;
-  const panel = await rectifyPanel(readFileSync(photoPath), corners);
   const reader = createDefaultCellReader();
+  const { draft, panel } = await readScorecard(readFileSync(photoPath), corners, reader);
   const cells = gridCells(panel, detectPlayerRows(panel));
   const values = await Promise.all(cells.map((cell) => reader.read(cell.image)));
-  const draft = await readScorecardPanel(panel, reader);
 
   const out = mkdtempSync(join(tmpdir(), "ocr-debug-"));
   writeFileSync(join(out, "panel.png"), await toPng(panel));
