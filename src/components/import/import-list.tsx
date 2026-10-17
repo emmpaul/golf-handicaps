@@ -1,0 +1,102 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import type { ImportListItem } from "@/server/imports/list";
+
+/** L'UI interroge l'état des imports toutes les 2 s tant que l'un d'eux attend (décision 4). */
+export const POLL_INTERVAL_MS = 2000;
+
+const isPending = (item: ImportListItem) => item.status === "queued" || item.status === "reading";
+
+/** Recharge la liste une fois, ou toutes les 2 s ; renvoie la fonction d'arrêt. */
+function keepLoading(apply: (items: ImportListItem[]) => void, { repeat }: { repeat: boolean }) {
+  let stopped = false;
+  async function load() {
+    const response = await fetch("/api/imports", { cache: "no-store" });
+    if (response.ok && !stopped) apply(await response.json());
+  }
+  const timer = repeat ? setInterval(() => void load(), POLL_INTERVAL_MS) : undefined;
+  if (!repeat) void load();
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
+
+const time = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
+
+function ImportAction({ item }: { item: ImportListItem }) {
+  if (item.roundId !== null) return <Link href={`/rounds/${item.roundId}`}>Voir le round</Link>;
+  if (item.status === "ready") return <Link href={`/imports/${item.id}`}>Vérifier</Link>;
+  if (item.status === "failed") {
+    return (
+      <span className="flex flex-wrap gap-x-3">
+        <Link href={`/imports/${item.id}/recadrer`}>Recadrer la photo</Link>
+        <Link href={`/imports/${item.id}`}>Ouvrir l'écran de correction vide</Link>
+      </span>
+    );
+  }
+  return null;
+}
+
+/**
+ * Liste des imports avec leur état. `refreshKey` change quand un import vient d'être mis
+ * en file : la liste se recharge tout de suite, puis toutes les 2 s tant qu'un import attend.
+ */
+export function ImportList({
+  initial,
+  refreshKey = 0,
+}: {
+  initial: ImportListItem[];
+  refreshKey?: number;
+}) {
+  const [items, setItems] = useState(initial);
+  const pending = items.some(isPending);
+
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    return keepLoading(setItems, { repeat: false });
+  }, [refreshKey]);
+
+  useEffect(() => {
+    if (!pending) return;
+    return keepLoading(setItems, { repeat: true });
+  }, [pending]);
+
+  if (items.length === 0) return null;
+  return (
+    <section aria-labelledby="imports-title" className="flex flex-col gap-3">
+      <h2 id="imports-title" className="font-heading text-lg font-semibold">
+        Imports
+      </h2>
+      <ul aria-labelledby="imports-title" className="flex flex-col gap-2">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border p-3 text-sm"
+          >
+            <h3 className="font-medium">Import n°{item.id}</h3>
+            <time
+              dateTime={item.createdAt}
+              className="text-muted-foreground"
+              suppressHydrationWarning
+            >
+              {time.format(new Date(item.createdAt))}
+            </time>
+            <Badge
+              data-testid="import-status"
+              variant={item.status === "failed" ? "destructive" : "secondary"}
+            >
+              {item.label}
+            </Badge>
+            <span className="ml-auto underline underline-offset-3">
+              <ImportAction item={item} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

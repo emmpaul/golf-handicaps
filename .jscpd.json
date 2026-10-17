@@ -1,0 +1,17 @@
+{
+  "threshold": 0,
+  "minTokens": 50,
+  "path": ["src", "tests"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/migrations/**",
+    "**/drizzle/**",
+    "src/components/ui/**",
+    "src/app/globals.css",
+    "tests/fixtures/**"
+  ],
+  "format": ["typescript", "tsx", "javascript", "css"],
+  "reporters": ["console"],
+  "absolute": false,
+  "gitignore": true
+}

@@ -1,0 +1,38 @@
+# Reproduit la prod en local (design, décisions 7 et 9) : une image, deux services, un volume.
+#   cp .env.example .env   # puis renseigner APP_PASSCODE et SESSION_SECRET
+#   docker compose up --build --wait
+# La CI s'en sert aussi pour le test de fumée de l'image (pnpm e2e:compose).
+name: golf-handicaps
+
+x-app: &app
+  build: .
+  image: ${GOLF_IMAGE:-golf-handicaps:local}
+  env_file: ${GOLF_ENV_FILE:-.env}
+  environment:
+    DATA_DIR: /data
+  volumes:
+    - golf-data:/data
+  restart: unless-stopped
+
+services:
+  web:
+    <<: *app
+    ports:
+      - "${GOLF_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/login').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  worker:
+    <<: *app
+    command: ["node", "worker.js"]
+
+volumes:
+  golf-data:

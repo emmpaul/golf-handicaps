@@ -35,6 +35,6 @@ Aucune, le projet ne contient encore aucune spec.
 
 - Nouveau code : app Next.js (TypeScript) complète, repo vide aujourd'hui (seulement le scaffold OpenSpec).
 - Dépendances : Next.js, Drizzle ORM, better-sqlite3, sharp (redressement et préparation des cases), Tesseract natif dans l'image Docker, une librairie de graphiques, Vitest et Playwright, jscpd, commitlint.
-- Infrastructure : une image Docker avec deux commandes (app web et worker de jobs). Workflow GitHub Actions : lint, tests, jscpd à 0 %, commitlint, puis build et push sur `ghcr.io`, puis webhook de redéploiement Dokploy. Deux services Dokploy partagent le volume persistant `/data`. Variables d'environnement `APP_PASSCODE` et `SESSION_SECRET`.
+- Infrastructure : une image Docker avec deux commandes (app web et worker de jobs). Workflow GitHub Actions : lint, tests, jscpd à 0 %, commitlint, puis release-please (PR de release, `CHANGELOG.md`, tags `vX.Y.Z`). À chaque release seulement : build multi-arch et push sur `ghcr.io` (`vX.Y.Z`, `latest`, `sha`). Déploiement manuel dans Dokploy en choisissant le tag. Deux services Dokploy partagent le volume persistant `/data`. Variables d'environnement `APP_PASSCODE` et `SESSION_SECRET`.
 - Façon de travailler : TDD pour tout le code de production, aucune duplication tolérée (jscpd 0 %), messages de commit au format Conventional Commits vérifiés par commitlint.
 - Aucun service externe payant : pas de clé d'API d'IA.
