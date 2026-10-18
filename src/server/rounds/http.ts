@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Db } from "@/db/client";
+import { removeUnreferencedPhoto } from "@/jobs/imports";
 import type { RoundForm } from "@/scorecard/checks";
 import { cardSchema, holeRow, value } from "@/scorecard/form-schema";
 import { findDuplicateRound } from "./courses";
@@ -80,12 +81,18 @@ export function putRound(db: Db, id: string, raw: unknown): Response {
   });
 }
 
-/** `DELETE /api/rounds/:id` : suppression confirmée côté UI, index recalculés. */
-export function deleteRoundRequest(db: Db, id: string): Response {
+/**
+ * `DELETE /api/rounds/:id` : suppression confirmée côté UI, index recalculés. La photo d'un round
+ * importé est effacée après la transaction, si plus rien ne la porte (design, décision 3).
+ */
+export async function deleteRoundRequest(db: Db, dataDir: string, id: string): Promise<Response> {
   const roundId = parseRoundId(id);
   if (roundId === null) return notFound();
-  return handle(() => {
-    deleteRound(db, roundId);
+  let photoPath: string | null = null;
+  const response = handle(() => {
+    photoPath = deleteRound(db, roundId).photoPath;
     return new Response(null, { status: 204 });
   });
+  if (photoPath !== null) await removeUnreferencedPhoto(db, dataDir, photoPath);
+  return response;
 }

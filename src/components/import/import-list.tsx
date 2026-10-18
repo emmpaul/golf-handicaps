@@ -7,6 +7,7 @@ import { orbForImport, PendingOrb } from "@/components/ui/pending";
 import { formatDateTime } from "@/lib/format";
 import { ACTION_LINK } from "@/lib/utils";
 import type { ImportListItem } from "@/server/imports/list";
+import { DeleteImport } from "./delete-import";
 
 /** L'UI interroge l'état des imports toutes les 2 s tant que l'un d'eux attend (décision 4). */
 export const POLL_INTERVAL_MS = 2000;
@@ -42,7 +43,7 @@ function RecropLink({ id }: { id: number }) {
   );
 }
 
-function ImportAction({ item }: { item: ImportListItem }) {
+function ImportAction({ item, reload }: { item: ImportListItem; reload: () => void }) {
   if (item.roundId !== null) {
     return (
       <Link href={`/rounds/${item.roundId}`} className={ACTION_LINK}>
@@ -50,33 +51,36 @@ function ImportAction({ item }: { item: ImportListItem }) {
       </Link>
     );
   }
-  // Sans round, un import lu ou en échec se recadre (spec « Nouvelle lecture après recadrage »).
-  if (item.status === "ready") {
-    return (
-      <span className="flex flex-wrap gap-x-3">
-        <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
-          Vérifier
-        </Link>
-        <RecropLink id={item.id} />
-      </span>
-    );
-  }
-  if (item.status === "failed") {
-    return (
-      <span className="flex flex-wrap gap-x-3">
-        <RecropLink id={item.id} />
-        <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
-          Ouvrir l'écran de correction vide
-        </Link>
-      </span>
-    );
-  }
-  return null;
+  // Une lecture en cours ne se supprime pas (spec « Suppression d'un import »).
+  if (item.status === "reading") return null;
+  return (
+    <span className="flex flex-wrap items-center gap-x-3">
+      {/* Sans round, un import lu ou en échec se recadre (spec « Nouvelle lecture après recadrage »). */}
+      {item.status === "ready" ? (
+        <>
+          <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
+            Vérifier
+          </Link>
+          <RecropLink id={item.id} />
+        </>
+      ) : null}
+      {item.status === "failed" ? (
+        <>
+          <RecropLink id={item.id} />
+          <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
+            Ouvrir l'écran de correction vide
+          </Link>
+        </>
+      ) : null}
+      <DeleteImport importId={item.id} onDone={reload} />
+    </span>
+  );
 }
 
 /**
  * Liste des imports avec leur état. `refreshKey` change quand un import vient d'être mis
- * en file : la liste se recharge tout de suite, puis toutes les 2 s tant qu'un import attend.
+ * en file, et `deletions` après une demande de suppression : la liste se recharge tout de
+ * suite, puis toutes les 2 s tant qu'un import attend.
  */
 export function ImportList({
   initial,
@@ -86,12 +90,13 @@ export function ImportList({
   refreshKey?: number;
 }) {
   const [items, setItems] = useState(initial);
+  const [deletions, setDeletions] = useState(0);
   const pending = items.some(isPending);
 
   useEffect(() => {
-    if (refreshKey === 0) return;
+    if (refreshKey === 0 && deletions === 0) return;
     return keepLoading(setItems, { repeat: false });
-  }, [refreshKey]);
+  }, [refreshKey, deletions]);
 
   useEffect(() => {
     if (!pending) return;
@@ -129,7 +134,7 @@ export function ImportList({
                 {item.label}
               </Badge>
               <span className="ml-auto min-w-0">
-                <ImportAction item={item} />
+                <ImportAction item={item} reload={() => setDeletions((count) => count + 1)} />
               </span>
             </span>
             {/* Ligne à part, sous le badge : la raison de l'échec quand aucun cadrage n'est trouvé. */}

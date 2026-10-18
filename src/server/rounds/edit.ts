@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { players, roundHoles, roundPlayers, rounds, scores } from "@/db/schema";
+import { imports, players, roundHoles, roundPlayers, rounds, scores } from "@/db/schema";
 import { type RoundForm, withTotals } from "@/scorecard/checks";
 import { assertCoherent, formPlayerIds, roundColumns, writeRoundCard } from "./save";
 import { recomputeStats, type Tx } from "./stats";
@@ -84,12 +84,18 @@ export function updateRound(db: Db, roundId: number, form: RoundForm) {
   });
 }
 
-/** Supprime un round (ses lignes suivent en cascade) et recalcule les index de ses joueurs. */
-export function deleteRound(db: Db, roundId: number) {
-  db.transaction((tx) => {
-    findRound(tx, roundId);
+/**
+ * Supprime un round (ses lignes suivent en cascade) et son import s'il vient d'une photo, puis
+ * recalcule les index de ses joueurs (design, décision 4). Renvoie la photo du round, à effacer
+ * après le commit avec `removeUnreferencedPhoto`.
+ */
+export function deleteRound(db: Db, roundId: number): { photoPath: string | null } {
+  return db.transaction((tx) => {
+    const { photoPath } = findRound(tx, roundId);
     const previous = playerIdsOf(tx, roundId);
+    tx.delete(imports).where(eq(imports.roundId, roundId)).run();
     tx.delete(rounds).where(eq(rounds.id, roundId)).run();
     recomputeStats(tx, previous);
+    return { photoPath };
   });
 }

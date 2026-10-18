@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { z } from "zod";
 import type { Db } from "@/db/client";
-import { type importStatuses, imports } from "@/db/schema";
+import { type importStatuses, imports, jobs, rounds } from "@/db/schema";
 import type { Corners } from "@/ocr/corners";
 import type { ScorecardDraft } from "@/scorecard/draft";
 import { enqueueJob } from "./queue";
@@ -133,6 +134,44 @@ export function recropImport(db: Db, id: number, corners: Corners, now: Date): R
   });
 }
 
+/** Raison du refus d'une suppression, traduite en HTTP par la route. */
+export type DeleteImportRefusal = "not-found" | "reading" | "already-saved";
+
+export type DeleteImportResult =
+  | { result: "deleted"; photoPath: string }
+  | { result: DeleteImportRefusal };
+
+/**
+ * Supprime un import pas encore enregistré en round, et son job `ocr-scorecard` encore en file,
+ * dans une transaction (design, décision 1). Un import enregistré en round, puis un import en
+ * lecture, sont refusés. Un job déjà réservé (`running`) reste : il échoue sur « Import
+ * introuvable » sans effet (design, décision 2). Renvoie le chemin de la photo, à effacer après
+ * le commit avec `removeUnreferencedPhoto`.
+ */
+export function deleteImport(db: Db, id: number): DeleteImportResult {
+  return db.transaction((tx) => {
+    const row = tx
+      .select({ status: imports.status, roundId: imports.roundId, photoPath: imports.photoPath })
+      .from(imports)
+      .where(eq(imports.id, id))
+      .get();
+    if (!row) return { result: "not-found" };
+    if (row.roundId !== null) return { result: "already-saved" };
+    if (row.status === "reading") return { result: "reading" };
+    tx.delete(jobs)
+      .where(
+        and(
+          eq(jobs.type, OCR_SCORECARD_JOB),
+          eq(jobs.status, "queued"),
+          sql`json_extract(${jobs.payload}, '$.importId') = ${id}`,
+        ),
+      )
+      .run();
+    tx.delete(imports).where(eq(imports.id, id)).run();
+    return { result: "deleted", photoPath: row.photoPath };
+  });
+}
+
 export function getImportStatus(
   db: Db,
   id: number,
@@ -149,4 +188,21 @@ export function getImportStatus(
     label: importStatusLabel(row.status),
     draft: (row.draft as ScorecardDraft | null) ?? null,
   };
+}
+
+/**
+ * Efface la photo `photoPath` (relative à `dataDir`) si plus aucun import ni round ne la porte
+ * (design, décision 3). À appeler après le commit de la suppression, jamais dedans. Un `rm` qui
+ * échoue est ignoré : au pire la photo reste orpheline.
+ */
+export async function removeUnreferencedPhoto(
+  db: Db,
+  dataDir: string,
+  photoPath: string,
+): Promise<void> {
+  const carried =
+    db.select({ id: imports.id }).from(imports).where(eq(imports.photoPath, photoPath)).get() ??
+    db.select({ id: rounds.id }).from(rounds).where(eq(rounds.photoPath, photoPath)).get();
+  if (carried) return;
+  await rm(join(dataDir, photoPath), { force: true }).catch(() => undefined);
 }
