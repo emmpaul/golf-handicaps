@@ -19,7 +19,14 @@ test("l'écran de correction de la photo de référence est pré-rempli, photo v
   page,
 }) => {
   test.setTimeout(90_000);
-  await openReferenceCorrection(page);
+  const photoServed = page.waitForResponse((response) =>
+    /\/api\/imports\/\d+\/photo$/.test(response.url()),
+  );
+  const id = await openReferenceCorrection(page);
+  const photoResponse = await photoServed;
+  expect(new URL(photoResponse.url()).pathname).toBe(`/api/imports/${id}/photo`);
+  // Photo gardée en WebP sur le serveur (spec « Photo stockée en WebP »).
+  expect(photoResponse.headers()["content-type"]).toBe("image/webp");
   await expect(page.getByLabel("Parcours", { exact: true })).toHaveValue("BETHPAGE BLACK");
   await expect(page.getByLabel("Tees")).toHaveValue("Red");
   await expect(page.getByLabel("Date")).toHaveText("17 octobre 2026");
