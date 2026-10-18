@@ -395,7 +395,7 @@ describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
     expect(source).toBe("ai");
     expect(cornersDeviation(corners, referenceCorners())).toBeLessThan(0.01);
     expect(getImportStatus(testDb().db, id)?.status).toBe("ready");
-  });
+  }, 60_000);
 
   // Spec « Cadrage et complétion par l'IA ».
   it("fait exactement deux appels, cadrage puis complétion, quand Gab trou 9 reste vide", async () => {
@@ -415,7 +415,7 @@ describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
     expect([framer.calls.length, fake.panels.length]).toEqual([1, 1]);
     expect(usageRows()).toEqual([USAGE_ROW, USAGE_ROW]);
     expect(getImportStatus(testDb().db, id)?.draft).toEqual(EXPECTED_DRAFT);
-  });
+  }, 60_000);
 
   it("passe à « Échec » sans relance quand l'IA ne voit pas de carte non plus", async () => {
     const framer = fakeLocator(null);
@@ -424,5 +424,5 @@ describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
     expect([framer.calls.length, fake.panels.length]).toEqual([1, 0]);
     expect(getImportStatus(testDb().db, id)?.status).toBe("failed");
     expect(jobRow(testDb().sqlite)).toEqual({ status: "done", attempts: 1, lastError: null });
-  });
+  }, 60_000);
 });

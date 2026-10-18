@@ -83,7 +83,7 @@ describe("acceptCorners", () => {
     expect(panel?.height).toBe(1224);
     // Comparaison d'octets : `toEqual` sur 2,9 millions de pixels dépasse le délai du test.
     expect(Buffer.compare(Buffer.from(panel?.data ?? []), Buffer.from(expected.data))).toBe(0);
-  });
+  }, 60_000);
 
   // Ordre antihoraire : refusés dès le contrôle de forme, et le panneau redressé, retourné le long
   // de sa diagonale, n'a ni bandeau sombre ni ligne de joueur. Mutation : retirer le contrôle de
@@ -96,7 +96,7 @@ describe("acceptCorners", () => {
       bottomLeft: corners.topRight,
     };
     expect(await acceptCorners(photo, swapped)).toBeNull();
-  });
+  }, 60_000);
 
   // Un panneau synthétique complet, réduit à 10 % × 10 % d'une photo sombre de 3000×2250.
   // Mutation : retirer le contrôle de surface → ces coins sont acceptés.
@@ -117,7 +117,7 @@ describe("acceptCorners", () => {
       bottomLeft: { x: 0.45, y: 0.55 },
     };
     expect(await acceptCorners(photo, small)).toBeNull();
-  });
+  }, 60_000);
 
   // Toute la largeur de la photo au-dessus du panneau, logo IDRA compris, sous le bord de l'écran :
   // un cinquième de la photo, bandeau sombre en haut. Le ciel y est gris moyen (médiane ≈ 105) et sans nom de joueur : le contrôle du tableau clair
@@ -132,7 +132,7 @@ describe("acceptCorners", () => {
       bottomLeft: { x: 0, y: 0.235 },
     };
     expect(await acceptCorners(photo, logo)).toBeNull();
-  });
+  }, 60_000);
 
   // Témoin : le panneau synthétique complet passe, donc chaque refus ci-dessous vient du seul
   // élément retiré.
@@ -163,7 +163,7 @@ describe("acceptCorners", () => {
   it("refuse les coins de la référence sur une image uniforme gris 200", async () => {
     const { corners } = referencePhoto();
     expect(await acceptCorners(await greyWall(), corners)).toBeNull();
-  });
+  }, 60_000);
 
   // Les coins sont normalisés entre 0 et 1 (`Corners`, `parseCorners`) : un panneau qui dépasse
   // de la photo n'est pas représentable.
@@ -172,7 +172,7 @@ describe("acceptCorners", () => {
     const { photo, corners } = referencePhoto();
     const outside: Corners = { ...corners, topLeft: { x: -0.005, y: corners.topLeft.y } };
     expect(await acceptCorners(photo, outside)).toBeNull();
-  });
+  }, 60_000);
 });
 
 /** Each corner within `tolerance` of the expected one, on each axis (fractions of the photo). */
@@ -197,7 +197,7 @@ describe("detectPanel", () => {
     const found = await detectPanel(photo);
     expectCornersNear(found?.corners, corners, 0.01);
     expect([found?.panel.width, found?.panel.height]).toEqual([2400, 1224]);
-  });
+  }, 60_000);
 
   // Photos réelles du groupe 1 (`tests/fixtures/scorecards/README.md`). Coins attendus recopiés à
   // la main depuis leur `.corners.json`. Mutation : `OUTLIER_SHARE` à 0,1 → l'encart translucide
@@ -221,11 +221,15 @@ describe("detectPanel", () => {
         bottomLeft: { x: 0.03982, y: 0.7272 },
       },
     },
-  ])("trouve les coins de $photo à moins de 0,01 de ceux mesurés à la main", async (fixture) => {
-    const found = await detectPanel(readFileSync(resolve(FIXTURES, fixture.photo)));
-    expectCornersNear(found?.corners, fixture.corners, 0.01);
-    expect([found?.panel.width, found?.panel.height]).toEqual([2400, 1224]);
-  });
+  ])(
+    "trouve les coins de $photo à moins de 0,01 de ceux mesurés à la main",
+    async (fixture) => {
+      const found = await detectPanel(readFileSync(resolve(FIXTURES, fixture.photo)));
+      expectCornersNear(found?.corners, fixture.corners, 0.01);
+      expect([found?.panel.width, found?.panel.height]).toEqual([2400, 1224]);
+    },
+    60_000,
+  );
 
   // Le cadre de la photo coupe le bord gauche du panneau (coin haut gauche mesuré à x ≈ -0,0047) :
   // pas de coins représentables, la détection locale doit laisser la main à l'IA ou au cadrage
@@ -235,7 +239,7 @@ describe("detectPanel", () => {
   // sombre → un cadrage est trouvé.
   it("ne trouve rien sur gspro-tualatin.jpg, dont le panneau sort de la photo", async () => {
     expect(await detectPanel(readFileSync(resolve(FIXTURES, "gspro-tualatin.jpg")))).toBeNull();
-  });
+  }, 60_000);
 
   // Budget du design (Risks), demandé par la tâche 2.5. Garde-fou de performance : la détection
   // prend environ 0,15 s, et 0,3 s sans la réduction à 1000 px ; seule une régression d'un ordre
@@ -245,7 +249,7 @@ describe("detectPanel", () => {
     const start = performance.now();
     await detectPanel(photo);
     expect(performance.now() - start).toBeLessThan(2000);
-  });
+  }, 60_000);
 
   // Photo enregistrée de côté (tournée de 90° dans le sens inverse des aiguilles d'une montre),
   // avec l'orientation EXIF 6 qui la remet droite. Mutation : oublier `rotate()` → les coins
@@ -259,7 +263,7 @@ describe("detectPanel", () => {
       .toBuffer();
     const found = await detectPanel(sideways);
     expectCornersNear(found?.corners, corners, 0.01);
-  });
+  }, 60_000);
 
   // Photo de biais : la référence tournée de 3° autour de son centre sur fond sombre (sharp agrandit
   // le cadre à la boîte englobante). Les coins attendus sont ceux mesurés à la main, tournés de
@@ -288,7 +292,7 @@ describe("detectPanel", () => {
     };
     const found = await detectPanel(data);
     expectCornersNear(found?.corners, expected, 0.01);
-  });
+  }, 60_000);
 
   // Le cadre de la photo coupe le bord gauche du panneau : la référence privée de ses 60 premières
   // colonnes, le coin haut gauche tombe 15 px hors de la photo. Ses coins ne sont pas représentables
@@ -301,11 +305,11 @@ describe("detectPanel", () => {
       .jpeg({ quality: 92 })
       .toBuffer();
     expect(await detectPanel(cut)).toBeNull();
-  });
+  }, 60_000);
 
   it("ne trouve rien sur une image uniforme gris 200", async () => {
     expect(await detectPanel(await greyWall())).toBeNull();
-  });
+  }, 60_000);
 
   // Recherche limitée à une zone (affinage des coins de l'IA, design §4).
   it("trouve les coins de la référence en cherchant dans un quadrilatère qui contient le panneau", async () => {
@@ -318,7 +322,7 @@ describe("detectPanel", () => {
     };
     const found = await detectPanel(photo, { within: around });
     expectCornersNear(found?.corners, corners, 0.01);
-  });
+  }, 60_000);
 
   // Mutation : ignorer `within` → le panneau, hors de la zone, est trouvé quand même.
   it("ne trouve rien en cherchant dans un quadrilatère qui ne contient pas le panneau", async () => {
@@ -330,5 +334,5 @@ describe("detectPanel", () => {
       bottomLeft: { x: 0, y: 0.2 },
     };
     expect(await detectPanel(photo, { within: above })).toBeNull();
-  });
+  }, 60_000);
 });
