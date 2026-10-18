@@ -1,4 +1,10 @@
-import { AI_MAX_INPUT_TOKENS, AI_MAX_TOKENS, AI_MODEL } from "./model";
+import {
+  AI_MAX_INPUT_TOKENS,
+  AI_MAX_TOKENS,
+  AI_MODEL,
+  LOCATE_MAX_INPUT_TOKENS,
+  LOCATE_MAX_TOKENS,
+} from "./model";
 
 /** Tarifs en micro-dollars par token (= $ par million de tokens). */
 const PRICES = {
@@ -20,4 +26,10 @@ export function callCost(model: PricedModel, usage: TokenUsage): number {
 export const MAX_CALL_COST = callCost(AI_MODEL, {
   input_tokens: AI_MAX_INPUT_TOKENS,
   output_tokens: AI_MAX_TOKENS,
+});
+
+/** Coût du pire appel de cadrage, réservé avant de demander les coins (design, décision 4). */
+export const MAX_LOCATE_COST = callCost(AI_MODEL, {
+  input_tokens: LOCATE_MAX_INPUT_TOKENS,
+  output_tokens: LOCATE_MAX_TOKENS,
 });

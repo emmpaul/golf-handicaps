@@ -61,7 +61,7 @@ async function launchReading(page: Page) {
   await page.getByRole("button", { name: "Lancer la lecture" }).click();
 }
 
-test("l'envoi d'une photo cadrée affiche « Envoi de la photo… » jusqu'à sa mise en file", async ({
+test("l'envoi d'une photo affiche « Envoi de la photo… » jusqu'à sa mise en file, sans cadrage", async ({
   page,
 }, testInfo) => {
   // Sous WebKit, une requête interceptée par `page.route` perd la partie Blob du FormData :
@@ -70,7 +70,6 @@ test("l'envoi d'une photo cadrée affiche « Envoi de la photo… » jusqu'à sa
   await delayRequest(page, "**/api/imports");
   await page.goto("/import");
   await choosePhoto(page);
-  await launchReading(page);
 
   const sending = waitingFor(page, "Envoi de la photo…");
   await expect(sending).toHaveText("Envoi de la photo…");
@@ -109,7 +108,7 @@ test("le redressement de l'aperçu affiche « Redressement de la photo… », bo
   await expect(rectifying).toHaveCount(0);
 });
 
-test("une photo en préparation affiche « Préparation de la photo… » avant le cadrage", async ({
+test("une photo en préparation affiche « Préparation de la photo… » avant son envoi", async ({
   page,
 }) => {
   // Décodage ralenti : `createImageBitmap` attend 1 s avant l'appel d'origine.
@@ -125,7 +124,9 @@ test("une photo en préparation affiche « Préparation de la photo… » avant 
 
   const preparing = waitingFor(page, "Préparation de la photo…");
   await expect(preparing).toHaveText("Préparation de la photo…");
-  await expect(page.getByRole("img", { name: "Carte à cadrer" })).toBeVisible();
+  await expect(
+    page.getByText("Lecture en file d'attente. Tu peux envoyer la photo suivante."),
+  ).toBeVisible();
   await expect(preparing).toHaveCount(0);
 });
 

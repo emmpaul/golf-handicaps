@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callCost, MAX_CALL_COST } from "@/ai/pricing";
+import { callCost, MAX_CALL_COST, MAX_LOCATE_COST } from "@/ai/pricing";
 
 describe("callCost", () => {
   it("compte 4 µ$ par token d'entrée et 20 µ$ par token de sortie sur claude-opus-5-5", () => {
@@ -10,5 +10,11 @@ describe("callCost", () => {
 describe("MAX_CALL_COST", () => {
   it("vaut le pire cas : 3 500 tokens d'entrée et 4 000 de sortie, soit 0,094 $", () => {
     expect(MAX_CALL_COST).toBe(94_000);
+  });
+});
+
+describe("MAX_LOCATE_COST", () => {
+  it("vaut le pire cadrage : 4 000 tokens d'entrée et 2 000 de sortie, soit 0,056 $", () => {
+    expect(MAX_LOCATE_COST).toBe(56_000);
   });
 });

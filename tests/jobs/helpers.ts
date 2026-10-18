@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import sharp from "sharp";
 import { afterEach, beforeEach } from "vitest";
 import type { Corners } from "@/ocr/corners";
 import { createTestDb, type TestDb } from "../factories";
@@ -47,3 +48,51 @@ export const NEW_CORNERS: Corners = {
   bottomRight: { x: 0.8, y: 0.75 },
   bottomLeft: { x: 0.2, y: 0.75 },
 };
+
+/** Plus grand écart, sur un axe, entre deux cadrages (fractions de la photo) ; NaN sans cadrage. */
+export function cornersDeviation(actual: Corners | null | undefined, expected: Corners): number {
+  if (!actual) return Number.NaN;
+  return Math.max(
+    ...(["topLeft", "topRight", "bottomRight", "bottomLeft"] as const).flatMap((key) => [
+      Math.abs(actual[key].x - expected[key].x),
+      Math.abs(actual[key].y - expected[key].y),
+    ]),
+  );
+}
+
+async function buildReferenceWithTopBar(): Promise<Buffer> {
+  const bar = await sharp({
+    create: { width: 40, height: 900, channels: 3, background: "#ffffff" },
+  })
+    .png()
+    .toBuffer();
+  return sharp(referencePhoto().photo)
+    .composite([{ input: bar, left: 1480, top: 0 }])
+    .jpeg({ quality: 92 })
+    .toBuffer();
+}
+
+let referenceWithTopBarJpeg: Promise<Buffer> | undefined;
+
+/**
+ * La référence avec une barre blanche de 40 × 900 px qui descend du bord haut de la photo
+ * jusque dans le tableau (x 1480 à 1520) : le tableau touche le bord, donc la détection sur
+ * toute la photo échoue. Limitée à la zone d'un cadrage de l'IA, elle retrouve le panneau.
+ * Construite une fois par fichier de test (un encodage JPEG de 3000 × 2250 px) : les appelants
+ * lisent la photo sans la modifier.
+ */
+export function referenceWithTopBar(): Promise<Buffer> {
+  referenceWithTopBarJpeg ??= buildReferenceWithTopBar();
+  return referenceWithTopBarJpeg;
+}
+
+/** Coins de la référence rentrés de 0,02 sur chaque axe : un cadrage approximatif de l'IA. */
+export function insetReferenceCorners(): Corners {
+  const { topLeft, topRight, bottomRight, bottomLeft } = referenceCorners();
+  return {
+    topLeft: { x: topLeft.x + 0.02, y: topLeft.y + 0.02 },
+    topRight: { x: topRight.x - 0.02, y: topRight.y + 0.02 },
+    bottomRight: { x: bottomRight.x - 0.02, y: bottomRight.y - 0.02 },
+    bottomLeft: { x: bottomLeft.x + 0.02, y: bottomLeft.y - 0.02 },
+  };
+}

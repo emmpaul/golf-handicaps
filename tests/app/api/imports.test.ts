@@ -60,20 +60,30 @@ const statusOf = (id: string) =>
 describe("POST /api/imports", () => {
   it("enregistre la photo en WebP, crée l'import en attente et répond 201 avec son id", async () => {
     const response = await routes.upload.POST(
-      uploadRequest({
-        photo: new Blob([PHOTO], { type: "image/jpeg" }),
-        corners: JSON.stringify(referenceCorners()),
-      }),
+      uploadRequest({ photo: new Blob([PHOTO], { type: "image/jpeg" }) }),
     );
     expect(response.status).toBe(201);
     const { id } = await response.json();
     const row = testDb.sqlite
-      .prepare("SELECT status, photo_path AS photoPath FROM imports WHERE id = ?")
-      .get(id) as { status: string; photoPath: string };
-    expect(row.status).toBe("queued");
+      .prepare("SELECT status, photo_path AS photoPath, corners FROM imports WHERE id = ?")
+      .get(id) as { status: string; photoPath: string; corners: string | null };
+    expect([row.status, row.corners]).toEqual(["queued", null]);
     expect(row.photoPath).toMatch(/\.webp$/);
     expect(readFileSync(join(testDb.dir, row.photoPath)).subarray(8, 12).toString("ascii")).toBe(
       "WEBP",
+    );
+  });
+
+  // L'ancien client envoie encore ses coins : le cadrage est cherché par le worker (design,
+  // décision 7). Mutation : enregistrer les coins reçus.
+  it("ignore un champ corners envoyé quand même : l'import est créé sans coins", async () => {
+    const response = await routes.upload.POST(
+      uploadRequest({ photo: new Blob([PHOTO]), corners: JSON.stringify(referenceCorners()) }),
+    );
+    expect(response.status).toBe(201);
+    const { id } = await response.json();
+    expect(testDb.sqlite.prepare("SELECT corners FROM imports WHERE id = ?").pluck().get(id)).toBe(
+      null,
     );
   });
 
@@ -81,44 +91,23 @@ describe("POST /api/imports", () => {
   it("refuse une photo qui n'est pas une image avec 400 « Photo illisible », sans import", async () => {
     const before = testDb.sqlite.prepare("SELECT count(*) FROM imports").pluck().get();
     const response = await routes.upload.POST(
-      uploadRequest({
-        photo: new Blob(["pas une image"], { type: "image/jpeg" }),
-        corners: JSON.stringify(referenceCorners()),
-      }),
+      uploadRequest({ photo: new Blob(["pas une image"], { type: "image/jpeg" }) }),
     );
     expect([response.status, await response.json()]).toEqual([400, { error: "Photo illisible" }]);
     expect(testDb.sqlite.prepare("SELECT count(*) FROM imports").pluck().get()).toBe(before);
   });
 
-  it.each([
-    ["sans photo", { corners: JSON.stringify(referenceCorners()) }, "Photo manquante"],
-    ["sans coins", { photo: new Blob([PHOTO]) }, "Coins du panneau invalides"],
-    [
-      "avec un coin hors de la photo",
-      {
-        photo: new Blob([PHOTO]),
-        corners: JSON.stringify({ ...referenceCorners(), topLeft: { x: 1.2, y: 0.2 } }),
-      },
-      "Coins du panneau invalides",
-    ],
-    [
-      "avec des coins illisibles",
-      { photo: new Blob([PHOTO]), corners: "{" },
-      "Coins du panneau invalides",
-    ],
-  ])("refuse un envoi %s avec 400 et un message", async (_case, fields, error) => {
+  it("refuse un envoi sans photo avec 400 « Photo manquante », sans import", async () => {
     const before = testDb.sqlite.prepare("SELECT count(*) FROM imports").pluck().get();
-    const response = await routes.upload.POST(uploadRequest(fields));
-    expect([response.status, await response.json()]).toEqual([400, { error }]);
+    const response = await routes.upload.POST(uploadRequest({}));
+    expect([response.status, await response.json()]).toEqual([400, { error: "Photo manquante" }]);
     expect(testDb.sqlite.prepare("SELECT count(*) FROM imports").pluck().get()).toBe(before);
   });
 });
 
 describe("GET /api/imports/[id]", () => {
   it("renvoie l'état affiché d'un import", async () => {
-    const created = await routes.upload.POST(
-      uploadRequest({ photo: new Blob([PHOTO]), corners: JSON.stringify(referenceCorners()) }),
-    );
+    const created = await routes.upload.POST(uploadRequest({ photo: new Blob([PHOTO]) }));
     const { id } = await created.json();
     const response = await statusOf(String(id));
     expect([response.status, await response.json()]).toEqual([
@@ -138,9 +127,7 @@ describe("GET /api/imports/[id]", () => {
 
 describe("POST /api/imports/[id]/corners", () => {
   async function createdImport(status: "queued" | "failed") {
-    const created = await routes.upload.POST(
-      uploadRequest({ photo: new Blob([PHOTO]), corners: JSON.stringify(referenceCorners()) }),
-    );
+    const created = await routes.upload.POST(uploadRequest({ photo: new Blob([PHOTO]) }));
     const { id } = (await created.json()) as { id: number };
     testDb.sqlite.prepare("UPDATE imports SET status = ? WHERE id = ?").run(status, id);
     return String(id);
@@ -166,13 +153,8 @@ describe("POST /api/imports/[id]/corners", () => {
 
   it.each([
     ["des coins invalides", "failed", "{", 400, "Coins du panneau invalides"],
-    [
-      "un import qui n'est pas en échec",
-      "queued",
-      null,
-      409,
-      "Seul un import en échec peut être recadré",
-    ],
+    // Mutation : garder l'ancien message « Seul un import en échec peut être recadré ».
+    ["un import en attente", "queued", null, 409, "Cet import ne peut pas être recadré"],
   ] as const)("refuse %s", async (_case, status, body, code, error) => {
     const id = await createdImport(status);
     const response = await recrop(id, body ?? JSON.stringify(NEW_CORNERS));

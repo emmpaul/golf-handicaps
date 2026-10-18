@@ -65,14 +65,15 @@ export class UnreadablePhotoError extends Error {
 
 /**
  * Convertit la photo en WebP et l'enregistre sous `DATA_DIR/uploads/<uuid>.webp` : le fichier
- * reçu n'est jamais écrit (design, décision 1). Crée ensuite l'import et son job `ocr-scorecard`
- * dans la même transaction (design de l'import, décision 5.2). Rejette avec
+ * reçu n'est jamais écrit (design, décision 1). Crée ensuite l'import, sans coins (le worker
+ * cherche le cadrage), et son job `ocr-scorecard` dans la même transaction (design de l'import,
+ * décision 5.2). Rejette avec
  * `UnreadablePhotoError`, sans rien écrire, si la photo n'est pas une image lisible.
  */
 export async function createImport(
   db: Db,
   dataDir: string,
-  upload: { photo: Buffer; corners: Corners },
+  upload: { photo: Buffer },
   now: Date,
 ): Promise<{ id: number; photoPath: string }> {
   const webp = await toStoredWebp(upload.photo).catch((cause: unknown) => {
@@ -86,7 +87,7 @@ export async function createImport(
     return db.transaction((tx) => {
       const { id } = tx
         .insert(imports)
-        .values({ photoPath, corners: upload.corners, createdAt: now })
+        .values({ photoPath, createdAt: now })
         .returning({ id: imports.id })
         .get();
       const payload: OcrScorecardPayload = { importId: id };
@@ -99,20 +100,31 @@ export async function createImport(
   }
 }
 
-export type RecropResult = "queued" | "not-found" | "not-failed";
+export type RecropResult = "queued" | "not-found" | "not-recroppable";
+
+/** Import recadrable (design, décision 6) : en « Échec », ou « Prêt à vérifier » sans round. */
+export function isRecroppable(row: { status: ImportStatus; roundId: number | null }): boolean {
+  return row.status === "failed" || (row.status === "ready" && row.roundId === null);
+}
 
 /**
- * Recadrage d'un import en « Échec » (spec « Échec de la lecture ») : nouveaux coins, import
- * remis « En attente » et nouveau job `ocr-scorecard`, dans la même transaction.
+ * Recadrage manuel (design, décision 6) d'un import en « Échec », ou « Prêt à vérifier » sans
+ * round : coins placés à la main (`corners_source = manual`), import remis « En attente » et
+ * nouveau job `ocr-scorecard`, dans la même transaction. Un import en lecture ou déjà
+ * enregistré en round n'est pas recadrable.
  */
 export function recropImport(db: Db, id: number, corners: Corners, now: Date): RecropResult {
   return db.transaction((tx) => {
-    const row = tx.select({ status: imports.status }).from(imports).where(eq(imports.id, id)).get();
+    const row = tx
+      .select({ status: imports.status, roundId: imports.roundId })
+      .from(imports)
+      .where(eq(imports.id, id))
+      .get();
     if (!row) return "not-found";
-    if (row.status !== "failed") return "not-failed";
+    if (!isRecroppable(row)) return "not-recroppable";
     // La nouvelle lecture remplace les corrections enregistrées.
     tx.update(imports)
-      .set({ status: "queued", corners, correction: null })
+      .set({ status: "queued", corners, cornersSource: "manual", correction: null })
       .where(eq(imports.id, id))
       .run();
     const payload: OcrScorecardPayload = { importId: id };
