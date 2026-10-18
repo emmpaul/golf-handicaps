@@ -1,4 +1,8 @@
 # https://lefthook.dev/configuration/
+# `glob` utilise le moteur par défaut (gobwas) : `*` traverse les `/`, donc
+# `*.{ts,tsx,mts}` attrape aussi les fichiers imbriqués. Sans gabarit de fichiers
+# dans `run`, lefthook filtre {staged_files} (pre-commit) ou {push_files}
+# (pre-push) et saute le job si aucun fichier ne correspond.
 pre-commit:
   parallel: true
   jobs:
@@ -7,6 +11,7 @@ pre-commit:
       run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
     - name: typecheck
+      glob: "*.{ts,tsx,mts}"
       run: pnpm typecheck
 
 commit-msg:
@@ -14,10 +19,21 @@ commit-msg:
     - name: commitlint
       run: pnpm exec commitlint --edit {1}
 
+# Tests et jscpd seulement si le code ou la configuration de ces outils change.
 pre-push:
   parallel: true
   jobs:
     - name: test
+      glob: &code_files
+        - "src/**"
+        - "tests/**"
+        - "scripts/**"
+        - "vitest.config.mts"
+        - ".jscpd.json"
+        - "package.json"
+        - "pnpm-lock.yaml"
+        - "tsconfig.json"
       run: pnpm test
     - name: jscpd
+      glob: *code_files
       run: pnpm jscpd

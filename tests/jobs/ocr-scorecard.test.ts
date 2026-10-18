@@ -69,8 +69,6 @@ const greyWall = () =>
     .toBuffer();
 
 describe("gestionnaire ocr-scorecard", () => {
-  // 60 s pour les tests qui lisent la photo de référence avec le vrai binaire Tesseract :
-  // la lecture complète de la carte varie du simple au double selon le runner CI.
   it("passe l'import à « Prêt à vérifier » avec le brouillon de la photo de référence", async () => {
     const { id } = await importReference();
     await runNextJob(testDb().db, createJobHandlers(testDb().db, testDb().dir), NOW);
@@ -81,7 +79,7 @@ describe("gestionnaire ocr-scorecard", () => {
       draft: EXPECTED_DRAFT,
     });
     expect(jobRow(testDb().sqlite)).toEqual({ status: "done", attempts: 1, lastError: null });
-  }, 60_000);
+  });
 
   // Mutation : ne pas enregistrer les coins trouvés, ou les enregistrer sans provenance.
   it("enregistre les coins détectés de la référence à 0,01 près, provenance auto", async () => {
@@ -305,15 +303,13 @@ async function runWithAi(
 }
 
 describe("gestionnaire ocr-scorecard, complétion IA", () => {
-  // 60 s : le premier test lancé lit la photo de référence avec le vrai binaire Tesseract (les
-  // suivants réutilisent sa lecture), et la lecture complète varie du simple au double en CI.
   it("n'appelle pas l'IA quand la lecture locale de référence est sans problème", async () => {
     const fake = answersReferenceCard();
     const id = await runWithAi(realRead, fake.completer);
     expect(fake.panels).toEqual([]);
     expect(getImportStatus(testDb().db, id)?.draft).toEqual(EXPECTED_DRAFT);
     expect(aiState(id)).toEqual({ aiCells: null, aiNote: null });
-  }, 60_000);
+  });
 
   it("complète Gab trou 9 par l'IA en un appel avec le panneau redressé", async () => {
     const fake = answersReferenceCard();
@@ -324,12 +320,12 @@ describe("gestionnaire ocr-scorecard, complétion IA", () => {
     expect(status?.draft?.players[0].scores.holes[8]).toBe(5);
     expect(status?.draft).toEqual(EXPECTED_DRAFT);
     expect(aiState(id)).toEqual({ aiCells: '["player0:9"]', aiNote: null });
-  }, 60_000);
+  });
 
   it("enregistre l'usage d'un appel réussi", async () => {
     await runWithAi(readWithoutGab9, answersReferenceCard().completer);
     expect(usageRows()).toEqual([USAGE_ROW]);
-  }, 60_000);
+  });
 
   it("n'appelle pas l'IA quand le budget du mois est atteint", async () => {
     const budget = new AiBudget(testDb().db, 1);
@@ -341,7 +337,7 @@ describe("gestionnaire ocr-scorecard, complétion IA", () => {
     expect(status?.label).toBe("Prêt à vérifier");
     expect(status?.draft?.players[0].scores.holes[8]).toBeNull();
     expect(aiState(id)).toEqual({ aiCells: null, aiNote: "Budget IA du mois atteint" });
-  }, 60_000);
+  });
 
   it("garde le brouillon local quand l'API répond par une erreur, job done en 1 tentative", async () => {
     const fake = fakeCompleter(async () => {
@@ -355,7 +351,7 @@ describe("gestionnaire ocr-scorecard, complétion IA", () => {
     expect(aiState(id)).toEqual({ aiCells: null, aiNote: "Complétion IA indisponible" });
     expect(jobRow(testDb().sqlite)).toEqual({ status: "done", attempts: 1, lastError: null });
     expect(usageRows()).toEqual([]);
-  }, 60_000);
+  });
 
   it("enregistre l'usage d'un refus et note « Complétion IA indisponible »", async () => {
     const fake = fakeCompleter(async () => {
@@ -365,7 +361,7 @@ describe("gestionnaire ocr-scorecard, complétion IA", () => {
     expect(aiState(id)).toEqual({ aiCells: null, aiNote: "Complétion IA indisponible" });
     expect(jobRow(testDb().sqlite)).toEqual({ status: "done", attempts: 1, lastError: null });
     expect(usageRows()).toEqual([USAGE_ROW]);
-  }, 60_000);
+  });
 
   it("sans clé, laisse le brouillon local sans aucune note", async () => {
     const { id } = await importReferenceWithCorners();
@@ -376,7 +372,7 @@ describe("gestionnaire ocr-scorecard, complétion IA", () => {
     expect(status?.draft?.players[0].scores.holes[8]).toBeNull();
     expect(aiState(id)).toEqual({ aiCells: null, aiNote: null });
     expect(usageRows()).toEqual([]);
-  }, 60_000);
+  });
 });
 
 describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
@@ -408,7 +404,7 @@ describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
     expect(source).toBe("ai");
     expect(cornersDeviation(corners, referenceCorners())).toBeLessThan(0.01);
     expect(getImportStatus(testDb().db, id)?.status).toBe("ready");
-  }, 60_000);
+  });
 
   // Spec « Cadrage et complétion par l'IA ».
   it("fait exactement deux appels, cadrage puis complétion, quand Gab trou 9 reste vide", async () => {
@@ -428,7 +424,7 @@ describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
     expect([framer.calls.length, fake.panels.length]).toEqual([1, 1]);
     expect(usageRows()).toEqual([USAGE_ROW, USAGE_ROW]);
     expect(getImportStatus(testDb().db, id)?.draft).toEqual(EXPECTED_DRAFT);
-  }, 60_000);
+  });
 
   it("passe à « Échec » sans relance quand l'IA ne voit pas de carte non plus", async () => {
     const framer = fakeLocator(null);
@@ -437,5 +433,5 @@ describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
     expect([framer.calls.length, fake.panels.length]).toEqual([1, 0]);
     expect(getImportStatus(testDb().db, id)?.status).toBe("failed");
     expect(jobRow(testDb().sqlite)).toEqual({ status: "done", attempts: 1, lastError: null });
-  }, 60_000);
+  });
 });

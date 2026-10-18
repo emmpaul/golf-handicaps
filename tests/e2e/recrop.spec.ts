@@ -10,7 +10,7 @@ import {
   seedReadyImport,
   seedRound,
 } from "./data";
-import { expect, test } from "./fixtures";
+import { expect, OCR_SHARD, test } from "./fixtures";
 import { dragHandle, handleCenters, placeCorners, REFERENCE_CORNERS } from "./import";
 
 /** Valide le cadrage, attend l'aperçu, lance la lecture : réponse de l'envoi des coins. */
@@ -100,27 +100,29 @@ async function expectHandlesAt(page: Page, expected: Corners) {
   }
 }
 
-test("un import prêt se recadre depuis l'écran de correction, poignées sur ses coins, puis est relu avec eux", async ({
-  page,
-}) => {
-  test.setTimeout(120_000);
-  const id = seedReadyImport();
-  await page.goto(`/imports/${id}`);
-  await page.getByRole("link", { name: "Recadrer la photo" }).click();
-  await page.waitForURL(`**/imports/${id}/recadrer`);
-  await expectHandlesAt(page, REFERENCE_CORNERS);
+test(
+  "un import prêt se recadre depuis l'écran de correction, poignées sur ses coins, puis est relu avec eux",
+  OCR_SHARD,
+  async ({ page }) => {
+    test.setTimeout(120_000);
+    const id = seedReadyImport();
+    await page.goto(`/imports/${id}`);
+    await page.getByRole("link", { name: "Recadrer la photo" }).click();
+    await page.waitForURL(`**/imports/${id}/recadrer`);
+    await expectHandlesAt(page, REFERENCE_CORNERS);
 
-  const response = await launchRecrop(page, id);
-  expect(response.request().postDataJSON()).toEqual(REFERENCE_CORNERS);
-  expect([response.status(), (await response.json()).label]).toEqual([200, "En attente"]);
+    const response = await launchRecrop(page, id);
+    expect(response.request().postDataJSON()).toEqual(REFERENCE_CORNERS);
+    expect([response.status(), (await response.json()).label]).toEqual([200, "En attente"]);
 
-  await page.waitForURL("**/import");
-  const item = page.getByRole("listitem").filter({ hasText: `Import n°${id}` });
-  await expect(item.getByTestId("import-status")).toHaveText("Prêt à vérifier", {
-    timeout: 90_000,
-  });
-  expect(importCorners(id)).toEqual({ corners: REFERENCE_CORNERS, cornersSource: "manual" });
-});
+    await page.waitForURL("**/import");
+    const item = page.getByRole("listitem").filter({ hasText: `Import n°${id}` });
+    await expect(item.getByTestId("import-status")).toHaveText("Prêt à vérifier", {
+      timeout: 90_000,
+    });
+    expect(importCorners(id)).toEqual({ corners: REFERENCE_CORNERS, cornersSource: "manual" });
+  },
+);
 
 test("le recadrage d'un import en « Panneau introuvable » place les poignées à 10 % et 90 %", async ({
   page,
