@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/emmpaul/golf-handicaps/compare/v0.3.0...v0.4.0) (2026-10-18)
+
+
+### Features
+
+* **app-shell:** polish the app for phones, home-screen install and desktop ([#20](https://github.com/emmpaul/golf-handicaps/issues/20)) ([223f80c](https://github.com/emmpaul/golf-handicaps/commit/223f80cf44fd788bd66cfb8f2ccbfadb38dae841))
+
+
+### Bug Fixes
+
+* **auth:** compare passcodes through scrypt instead of sha256 ([#21](https://github.com/emmpaul/golf-handicaps/issues/21)) ([94ea236](https://github.com/emmpaul/golf-handicaps/commit/94ea2364fe9ddcfe65288607ef808f7bff55e92d))
+
 ## [0.3.0](https://github.com/emmpaul/golf-handicaps/compare/v0.2.0...v0.3.0) (2026-10-17)
 
 
