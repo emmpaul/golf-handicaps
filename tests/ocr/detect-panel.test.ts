@@ -241,14 +241,19 @@ describe("detectPanel", () => {
     expect(await detectPanel(readFileSync(resolve(FIXTURES, "gspro-tualatin.jpg")))).toBeNull();
   }, 60_000);
 
-  // Budget du design (Risks), demandé par la tâche 2.5. Garde-fou de performance : la détection
-  // prend environ 0,15 s, et 0,3 s sans la réduction à 1000 px ; seule une régression d'un ordre
-  // de grandeur (par exemple une recherche quadratique sur les composantes) la fait rougir.
+  // Budget du design (Risks), demandé par la tâche 2.5. On mesure le temps CPU du processus
+  // (`process.cpuUsage`, fils de libvips compris), pas le temps écoulé : en CI, les fichiers de
+  // test lancés en parallèle se partagent 4 vCPU et allongent le temps écoulé sans changer le
+  // calcul (2,8 s en CI pour 0,15 s en local). En local, sur 12 cœurs, la détection prend 0,29 s
+  // de CPU au repos et 0,43 s sous 48 processus `yes`, quand le temps écoulé passe de 0,2 à 0,86 s.
+  // Seule une régression d'un ordre de grandeur (par exemple une recherche quadratique sur les
+  // composantes) la fait rougir.
   it("détecte la référence en moins de 2 s", async () => {
     const { photo } = referencePhoto();
-    const start = performance.now();
+    const start = process.cpuUsage();
     await detectPanel(photo);
-    expect(performance.now() - start).toBeLessThan(2000);
+    const { user, system } = process.cpuUsage(start);
+    expect((user + system) / 1000).toBeLessThan(2000);
   }, 60_000);
 
   // Photo enregistrée de côté (tournée de 90° dans le sens inverse des aiguilles d'une montre),
