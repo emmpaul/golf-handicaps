@@ -28,7 +28,7 @@ Un push sur `main` SHALL sauter les étapes lourdes de `checks / quality`, les e
 - **WHEN** une PR verte qui ne modifie que `openspec/` est fusionnée et que l'exécution `main` du commit parent a échoué
 - **THEN** les étapes lourdes sont sautées, puisque l'arbre fusionné est celui que la PR a vérifié
 
-#### Scenario: Sujet de release sur un commit de code poussé hors PR
+#### Scenario: Sujet de release sur un commit de code
 - **WHEN** un commit intitulé `chore(main): release 0.6.0` qui modifie `src/lib/env.ts` arrive sur `main` sans PR associée
 - **THEN** la suite complète tourne
 
