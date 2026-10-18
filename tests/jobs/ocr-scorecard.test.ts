@@ -34,7 +34,7 @@ describe("gestionnaire ocr-scorecard", () => {
   // 60 s pour les tests qui lisent la photo de référence avec le vrai binaire Tesseract :
   // la lecture complète de la carte varie du simple au double selon le runner CI.
   it("passe l'import à « Prêt à vérifier » avec le brouillon de la photo de référence", async () => {
-    const { id } = importReference();
+    const { id } = await importReference();
     await runNextJob(testDb().db, createJobHandlers(testDb().db, testDb().dir), NOW);
     expect(getImportStatus(testDb().db, id)).toEqual({
       id,
@@ -46,7 +46,7 @@ describe("gestionnaire ocr-scorecard", () => {
   }, 60_000);
 
   it("met l'import en « Lecture en cours » pendant la lecture", async () => {
-    const { id } = importReference();
+    const { id } = await importReference();
     const seen: unknown[] = [];
     const read = async () => {
       seen.push(getImportStatus(testDb().db, id)?.label);
@@ -56,15 +56,17 @@ describe("gestionnaire ocr-scorecard", () => {
     expect(seen).toEqual(["Lecture en cours"]);
   });
 
-  it("lit la photo et les coins de l'import", async () => {
-    const { id } = importReference();
+  // La lecture porte sur le WebP stocké, pas sur le JPEG envoyé (spec « Conservation de la photo »).
+  it("lit la photo stockée en WebP et les coins de l'import", async () => {
+    const { id, photoPath } = await importReference();
+    const stored = readFileSync(join(testDb().dir, photoPath));
     const calls: unknown[] = [];
     const read = async (photo: Buffer, corners: unknown) => {
-      calls.push([photo.equals(referencePhoto().photo), corners]);
+      calls.push([photo.subarray(8, 12).toString("ascii"), photo.equals(stored), corners]);
       return REFERENCE_READING;
     };
     await runNextJob(testDb().db, createJobHandlers(testDb().db, testDb().dir, { read }), NOW);
-    expect(calls).toEqual([[true, referencePhoto().corners]]);
+    expect(calls).toEqual([["WEBP", true, referencePhoto().corners]]);
     expect(getImportStatus(testDb().db, id)?.status).toBe("ready");
   });
 
@@ -79,7 +81,7 @@ describe("gestionnaire ocr-scorecard", () => {
   });
 
   it("laisse le job en failed et l'import en « Échec » après 2 échecs, avec last_error", async () => {
-    const { id, photoPath } = importReference();
+    const { id, photoPath } = await importReference();
     rmSync(join(testDb().dir, photoPath));
     const handlers = createJobHandlers(testDb().db, testDb().dir);
     await runNextJob(testDb().db, handlers, NOW);
@@ -99,7 +101,7 @@ describe("gestionnaire ocr-scorecard", () => {
   });
 
   it("met l'import en « Échec » quand le worker meurt pendant la 2e tentative", async () => {
-    const { id } = importReference();
+    const { id } = await importReference();
     const jobId = testDb().sqlite.prepare("SELECT id FROM jobs").pluck().get() as number;
     markRunning(testDb().sqlite, jobId, minutesBefore(6), 2);
     await runNextJob(testDb().db, createJobHandlers(testDb().db, testDb().dir), NOW);
@@ -175,7 +177,7 @@ async function runWithAi(
   completer: DraftCompleter,
   budget = new AiBudget(testDb().db, 1),
 ) {
-  const { id } = importReference();
+  const { id } = await importReference();
   const handlers = createJobHandlers(testDb().db, testDb().dir, {
     read,
     ai: { completer, budget },
@@ -249,7 +251,7 @@ describe("gestionnaire ocr-scorecard, complétion IA", () => {
   }, 60_000);
 
   it("sans clé, laisse le brouillon local sans aucune note", async () => {
-    const { id } = importReference();
+    const { id } = await importReference();
     const handlers = createJobHandlers(testDb().db, testDb().dir, { read: readWithoutGab9 });
     await runNextJob(testDb().db, handlers, NOW);
     const status = getImportStatus(testDb().db, id);
