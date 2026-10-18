@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { knownCourses } from "@/server/rounds/courses";
 import { deleteRoundRequest, postRound, putRound } from "@/server/rounds/http";
@@ -7,10 +9,10 @@ import { referenceForm, seededTestDbPerTest } from "../../factories";
 const testDb = seededTestDbPerTest();
 
 const reference = () => referenceForm([testDb.ids.Gab, testDb.ids.Manu]);
-const reply = async (response: Response) => ({
-  status: response.status,
-  body: response.status === 204 ? null : await response.json(),
-});
+const reply = async (pending: Response | Promise<Response>) => {
+  const response = await pending;
+  return { status: response.status, body: response.status === 204 ? null : await response.json() };
+};
 const roundIds = () => listRounds(testDb.db).map(({ id }) => id);
 
 describe("POST /api/rounds", () => {
@@ -109,7 +111,7 @@ describe("round introuvable", () => {
   it.each([
     ["PUT", () => putRound(testDb.db, "404", { form: reference() })],
     ["PUT sur un id non numérique", () => putRound(testDb.db, "abc", { form: reference() })],
-    ["DELETE", () => deleteRoundRequest(testDb.db, "404")],
+    ["DELETE", () => deleteRoundRequest(testDb.db, testDb.dir, "404")],
   ])("%s répond 404", async (_name, request) => {
     expect(await reply(request())).toEqual({ status: 404, body: { error: "Round introuvable" } });
   });
@@ -119,7 +121,28 @@ describe("DELETE /api/rounds/:id", () => {
   // Mutation : round non supprimé, ou statut autre que 204.
   it("supprime le round : 204", async () => {
     postRound(testDb.db, { form: reference() });
-    expect(await reply(deleteRoundRequest(testDb.db, "1"))).toEqual({ status: 204, body: null });
+    expect(await reply(deleteRoundRequest(testDb.db, testDb.dir, "1"))).toEqual({
+      status: 204,
+      body: null,
+    });
     expect(roundIds()).toEqual([]);
+  });
+
+  // Mutation : photo du round non effacée après la suppression.
+  it("efface la photo d'un round importé : 204, puis le fichier n'existe plus", async () => {
+    mkdirSync(join(testDb.dir, "uploads"));
+    const photo = join(testDb.dir, "uploads", "7.webp");
+    writeFileSync(photo, "photo");
+    testDb.sqlite
+      .prepare(
+        "INSERT INTO imports (id, status, photo_path, corners, created_at) VALUES (7, 'ready', 'uploads/7.webp', '{}', 0)",
+      )
+      .run();
+    postRound(testDb.db, { form: reference(), importId: 7 });
+    expect(await reply(deleteRoundRequest(testDb.db, testDb.dir, "1"))).toEqual({
+      status: 204,
+      body: null,
+    });
+    expect(existsSync(photo)).toBe(false);
   });
 });

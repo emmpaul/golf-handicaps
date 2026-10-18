@@ -1,13 +1,10 @@
 import { getDb } from "@/db/instance";
 import { type SaveCorrectionResult, saveCorrection } from "@/server/imports/correction";
-
-const error = (message: string, status: number) => Response.json({ error: message }, { status });
+import { IMPORT_REFUSALS, refusalResponse } from "@/server/imports/refusals";
 
 const REFUSALS: Record<Exclude<SaveCorrectionResult, "ok">, [string, number]> = {
   invalid: ["Requête invalide", 400],
-  "not-found": ["Import introuvable", 404],
-  "already-saved": ["Cette carte est déjà enregistrée", 409],
-  reading: ["Lecture en cours", 409],
+  ...IMPORT_REFUSALS,
 };
 
 /**
@@ -22,5 +19,5 @@ export async function PUT(
   const raw: unknown = await request.json().catch(() => undefined);
   const result = saveCorrection(getDb(), id, raw);
   if (result === "ok") return new Response(null, { status: 204 });
-  return error(...REFUSALS[result]);
+  return refusalResponse(REFUSALS[result]);
 }

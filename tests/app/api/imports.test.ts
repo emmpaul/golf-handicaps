@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
 import sharp from "sharp";
@@ -122,6 +122,80 @@ describe("GET /api/imports/[id]", () => {
       404,
       { error: "Import introuvable" },
     ]);
+  });
+});
+
+describe("DELETE /api/imports/[id]", () => {
+  /** Import envoyé par la route, passé à `status` ; son id et le chemin de sa photo. */
+  async function uploadedImport(status: "queued" | "reading" | "ready" | "failed") {
+    const created = await routes.upload.POST(uploadRequest({ photo: new Blob([PHOTO]) }));
+    const { id } = (await created.json()) as { id: number };
+    testDb.sqlite.prepare("UPDATE imports SET status = ? WHERE id = ?").run(status, id);
+    const photoPath = testDb.sqlite
+      .prepare("SELECT photo_path FROM imports WHERE id = ?")
+      .pluck()
+      .get(id) as string;
+    return { id: String(id), photoPath };
+  }
+
+  const remove = (id: string) =>
+    routes.status.DELETE(new Request(`http://localhost/api/imports/${id}`, { method: "DELETE" }), {
+      params: Promise.resolve({ id }),
+    });
+
+  const importCount = (id: string) =>
+    testDb.sqlite.prepare("SELECT count(*) FROM imports WHERE id = ?").pluck().get(id);
+
+  // Mutations : réponse 200 avec un corps au lieu de 204 ; ne pas effacer la photo après la
+  // suppression laisse le fichier dans `DATA_DIR/uploads`.
+  it("répond 204 sans corps, supprime l'import et efface sa photo", async () => {
+    const { id, photoPath } = await uploadedImport("failed");
+    const response = await remove(id);
+    expect([response.status, await response.text()]).toEqual([204, ""]);
+    expect(importCount(id)).toBe(0);
+    expect(existsSync(join(testDb.dir, photoPath))).toBe(false);
+  });
+
+  it.each(["404", "abc"])("répond 404 « Import introuvable » pour l'import %s", async (id) => {
+    const response = await remove(id);
+    expect([response.status, await response.json()]).toEqual([
+      404,
+      { error: "Import introuvable" },
+    ]);
+  });
+
+  // Mutation : retirer le contrôle `/^\d+$/` laisse `Number("0x…")` viser l'import et le supprimer.
+  it("répond 404 pour un id écrit en hexadécimal, sans supprimer l'import qu'il désigne", async () => {
+    const { id } = await uploadedImport("failed");
+    const response = await remove(`0x${Number(id).toString(16)}`);
+    expect([response.status, await response.json()]).toEqual([
+      404,
+      { error: "Import introuvable" },
+    ]);
+    expect(importCount(id)).toBe(1);
+  });
+
+  // Mutation : refus `reading` traduit en 404 ou en 204.
+  it("répond 409 « Lecture en cours » pour un import en lecture, sans le supprimer", async () => {
+    const { id } = await uploadedImport("reading");
+    const response = await remove(id);
+    expect([response.status, await response.json()]).toEqual([409, { error: "Lecture en cours" }]);
+    expect(importCount(id)).toBe(1);
+  });
+
+  // Mutation : refus `already-saved` traduit en « Lecture en cours ».
+  it("répond 409 « Cette carte est déjà enregistrée » pour un import lié à un round, photo gardée", async () => {
+    const { id, photoPath } = await uploadedImport("ready");
+    seedInitialPlayers(testDb.db);
+    const [gab, manu] = listPlayers(testDb.db).map((player) => player.id);
+    saveRound(testDb.db, referenceForm([gab, manu]), { importId: Number(id) });
+    const response = await remove(id);
+    expect([response.status, await response.json()]).toEqual([
+      409,
+      { error: "Cette carte est déjà enregistrée" },
+    ]);
+    expect(importCount(id)).toBe(1);
+    expect(existsSync(join(testDb.dir, photoPath))).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import { request as playwrightRequest } from "@playwright/test";
-import { referenceRound, seedRound } from "./data";
+import { referenceRound, seedFailedImport, seedReadyImport, seedRound } from "./data";
 import { cell, saveButton } from "./editor";
 import { expect, test } from "./fixtures";
 import { openReferenceCorrection } from "./import";
@@ -98,4 +98,27 @@ test("la suppression demande confirmation : annuler garde le round, confirmer le
   await page.waitForURL("**/rounds");
   await expect(page.getByRole("list", { name: "Rounds" }).getByRole("listitem")).toHaveCount(0);
   await expect(page.getByText("Aucun round enregistré")).toBeVisible();
+});
+
+// Mutation : description du dialogue d'avant, ou import gardé (il revient « Prêt à vérifier »).
+test("supprimer un round importé retire aussi son import de la liste des imports", async ({
+  page,
+  players,
+}) => {
+  const importId = seedReadyImport();
+  const id = seedRound(referenceRound(players), { importId });
+  const otherId = seedFailedImport();
+  await page.goto(`/rounds/${id}`);
+  await page.getByRole("button", { name: "Supprimer" }).click();
+  const dialog = page.getByRole("alertdialog", { name: "Supprimer ce round ?" });
+  await expect(dialog.getByText(/^Il sera retiré/)).toHaveText(
+    "Il sera retiré de l'historique, avec sa photo et son import, et les index de ses joueurs seront recalculés.",
+  );
+  await dialog.getByRole("button", { name: "Supprimer" }).click();
+  await page.waitForURL("**/rounds");
+
+  await page.goto("/import");
+  await expect(
+    page.getByRole("list", { name: "Imports" }).getByRole("heading", { level: 3 }),
+  ).toHaveText([`Import n°${otherId}`]);
 });

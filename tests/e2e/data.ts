@@ -84,9 +84,12 @@ export async function resetData(): Promise<Record<"Gab" | "Manu" | "Sean", numbe
   });
 }
 
-/** Enregistre un round directement en base (mise en place d'un test). */
-export function seedRound(form: RoundForm): number {
-  return withDb((db) => saveRound(db, form));
+/**
+ * Enregistre un round directement en base (mise en place d'un test), depuis l'import `importId`
+ * s'il est donné : le round reprend sa photo et l'import est relié au round.
+ */
+export function seedRound(form: RoundForm, options: { importId?: number } = {}): number {
+  return withDb((db) => saveRound(db, form, options));
 }
 
 /** Dates de jeu (`rounds.played_on`) des rounds en base, par id croissant. */

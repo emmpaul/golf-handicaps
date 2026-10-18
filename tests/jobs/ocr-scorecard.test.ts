@@ -7,10 +7,10 @@ import type { AiCard } from "@/ai/card";
 import { AiCompletionError, type AiUsage } from "@/ai/claude-call";
 import type { DraftCompleter } from "@/ai/completer";
 import type { CornerLocator } from "@/ai/corner-locator";
-import { createImport, getImportStatus } from "@/jobs/imports";
+import { createImport, deleteImport, getImportStatus } from "@/jobs/imports";
 import { locatePanel } from "@/jobs/locate-panel";
 import { createJobHandlers } from "@/jobs/ocr-scorecard";
-import { enqueueJob } from "@/jobs/queue";
+import { claimNextJob, enqueueJob } from "@/jobs/queue";
 import { runNextJob } from "@/jobs/runner";
 import type { Corners } from "@/ocr/corners";
 import type { GrayImage } from "@/ocr/image";
@@ -165,6 +165,19 @@ describe("gestionnaire ocr-scorecard", () => {
       attempts: 1,
       lastError: "Import introuvable : 999",
     });
+  });
+
+  // Design, décision 2 : job réservé, puis import supprimé avant de passer en lecture.
+  // Mutations : retirer le contrôle de la ligne absente (TypeError sur `photoPath`) ; un
+  // `onFailed` qui insère la ligne absente (upsert) recrée l'import.
+  it("rejette « Import introuvable » sans recréer l'import supprimé après la réservation de son job", async () => {
+    const { id } = await importReference();
+    const job = claimNextJob(testDb().db, NOW);
+    expect(deleteImport(testDb().db, id)).toMatchObject({ result: "deleted" });
+    const handler = createJobHandlers(testDb().db, testDb().dir)["ocr-scorecard"];
+    await expect(handler.run(job?.payload)).rejects.toThrow(`Import introuvable : ${id}`);
+    handler.onFailed?.(job?.payload);
+    expect(testDb().sqlite.prepare("SELECT count(*) FROM imports").pluck().get()).toBe(0);
   });
 
   it("laisse le job en failed et l'import en « Échec » après 2 échecs, avec last_error", async () => {

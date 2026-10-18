@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { listImports } from "@/server/imports/list";
 import { deleteRound, getRoundForm, RoundNotFoundError, updateRound } from "@/server/rounds/edit";
 import { listRounds } from "@/server/rounds/list";
 import { RoundCheckError, saveRound } from "@/server/rounds/save";
@@ -104,6 +105,35 @@ describe("deleteRound", () => {
       { played_on: "2026-10-10", gross: 88, differential_t: 170, index_after_t: 170 },
       { played_on: "2026-10-17", gross: 83, differential_t: 120, index_after_t: 145 },
     ]);
+  });
+
+  /** Import `id` dont la photo est `uploads/<id>.webp`, encore sans round. */
+  const importIn = (id: number, status: string) =>
+    testDb.sqlite
+      .prepare(
+        "INSERT INTO imports (id, status, photo_path, corners, created_at) VALUES (?, ?, ?, '{}', 0)",
+      )
+      .run(id, status, `uploads/${id}.webp`);
+  const listedImports = () => listImports(testDb.db).map(({ id, roundId }) => ({ id, roundId }));
+
+  // Mutation : import non supprimé, il reste dans la liste avec `roundId: null` (« Prêt à
+  // vérifier »), ou photo du round non renvoyée.
+  it("emporte l'import d'un round importé et renvoie la photo du round", () => {
+    importIn(7, "ready");
+    const id = saveRound(testDb.db, referenceForm([testDb.ids.Gab, testDb.ids.Manu]), {
+      importId: 7,
+    });
+    expect(deleteRound(testDb.db, id)).toEqual({ photoPath: "uploads/7.webp" });
+    expect(listedImports()).toEqual([]);
+    expect(testDb.sqlite.prepare("SELECT count(*) FROM imports").pluck().get()).toBe(0);
+  });
+
+  // Mutation : supprimer tous les imports sans round, ou ignorer le filtre sur `round_id`.
+  it("laisse la liste des imports inchangée pour un round saisi à la main", () => {
+    importIn(8, "failed");
+    const id = saveRound(testDb.db, referenceForm([testDb.ids.Gab, testDb.ids.Manu]));
+    expect(deleteRound(testDb.db, id)).toEqual({ photoPath: null });
+    expect(listedImports()).toEqual([{ id: 8, roundId: null }]);
   });
 });
 
