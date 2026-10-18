@@ -58,6 +58,25 @@ Un test unitaire qui lance le binaire Tesseract, encode une image avec sharp ou 
 - **WHEN** `pnpm test` tourne en CI sur un runner à 4 vCPU
 - **THEN** le test `toStoredWebp > convertit un JPEG en WebP` et les tests `attemptLogin` qui font 11 calculs scrypt passent sans dépasser leur délai
 
+### Requirement: E2e répartis sur trois machines
+Les e2e d'une PR ou d'un push de code SHALL tourner en trois tranches, chacune sur sa propre machine avec son serveur et sa base : la tranche `ocr` lance les tests tagués `@ocr`, les tranches `1` et `2` se partagent les autres par `--shard`. Chaque test des projets Chromium et WebKit iPhone MUST tourner exactement une fois en tout, toutes tranches confondues. Le contrôle `checks / e2e` réunit toutes les tranches : il réussit si toutes réussissent, échoue si l'une échoue ou est annulée, et est sauté pour un changement de documentation.
+
+#### Scenario: Trois tranches vertes
+- **WHEN** une PR modifie `src/` et que les trois tranches passent
+- **THEN** `checks / e2e-shard (ocr)`, `checks / e2e-shard (1)`, `checks / e2e-shard (2)` et `checks / e2e` sont réussis, et la somme des tests passés des trois tranches vaut le nombre de tests de `pnpm exec playwright test --list`
+
+#### Scenario: Chaque test dans une seule tranche
+- **WHEN** on liste les tests de chaque tranche avec ses arguments (`--list --grep @ocr`, puis `--list --grep-invert @ocr --shard=1/2` et `--shard=2/2`)
+- **THEN** la réunion des trois listes contient chaque test de `pnpm exec playwright test --list` une fois et une seule
+
+#### Scenario: Une tranche rouge
+- **WHEN** un test e2e échoue dans la tranche `ocr`
+- **THEN** `checks / e2e` finit en échec et la PR n'est pas fusionnable
+
+#### Scenario: Documentation seule
+- **WHEN** une PR ne modifie que `openspec/`
+- **THEN** les tranches et `checks / e2e` sont sautés
+
 ## ADDED Requirements
 
 ### Requirement: Push sur main déjà vérifié par sa PR
@@ -91,10 +110,10 @@ Les e2e d'une PR ou d'un push de code SHALL tourner contre une seule constructio
 - **THEN** les tranches ne tournent pas et `checks / e2e` finit en échec
 
 ### Requirement: Tranches e2e équilibrées
-Sur une exécution de code, l'étape « Tests e2e » de la tranche la plus lente SHALL durer au plus 30 % de plus que celle de la plus rapide.
+Sur une exécution de code, l'étape « Tests e2e » de la tranche la plus lente SHALL durer au plus 30 % de plus que celle de la plus rapide. La répartition des tests entre tranches MUST tenir compte de leur durée, pas seulement de leur nombre.
 
 #### Scenario: Durées des tranches
-- **WHEN** une PR de code fait passer les trois tranches
+- **WHEN** une PR de code fait passer toutes les tranches
 - **THEN** la plus longue étape « Tests e2e » dépasse la plus courte de moins de 30 %
 
 ### Requirement: Image Docker indiquée dans la release

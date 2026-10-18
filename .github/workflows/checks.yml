@@ -5,8 +5,8 @@
 # e2e et le build Docker sont sautés. Sur un push main, le classement ne joue plus : les mêmes jobs ne sont
 # sautés que si l'arbre poussé a déjà été vérifié par sa PR (exécution pr réussie sur le dernier commit de la
 # PR, même arbre, PR à jour du commit précédent de main) ; sinon la suite complète tourne.
-# Les e2e partagent un seul build de l'app (e2e-build) et tournent en trois tranches ; l'agrégateur e2e porte
-# le contrôle requis `checks / e2e`.
+# Les e2e partagent un seul build de l'app (e2e-build) et tournent en trois tranches (une pour les tests tagués
+# @ocr, deux pour le reste) ; l'agrégateur e2e porte le contrôle requis `checks / e2e`.
 # Le job docker tourne si l'appelant passe `docker: true` (PR et main).
 name: checks
 
@@ -174,7 +174,7 @@ jobs:
         if: needs.scope.outputs.code != 'false'
         run: pnpm jscpd
 
-  # Un seul build Next pour les trois tranches (rationalize-ci-runs, décision 5). L'archive tar garde les liens
+  # Un seul build Next pour toutes les tranches (rationalize-ci-runs, décision 5). L'archive tar garde les liens
   # symboliques de .next/node_modules (paquets externes better-sqlite3 et sharp, relatifs à node_modules/.pnpm,
   # identique d'une machine à l'autre pour un même lockfile) ; upload-artifact les suivrait et copierait les
   # paquets hors de pnpm, où leurs dépendances natives ne se résolvent plus. Ni cache ni dev (inutiles à
@@ -202,7 +202,13 @@ jobs:
 
   # Une machine par tranche : chacune lance son serveur (sur le build de e2e-build), son worker et sa base
   # (workers: 1). Sans build réussi, les tranches ne tournent pas et e2e échoue.
+  # --shard coupe la liste par nombre de tests, en blocs contigus : les tests lents qui attendent l'OCR
+  # tombaient ensemble dans la même tranche. Une partie d'entre eux porte le tag @ocr (OCR_SHARD dans
+  # tests/e2e/fixtures.ts) et tourne seule ; le reste (--grep-invert) se coupe en deux. Chaque test tombe
+  # dans une seule tranche (rationalize-ci-runs, décision 6).
   e2e-shard:
+    # Noms courts : `e2e-shard (ocr)`, `e2e-shard (1)`, `e2e-shard (2)` (sans les arguments de la matrice).
+    name: e2e-shard (${{ matrix.shard }})
     needs: [scope, e2e-build]
     if: ${{ !cancelled() && needs.scope.outputs.code != 'false' && needs.e2e-build.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -211,7 +217,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        include:
+          - shard: ocr
+            args: --grep @ocr
+          - shard: 1
+            args: --grep-invert @ocr --shard=1/2
+          - shard: 2
+            args: --grep-invert @ocr --shard=2/2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -232,7 +244,7 @@ jobs:
       - name: Tests e2e
         env:
           E2E_PREBUILT: "1"
-        run: pnpm e2e --shard=${{ matrix.shard }}/3
+        run: pnpm e2e ${{ matrix.args }}
       # Durée de chaque test de la tranche (reporter json, rationalize-ci-runs, décision 6).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -249,7 +261,7 @@ jobs:
             test-results/
           retention-days: 7
 
-  # Contrôle requis `checks / e2e` : vert seulement si scope, le build et les trois tranches ont réussi,
+  # Contrôle requis `checks / e2e` : vert seulement si scope, le build et toutes les tranches ont réussi,
   # sauté (donc compté réussi) quand le code n'est pas à vérifier.
   e2e:
     needs: [scope, e2e-build, e2e-shard]

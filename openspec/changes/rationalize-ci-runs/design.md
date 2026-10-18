@@ -88,7 +88,18 @@ Le build ne sort plus du temps de chaque tranche, il part avant elles : le gain 
 
 ### 6. Équilibre des tranches
 
-La tranche 2 prend deux fois plus que les autres sur toutes les exécutions relevées. `--shard` coupe par nombre de tests, pas par durée. La cause se mesure avant de choisir : le reporter `json` (déjà évoqué par `improve-ci-pipeline`) donne la durée de chaque test et sa tranche. Selon le résultat : déplacer ou découper le fichier lent (le plus probable : les parcours d'import qui attendent le worker OCR), ou passer à 4 tranches. Le critère est fixé dans la spec (écart < 30 %).
+La tranche 2 prend deux fois plus que les autres sur toutes les exécutions relevées. Le rapport `json` de la tâche 5.1 (exécution 39140701472 : étapes « Tests e2e » de 93, 202 et 112 s) en donne la cause : Playwright 1.64 range les tests par projet (les 122 tests Chromium, puis les 79 WebKit iPhone), puis par fichier dans l'ordre alphabétique, et `--shard` coupe cette liste en blocs contigus de même nombre de tests. Aucune option publique ne pondère par la durée (seule une variable interne, `PWTEST_SHARD_WEIGHTS`, change la taille des blocs). Les 10 tests qui attendent la lecture OCR du worker (217 s sur 390) sont tous Chromium, entre `correction` et `rounds`, et tombent presque tous dans la tranche 2.
+
+Simulé avec les durées du rapport et 5,5 s de frais fixes par tranche, aucune répartition par nombre n'atteint 30 % :
+
+- 4 tranches : 20 / 189 / 104 / 99 s ; 5 ou 6 tranches : une tranche sous 12 s.
+- Déplacer ou découper des fichiers ne change aucun nombre : la tranche 3 reste les tests WebKit 12 à 78 (≈ 110 s) et les deux autres se partagent ≈ 300 s, soit au moins 37 % d'écart. Le meilleur déplacement de deux fichiers donne 150 / 147 / 110 s.
+- 4 tranches et deux fichiers renommés pour passer en tête : 115 / 94 / 104 / 99 s (22 %), mais 32 % dès qu'une frontière bouge de deux tests.
+- Poids `82:34:85` : 133 / 134 / 140 s, mais 98 % si une frontière bouge de trois tests, sur une variable interne.
+
+Choix : une tranche dédiée aux tests les plus lents. Cinq tests qui attendent l'OCR portent le tag `@ocr` (constante `OCR_SHARD` de `tests/e2e/fixtures.ts`, option `tag` de `test()`, sans effet sur le test) : `import-queue` (trois photos), `rounds` (détail et photo), `correction` (ligne ajoutée pour Sean), `players` (alias GAB), `recrop` (import prêt recadré). La matrice de `e2e-shard` a trois entrées : `ocr` (`--grep @ocr`), `1` et `2` (`--grep-invert @ocr --shard=k/2`). `--grep` et `--grep-invert` se complètent : chaque test tombe dans une seule tranche. Simulé : 132 / 138 / 137 s (5 %), et au pire 5 % quand les frontières des tranches 1 et 2 bougent de trois tests. Un test `@ocr` de plus (≈ 20 s) porte la tranche `ocr` à ≈ 152 s, 11 % au-dessus de la plus courte. Le tag ne marque pas tous les tests OCR : seulement assez pour que la tranche `ocr` dure autant que les deux autres. Taguer les dix donnerait une tranche `ocr` de 223 s, plus longue que la tranche 2 actuelle.
+
+Alternative suivante : 1 tranche `ocr` (quatre tests) et 3 tranches pour le reste, 104 / 92 / 106 / 110 s (19 %, 21 % au pire), pour une machine de plus.
 
 ### 7. Lien de l'image dans la release
 
@@ -113,6 +124,7 @@ Alternative écartée : passer le texte à release-please (il écrit la release 
 - [Groupe `heavy` en série plus lent] → mesure à la tâche 1.4 : `Tests unitaires` doit rester sous 150 s ; au-delà, essayer `maxWorkers: 2`.
 - [Fichier lourd oublié dans `unit`] → test de garde de la décision 1.
 - [Artefact `.next` incomplet pour `next start`] → la tâche 4.2 lance une tranche sur l'artefact seul ; un fichier manquant se voit au premier test.
+- [Tranche `ocr` qui grossit] → un test ajouté qui attend l'OCR reste dans les tranches 1 et 2 tant qu'il n'est pas tagué ; l'artefact `playwright-durations-<tranche>` montre l'écart, et on retire ou ajoute un tag pour rééquilibrer.
 - [Cache Docker froid sur les PR] → premier build d'une PR plus lent (jusqu'à 140 s mesurés), toujours sous la tranche e2e la plus lente.
 - [Une PR de plus par contrôle requis] → ajouter `checks / docker` à la protection après la fusion de ce change, pas avant : sinon les PR ouvertes avant attendraient un contrôle qui ne vient jamais.
 
@@ -125,4 +137,4 @@ Alternative écartée : passer le texte à release-please (il écrit la release 
 
 ## Open Questions
 
-- Cause exacte du déséquilibre de la tranche 2 : se lit dans le rapport `json` de la tâche 5.1 ; la spec fixe déjà le critère.
+Aucune.
