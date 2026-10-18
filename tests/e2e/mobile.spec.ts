@@ -70,3 +70,17 @@ test("correction sur iPhone : pas de défilement horizontal, la grille défile s
   await expect(cell).toHaveValue("4");
   await expectNoHorizontalScroll(page);
 });
+
+test("liste des imports à 375 px : « Supprimer » ne fait pas déborder la ligne d'un import en échec", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  const id = seedFailedImport();
+  await page.goto("/import");
+  const row = page
+    .getByRole("list", { name: "Imports" })
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: `Import n°${id}` }) });
+  await expect(row.getByRole("button", { name: "Supprimer", exact: true })).toBeVisible();
+  await expectNoHorizontalScroll(page);
+});

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { PageTitle } from "@/components/page-title";
 import { InlineForm } from "@/components/players/inline-form";
+import { Button } from "@/components/ui/button";
 import { formatIndex, NO_VALUE } from "@/lib/format";
 import { requestDb } from "@/lib/request-db";
 import { playerOverviews } from "@/server/players/overview";
-import { addAliasAction, addPlayerAction, renamePlayerAction } from "./actions";
+import { addAliasAction, addPlayerAction, removeAliasAction, renamePlayerAction } from "./actions";
 
 export const metadata: Metadata = { title: "Joueurs · Handicaps golf" };
 
@@ -42,9 +43,37 @@ export default async function PlayersPage() {
                   Index {formatIndex(player.indexT, player.provisional)}
                 </span>
               </div>
-              <p data-testid="player-aliases" className="text-sm">
-                Alias : {player.aliases.length > 0 ? player.aliases.join(", ") : NO_VALUE}
-              </p>
+              <div
+                data-testid="player-aliases"
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+              >
+                <span>Alias :</span>{" "}
+                {player.aliases.length > 0 ? (
+                  <ul aria-label={`Alias de ${player.name}`} className="flex flex-wrap gap-2">
+                    {player.aliases.map((alias) => (
+                      <li key={alias} className="flex items-center gap-1">
+                        <span data-testid="alias">{alias}</span>
+                        {/* Formulaire simple : le retrait marche aussi sans JavaScript. */}
+                        <form action={removeAliasAction}>
+                          <input type="hidden" name="id" value={player.id} />
+                          <input type="hidden" name="alias" value={alias} />
+                          <Button
+                            type="submit"
+                            variant="ghost"
+                            size="xs"
+                            className="max-md:min-h-11"
+                            aria-label={`Retirer l'alias ${alias} de ${player.name}`}
+                          >
+                            Retirer
+                          </Button>
+                        </form>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span>{NO_VALUE}</span>
+                )}
+              </div>
               <InlineForm
                 key={`name-${player.name}`}
                 action={renamePlayerAction}

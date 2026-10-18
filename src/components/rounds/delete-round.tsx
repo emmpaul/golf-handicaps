@@ -1,61 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { Button } from "@/components/ui/button";
-import { Pending } from "@/components/ui/pending";
 
-/** Suppression d'un round après confirmation ; les index sont recalculés côté serveur. */
+/**
+ * Suppression d'un round après confirmation ; son import et sa photo partent avec lui, et les
+ * index sont recalculés côté serveur.
+ */
 export function DeleteRound({ roundId }: { roundId: number }) {
   const router = useRouter();
-  const [deleting, setDeleting] = useState(false);
-
-  async function remove() {
-    setDeleting(true);
-    const response = await fetch(`/api/rounds/${roundId}`, { method: "DELETE" });
-    if (response.ok) {
-      router.push("/rounds");
-      router.refresh();
-    } else {
-      setDeleting(false);
-    }
-  }
-
   return (
-    <AlertDialog>
-      <AlertDialogTrigger render={<Button variant="destructive" size="lg" />}>
-        Supprimer
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Supprimer ce round ?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Il sera retiré de l'historique et les index de ses joueurs seront recalculés.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <Pending label={deleting ? "Suppression du round…" : null} orb="send" />
-          <AlertDialogCancel>Annuler</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={deleting}
-            onClick={() => void remove()}
-          >
-            Supprimer
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDelete
+      trigger={<Button variant="destructive" size="lg" />}
+      title="Supprimer ce round ?"
+      description="Il sera retiré de l'historique, avec sa photo et son import, et les index de ses joueurs seront recalculés."
+      url={`/api/rounds/${roundId}`}
+      pendingLabel="Suppression du round…"
+      onDeleted={() => {
+        router.push("/rounds");
+        router.refresh();
+      }}
+    />
   );
 }
