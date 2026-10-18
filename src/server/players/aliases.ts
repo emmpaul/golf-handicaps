@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { playerAliases, players } from "@/db/schema";
 import { matchPlayerName, normalizePlayerName, type PlayerMatch } from "@/domain/player-match";
@@ -31,4 +31,16 @@ export function learnAlias(db: Db, playerId: number, read: string) {
     tx.delete(playerAliases).where(sql`lower(${playerAliases.alias}) = lower(${alias})`).run();
     tx.insert(playerAliases).values({ playerId, alias }).run();
   });
+}
+
+/** Retire un alias du joueur (spec `players`, « Retrait d'un alias ») ; un alias absent ne fait rien. */
+export function removeAlias(db: Db, playerId: number, alias: string) {
+  db.delete(playerAliases)
+    .where(
+      and(
+        eq(playerAliases.playerId, playerId),
+        sql`lower(${playerAliases.alias}) = lower(${normalizePlayerName(alias)})`,
+      ),
+    )
+    .run();
 }

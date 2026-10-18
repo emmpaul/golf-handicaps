@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { PlayerOption } from "@/components/round-editor/form-state";
 import { getDb } from "@/db/instance";
-import { learnAlias } from "@/server/players/aliases";
+import { learnAlias, removeAlias } from "@/server/players/aliases";
 import { addPlayer, DuplicatePlayerError, renamePlayer } from "@/server/players/players";
 
 export type PlayerFormState = { error: string | null; done: number };
@@ -73,4 +73,10 @@ export async function addAliasAction(
   const alias = text(formData, "alias");
   if (!alias) return { ...previous, error: "L'alias est obligatoire" };
   return attempt(previous, () => learnAlias(getDb(), Number(formData.get("id")), alias));
+}
+
+/** Retrait d'un alias depuis la page Joueurs, sans confirmation (spec `players`). */
+export async function removeAliasAction(formData: FormData): Promise<void> {
+  removeAlias(getDb(), Number(formData.get("id")), text(formData, "alias"));
+  revalidatePath("/", "layout");
 }
