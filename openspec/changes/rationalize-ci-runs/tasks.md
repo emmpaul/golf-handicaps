@@ -1,0 +1,53 @@
+# Tasks
+
+Règle pour tout le change : `scripts/ci-scope.ts` et le test de garde Vitest suivent le TDD (test rouge d'abord, valeurs attendues écrites à la main, mutation nommée). Pour les workflows, la vérification est le résultat observable d'une exécution GitHub, citée avec son numéro dans la PR. Pas de relance pour faire passer un job. Toute action ajoutée est pinnée par SHA avec sa version en commentaire, `pnpm check:pins` et `actionlint` passent, `pnpm jscpd` reste à 0 %.
+
+## 0. Préalable
+
+- [ ] 0.1 Archiver `improve-ci-pipeline` dans sa propre PR `chore(openspec):` : cocher ses tâches de vérification déjà observables (2.4 : PR de release #27 en 26 s, e2e sautés ; 3.4 : release v0.5.0 ; 7.1 ; 8.1 ; 8.2) avec les numéros d'exécution, noter les autres comme remplacées par ce change, puis `openspec archive improve-ci-pipeline`. Vérifier : `openspec/specs/ci-pipeline/spec.md` existe et `openspec validate rationalize-ci-runs` passe.
+
+## 1. Tests unitaires stables (spec « Délai des tests unitaires qui lancent Tesseract » ; design, décisions 1 et 2)
+
+- [ ] 1.1 TDD : `tests/vitest-projects.test.ts` lit la configuration de `vitest.config.ts`, résout les fichiers du projet `unit` et échoue si l'un contient `from "sharp"`, `scryptSync` ou `tesseract` (liste de motifs écrite à la main). Rouge d'abord : avant la tâche 1.2, il nomme `tests/lib/auth/login.test.ts`. Mutation : retirer `tests/jobs/imports.test.ts` de la liste `heavy` → rouge, le fichier est nommé.
+- [ ] 1.2 Déclarer les projets `unit` et `heavy` dans `vitest.config.ts` : `heavy` = les 11 fichiers (`tests/app/api/imports.test.ts`, `tests/ocr/read-scorecard.test.ts`, `tests/ocr/tesseract-reader.test.ts`, `tests/ocr/detect-panel.test.ts`, `tests/ai/completer.test.ts`, `tests/ai/corner-locator.test.ts`, `tests/lib/auth/login.test.ts`, `tests/jobs/ocr-scorecard.test.ts`, `tests/jobs/convert-photos.test.ts`, `tests/jobs/locate-panel.test.ts`, `tests/jobs/imports.test.ts`), `maxWorkers: 1`, `testTimeout: 60_000`, `sequence.groupOrder: 1`. Vérifier : `pnpm test` local passe, la sortie montre les deux projets, et 1.1 est vert.
+- [ ] 1.3 Retirer les délais par test (`}, 60_000)` et les commentaires « 30 s pour les trois tests suivants ») des 11 fichiers. Vérifier : `grep -rn "_000)" tests --include='*.test.ts'` ne renvoie plus rien dans ces fichiers, et `pnpm test` passe en local sous `stress`/48 processus `yes` comme décrit dans `detect-panel.test.ts`.
+- [ ] 1.4 Vérifier sur la PR de ce change : `checks / quality` vert au premier essai, étape `Tests unitaires` sous 150 s (au-delà : `maxWorkers: 2` et nouvelle mesure). Relever aussi les exécutions des deux PR de code suivantes : aucune ne doit échouer sur `Tests unitaires` ; noter les trois durées dans la PR de vérification.
+
+## 2. `main` saute ce que la PR a prouvé (specs « Push sur main déjà vérifié par sa PR », « Push de documentation ou de release sur main », « Suite complète pour tout changement de code » ; design, décision 3)
+
+- [ ] 2.1 TDD dans `tests/scripts/ci-scope.test.ts` : avec `--event push` et `--verified-by-pr` en JSON écrit à la main (`{ pr: 28, headSha, runConclusion, sameTree, headContainsBefore }`), `code=false` seulement si `runConclusion` vaut `success`, `sameTree` et `headContainsBefore` valent `true`. Cas rouges un par un : `failure`, `cancelled`, `""`, `sameTree: false`, `headContainsBefore: false`, argument absent, JSON invalide → `code=true`. Une liste de fichiers `src/lib/env.ts` vérifiée → `code=false` ; une liste `openspec/x.md` non vérifiée → `code=true` (le classement documentation ne joue plus sur `push`). Mutation : ignorer `headContainsBefore` → le cas correspondant rougit.
+- [ ] 2.2 Retirer `--parent-conclusion` de `scripts/ci-scope.ts` et de ses tests ; dans le job `scope` de `checks.yml`, sur `push`, faire les quatre lectures du design (PR via `commits/$TO/pulls`, conclusion `pr.yml` sur `head.sha`, arbres, `merge-base --is-ancestor`), journaliser chacune, construire le JSON et le passer ; toute erreur de lecture laisse l'argument absent. Ajouter `pull-requests: read` aux permissions de l'appel dans `main.yml`. Vérifier : `actionlint` propre, `pnpm test` vert.
+- [ ] 2.3 Mettre à jour les commentaires d'en-tête de `checks.yml` et `main.yml` (règle « arbre déjà vérifié » à la place de la garde sur le parent). Vérifier : `grep -n "parent" .github/workflows/*.yml` ne renvoie plus de mention de la garde.
+- [ ] 2.4 Vérifier sur le push `main` de la fusion de ce change : le log de `scope` nomme la PR et la conclusion `success`, `checks / e2e`, `checks / e2e-shard` et `checks / docker` sont sautés, `release-please` tourne, et l'exécution finit en moins de 1 min 30.
+
+## 3. Docker vérifié avant la fusion (spec « PR fusionnable quand des jobs sont sautés » ; design, décision 4)
+
+- [ ] 3.1 Passer `docker: true` dans `pr.yml` ; dans le job `docker` de `checks.yml`, `cache-from` lit `type=gha,scope=golf-handicaps` puis `type=gha,scope=golf-handicaps-amd64`. Mettre à jour les commentaires de `pr.yml` (« Pas de build Docker » devient faux). Vérifier : sur la PR de ce change, `checks / docker` tourne et passe, et le log de build montre des couches `CACHED`.
+- [ ] 3.2 Vérifier l'échec sur une PR brouillon jetable, jamais fusionnée, qui casse le `CMD` du `Dockerfile` : `checks / docker` échoue sur le test de fumée. Fermer la PR, supprimer la branche.
+- [ ] 3.3 Tâche humaine après la fusion : ajouter `checks / docker` aux contrôles requis de `main`. Vérifier : `gh api repos/emmpaul/golf-handicaps/branches/main/protection --jq '.required_status_checks'` renvoie `contexts` = `["checks / quality","checks / e2e","checks / docker"]` et `strict: true`, puis la première PR qui ne touche que `openspec/` reste fusionnable avec `checks / docker` sauté.
+
+## 4. Un seul build pour les e2e (spec « Un seul build de l'app pour les e2e » ; design, décision 5)
+
+- [ ] 4.1 Ajouter le job `e2e-build` (setup, `pnpm build`, `upload-artifact` de `.next/` sans `.next/cache` ni `.next/dev`, `retention-days: 1`) ; `e2e-shard` prend `needs: [scope, e2e-build]`, télécharge l'artefact et pose `E2E_PREBUILT=1` ; `e2e` vérifie aussi `needs.e2e-build.result`. Dans `playwright.config.ts`, la commande du serveur web devient `pnpm start …` quand `E2E_PREBUILT === "1"`, sinon inchangée. Vérifier : `pnpm e2e` local construit toujours l'app ; `actionlint` propre.
+- [ ] 4.2 Vérifier sur la PR de ce change : aucune tranche ne contient `Creating an optimized production build` dans son log, les trois tranches et `checks / e2e` sont verts, la somme des tests passés égale `pnpm exec playwright test --list`.
+- [ ] 4.3 Mesurer sur cette exécution : (fin de la tranche la plus lente) − (début de l'exécution), comparé à 339 s (#28, 39136…) et 278 s (main après #28). Gain < 20 s : revenir sur 4.1 dans la même PR et le noter.
+- [ ] 4.4 Vérifier sur une PR brouillon jetable qui casse le build (`import` inexistant dans `src/app/page.tsx`) : `e2e-build` échoue, les tranches sont sautées, `checks / e2e` est rouge. Fermer la PR, supprimer la branche.
+
+## 5. Tranches équilibrées (spec « Tranches e2e équilibrées » ; design, décision 6)
+
+- [ ] 5.1 Ajouter le reporter `json` en CI dans `playwright.config.ts` (à côté de `github`) et l'artefact `playwright-durations-<n>` de chaque tranche, `if: always()`. Vérifier : l'exécution de la PR produit trois artefacts ; noter dans la PR les 5 tests les plus longs de la tranche 2 et leur durée.
+- [ ] 5.2 D'après 5.1, déplacer ou découper le fichier lent, ou passer à 4 tranches (matrice et `--shard=n/4`). Vérifier sur l'exécution suivante : la plus longue étape « Tests e2e » dépasse la plus courte de moins de 30 %.
+
+## 6. Image Docker dans la release (spec « Image Docker indiquée dans la release » ; design, décision 7)
+
+- [ ] 6.1 `publish-manifest` sort `digest` (`imagetools inspect --format '{{json .Manifest}}' | jq -r .digest`). Nouveau job `release-notes` dans `main.yml` (`needs: [release-please, publish-manifest]`, condition `release_created`, `permissions: contents: write`) : lit le corps, ajoute la section `## Image Docker` (référence, digest, bloc `docker pull`, lien `https://github.com/emmpaul/golf-handicaps/pkgs/container/golf-handicaps` construit depuis `github.repository_owner`) sauf si elle est déjà là, puis `gh release edit --notes-file`. Vérifier : `actionlint` propre.
+- [ ] 6.2 Vérifier à la première release après la fusion : `gh release view vX.Y.Z` montre les notes du CHANGELOG puis la section, le digest égal à celui de `docker buildx imagetools inspect ghcr.io/emmpaul/golf-handicaps:vX.Y.Z`, et `docker pull` de la commande affichée réussit. Relancer le seul job `release-notes` (`gh run rerun --job`) : la section n'est pas dupliquée.
+- [ ] 6.3 Tâche humaine optionnelle : appliquer la même section à `v0.5.0` à la main (`gh release edit`), digest lu par `imagetools inspect`.
+
+## 7. Hooks locaux (spec « Hooks locaux limités au code » ; design, décision 8)
+
+- [ ] 7.1 Dans `lefthook.yml`, `glob` sur `typecheck` (`*.{ts,tsx}`) et sur `test` et `jscpd` (`src/**`, `tests/**`, `scripts/**`, `vitest.config.ts`, `.jscpd.json`, `package.json`, `pnpm-lock.yaml`, `tsconfig.json`). Vérifier : `pnpm exec lefthook run pre-commit` avec seulement `openspec/changes/rationalize-ci-runs/tasks.md` indexé affiche `typecheck` « skip » ; un push de la branche de ce change (qui touche `tests/`) lance `test` et `jscpd`.
+
+## Workflow follow-up
+
+- Archiver `rationalize-ci-runs` une fois 2.4, 3.3 et 6.2 observés.
