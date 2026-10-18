@@ -1,5 +1,7 @@
-# PR : lint, typecheck, tests, e2e, jscpd, check:pins et commitlint sur les commits de la PR.
-# Pas de build Docker : il tourne sur main, avant release-please (design, décision 7).
+# PR : lint, typecheck, tests, e2e, jscpd, check:pins et commitlint sur les commits de la PR, plus le build
+# de l'image Docker (sans push) et le test de fumée compose, pour qu'une image cassée bloque la fusion
+# (rationalize-ci-runs, décision 4). Tout sauf check:pins, commitlint et le lint est sauté pour de la
+# documentation seule.
 name: pr
 
 on:
@@ -18,3 +20,4 @@ jobs:
     with:
       commit-from: ${{ github.event.pull_request.base.sha }}
       commit-to: ${{ github.event.pull_request.head.sha }}
+      docker: true

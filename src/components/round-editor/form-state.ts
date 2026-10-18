@@ -18,9 +18,11 @@ export type PlayerOption = { id: number; name: string };
 
 /**
  * Ligne de joueur de l'éditeur. `readTotals` : les totaux OUT, IN et TOT sont ceux lus sur
- * la carte, à vérifier. Sinon (ligne saisie à la main), ils suivent les cases.
+ * la carte, à vérifier. Sinon (ligne saisie à la main), ils suivent les cases. `key` est un
+ * UUID : les lignes de départ sont créées sur le serveur et les lignes ajoutées dans le
+ * navigateur, un compteur par copie du module y donnerait deux fois la même clé.
  */
-export type EditorLine = RoundFormRow & { key: number; readTotals: boolean };
+export type EditorLine = RoundFormRow & { key: string; readTotals: boolean };
 
 export type EditorState = {
   form: Omit<RoundForm, "players">;
@@ -59,11 +61,9 @@ export function toRoundForm(state: EditorState): RoundForm {
   };
 }
 
-let nextKey = 1;
-
 export function newLine(row: Partial<RoundFormRow> = {}, readTotals = false): EditorLine {
   return {
-    key: nextKey++,
+    key: crypto.randomUUID(),
     name: row.name ?? null,
     playerId: row.playerId ?? null,
     scores: row.scores ?? derivedTotals(emptyValues()),
@@ -146,11 +146,23 @@ export function withoutAiCell(state: EditorState, cell: string): EditorState {
   return { ...state, aiCells: state.aiCells.filter((key) => key !== cell) };
 }
 
+/** Associe le joueur `playerId` (ou aucun) à la ligne `key`, et à elle seule. */
+export function associatePlayer(
+  state: EditorState,
+  key: string,
+  playerId: number | null,
+): EditorState {
+  return {
+    ...state,
+    lines: state.lines.map((line) => (line.key === key ? { ...line, playerId } : line)),
+  };
+}
+
 /**
  * Retire une ligne de joueur. Ses marques IA partent avec elle, et celles des lignes
  * suivantes suivent leur nouveau rang (les clés de case `player<n>` sont positionnelles).
  */
-export function removeLine(state: EditorState, key: number): EditorState {
+export function removeLine(state: EditorState, key: string): EditorState {
   const removed = state.lines.findIndex((line) => line.key === key);
   const aiCells = state.aiCells.flatMap((cell) => {
     const match = /^player(\d+):(.+)$/.exec(cell);

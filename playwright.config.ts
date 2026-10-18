@@ -10,6 +10,11 @@ const PORT = Number(process.env.E2E_PORT ?? 3210);
 // (les processus de test héritent de cette variable).
 process.env.E2E_DATA_DIR ??= mkdtempSync(join(tmpdir(), "golf-e2e-"));
 
+// En CI, les tranches reçoivent le build de l'app du job e2e-build (E2E_PREBUILT=1) et ne le refont pas.
+// En local, le serveur web construit toujours l'app avant de démarrer.
+const WEB_START = `pnpm start --hostname 127.0.0.1 --port ${PORT}`;
+const webCommand = process.env.E2E_PREBUILT === "1" ? WEB_START : `pnpm build && ${WEB_START}`;
+
 const serverEnv = {
   APP_PASSCODE: E2E_PASSCODE,
   SESSION_SECRET: E2E_SESSION_SECRET,
@@ -29,7 +34,10 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  // En CI, le rapport json donne la durée de chaque test de la tranche (artefact playwright-durations-<n>).
+  reporter: process.env.CI
+    ? [["github"], ["json", { outputFile: "playwright-durations.json" }]]
+    : "list",
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: "on-first-retry",
@@ -41,7 +49,7 @@ export default defineConfig({
   webServer: [
     {
       name: "web",
-      command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${PORT}`,
+      command: webCommand,
       url: `http://127.0.0.1:${PORT}/login`,
       reuseExistingServer: false,
       timeout: 180_000,

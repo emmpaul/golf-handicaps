@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { saveButton } from "./editor";
-import { expect, test } from "./fixtures";
+import { expect, OCR_SHARD, test } from "./fixtures";
 import { openReferenceCorrection } from "./import";
 
 const playerItems = (page: Page) =>
@@ -54,21 +54,23 @@ test("ajouter l'alias « SEANP » à Sean l'affiche dans ses alias", async ({ pa
   );
 });
 
-test("associer à la main la ligne « GAB » à Alex mémorise l'alias GAB pour Alex", async ({
-  page,
-}) => {
-  test.setTimeout(90_000);
-  await page.goto("/players");
-  await page.getByLabel("Nouveau joueur").fill("Alex");
-  await page.getByRole("button", { name: "Ajouter", exact: true }).click();
-  await expect(playerItems(page)).toHaveCount(4);
+test(
+  "associer à la main la ligne « GAB » à Alex mémorise l'alias GAB pour Alex",
+  OCR_SHARD,
+  async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto("/players");
+    await page.getByLabel("Nouveau joueur").fill("Alex");
+    await page.getByRole("button", { name: "Ajouter", exact: true }).click();
+    await expect(playerItems(page)).toHaveCount(4);
 
-  await openReferenceCorrection(page);
-  await page.getByLabel("Joueur de la ligne 1").selectOption({ label: "Alex" });
-  await saveButton(page).click();
-  await page.waitForURL("**/rounds");
+    await openReferenceCorrection(page);
+    await page.getByLabel("Joueur de la ligne 1").selectOption({ label: "Alex" });
+    await saveButton(page).click();
+    await page.waitForURL("**/rounds");
 
-  await page.goto("/players");
-  await expect(playerItem(page, "Alex").getByTestId("player-aliases")).toHaveText("Alias : GAB");
-  await expect(playerItem(page, "Gab").getByTestId("player-aliases")).toHaveText("Alias : —");
-});
+    await page.goto("/players");
+    await expect(playerItem(page, "Alex").getByTestId("player-aliases")).toHaveText("Alias : GAB");
+    await expect(playerItem(page, "Gab").getByTestId("player-aliases")).toHaveText("Alias : —");
+  },
+);

@@ -1,7 +1,7 @@
 import { request as playwrightRequest } from "@playwright/test";
 import { referenceRound, seedRound } from "./data";
 import { cell, saveButton } from "./editor";
-import { expect, test } from "./fixtures";
+import { expect, OCR_SHARD, test } from "./fixtures";
 import { openReferenceCorrection } from "./import";
 
 const leaderboardRows = (page: import("@playwright/test").Page) =>
@@ -22,34 +22,36 @@ test("la liste va du plus récent au plus ancien et montre le gagnant net", asyn
   ]);
 });
 
-test("le détail montre le classement net et la photo servie par une route authentifiée", async ({
-  page,
-  players,
-  baseURL,
-}) => {
-  test.setTimeout(90_000);
-  seedRound(referenceRound(players, { playedOn: "2026-10-10" }));
-  await openReferenceCorrection(page);
-  await saveButton(page).click();
-  await page.waitForURL("**/rounds");
-  await page.getByRole("link", { name: /17 octobre 2026/ }).click();
-  await page.waitForURL("**/rounds/2");
+test(
+  "le détail montre le classement net et la photo servie par une route authentifiée",
+  OCR_SHARD,
+  async ({ page, players, baseURL }) => {
+    test.setTimeout(90_000);
+    seedRound(referenceRound(players, { playedOn: "2026-10-10" }));
+    await openReferenceCorrection(page);
+    await saveButton(page).click();
+    await page.waitForURL("**/rounds");
+    await page.getByRole("link", { name: /17 octobre 2026/ }).click();
+    await page.waitForURL("**/rounds/2");
 
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("BETHPAGE BLACK");
-  await expect(page.getByTestId("round-summary")).toHaveText("Tees Red · 17 octobre 2026 · Par 71");
-  await expect(leaderboardRows(page)).toHaveText([
-    "JoueurBrutHcp de jeuNetRang",
-    "Gab721711",
-    "Manu8817711",
-  ]);
-  const photo = page.getByRole("img", { name: "Carte du round" });
-  expect(await photo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(3000);
-  await expect(photo).toHaveAttribute("src", "/api/rounds/2/photo");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("BETHPAGE BLACK");
+    await expect(page.getByTestId("round-summary")).toHaveText(
+      "Tees Red · 17 octobre 2026 · Par 71",
+    );
+    await expect(leaderboardRows(page)).toHaveText([
+      "JoueurBrutHcp de jeuNetRang",
+      "Gab721711",
+      "Manu8817711",
+    ]);
+    const photo = page.getByRole("img", { name: "Carte du round" });
+    expect(await photo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(3000);
+    await expect(photo).toHaveAttribute("src", "/api/rounds/2/photo");
 
-  const anonymous = await playwrightRequest.newContext({ baseURL });
-  expect((await anonymous.get("/api/rounds/2/photo")).status()).toBe(401);
-  await anonymous.dispose();
-});
+    const anonymous = await playwrightRequest.newContext({ baseURL });
+    expect((await anonymous.get("/api/rounds/2/photo")).status()).toBe(401);
+    await anonymous.dispose();
+  },
+);
 
 test("un joueur sans index n'a ni net ni rang : « — » et « pas encore d'index »", async ({
   page,

@@ -1,6 +1,6 @@
 import { seedReadyImport } from "./data";
 import { cell, fillRow, rowValues, saveButton } from "./editor";
-import { expect, test } from "./fixtures";
+import { expect, OCR_SHARD, test } from "./fixtures";
 import { openReferenceCorrection } from "./import";
 
 const REFERENCE_PARS = ["4", "4", "3", "5", "4", "4", "5", "3", "4"].concat([
@@ -60,23 +60,25 @@ test("une valeur fausse est surlignée et comptée, puis la correction l'efface"
   await expect(saveButton(page)).toHaveText("Enregistrer");
 });
 
-test("une ligne ajoutée pour Sean s'enregistre et le round apparaît dans la liste", async ({
-  page,
-}) => {
-  test.setTimeout(90_000);
-  await openReferenceCorrection(page);
-  await page.getByRole("button", { name: "Ajouter une ligne" }).click();
-  await expect(saveButton(page)).toHaveText("19 problèmes à corriger");
-  await page.getByLabel("Joueur de la ligne 3").selectOption({ label: "Sean" });
-  await fillRow(page, "Ligne 3", Array(18).fill(5));
-  await expect(cell(page, "Ligne 3", "TOT")).toHaveValue("90");
-  await saveButton(page).click();
+test(
+  "une ligne ajoutée pour Sean s'enregistre et le round apparaît dans la liste",
+  OCR_SHARD,
+  async ({ page }) => {
+    test.setTimeout(90_000);
+    await openReferenceCorrection(page);
+    await page.getByRole("button", { name: "Ajouter une ligne" }).click();
+    await expect(saveButton(page)).toHaveText("19 problèmes à corriger");
+    await page.getByLabel("Joueur de la ligne 3").selectOption({ label: "Sean" });
+    await fillRow(page, "Ligne 3", Array(18).fill(5));
+    await expect(cell(page, "Ligne 3", "TOT")).toHaveValue("90");
+    await saveButton(page).click();
 
-  await page.waitForURL("**/rounds");
-  const round = page.getByRole("listitem").filter({ hasText: "BETHPAGE BLACK" });
-  await expect(round).toHaveCount(1);
-  await expect(round.getByTestId("round-gross")).toHaveText(["Gab 72", "Manu 88", "Sean 90"]);
-});
+    await page.waitForURL("**/rounds");
+    const round = page.getByRole("listitem").filter({ hasText: "BETHPAGE BLACK" });
+    await expect(round).toHaveCount(1);
+    await expect(round.getByTestId("round-gross")).toHaveText(["Gab 72", "Manu 88", "Sean 90"]);
+  },
+);
 
 test("les lignes de la grille portent le nom du joueur associé, sinon le nom lu", async ({
   page,

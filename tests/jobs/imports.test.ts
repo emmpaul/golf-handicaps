@@ -28,13 +28,11 @@ const uploadsDir = () => join(testDb().dir, "uploads");
 
 describe("toStoredWebp", () => {
   // Mutation : `.jpeg()` à la place de `.webp()` → l'en-tête RIFF/WEBP manque.
-  // 60 s : encode la photo de référence en taille réelle, premier appel à sharp du fichier, et en
-  // CI les fichiers qui lancent Tesseract se disputent les 4 vCPU ; il a déjà pris plus de 5 s.
   it("convertit un JPEG en WebP (en-tête RIFF, WEBP aux octets 8 à 11)", async () => {
     const webp = await toStoredWebp(referencePhoto().photo);
     expect(webp.subarray(0, 4).toString("ascii")).toBe("RIFF");
     expect(webp.subarray(8, 12).toString("ascii")).toBe("WEBP");
-  }, 60_000);
+  });
 
   // Mutation : rendre le buffer reçu tel quel au lieu de le décoder.
   it("rejette un buffer qui n'est pas une image", async () => {

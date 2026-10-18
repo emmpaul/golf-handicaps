@@ -17,6 +17,7 @@ import { SAVING, useCorrectionAutosave } from "./autosave";
 import { DateField } from "./date-field";
 import {
   applyCourse,
+  associatePlayer,
   courseLabel,
   type EditorState,
   type KnownCourse,
@@ -162,16 +163,13 @@ export function RoundEditor({
     change({ ...next, form: { ...next.form, [field]: value || null } });
   }
 
-  function associate(key: number, playerId: number | null) {
+  function associate(key: string, playerId: number | null) {
     // Mise à jour fonctionnelle : appelée aussi après la création d'un joueur (asynchrone).
-    setState((current) => ({
-      ...current,
-      lines: current.lines.map((line) => (line.key === key ? { ...line, playerId } : line)),
-    }));
+    setState((current) => associatePlayer(current, key, playerId));
     setNotice(null);
   }
 
-  async function createPlayer(key: number, name: string): Promise<string | null> {
+  async function createPlayer(key: string, name: string): Promise<string | null> {
     const created = await createPlayerAction(name);
     if (!created.player) return created.error;
     const { player } = created;
