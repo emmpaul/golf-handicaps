@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/emmpaul/golf-handicaps/compare/v0.4.0...v0.5.0) (2026-10-18)
+
+
+### Features
+
+* **imports:** find scorecard corners automatically ([#28](https://github.com/emmpaul/golf-handicaps/issues/28)) ([5acf90a](https://github.com/emmpaul/golf-handicaps/commit/5acf90a6e2824a4eb8d5bd447ebd48d8d00a3ffb))
+* **imports:** store scorecard photos as webp ([#26](https://github.com/emmpaul/golf-handicaps/issues/26)) ([fe056c0](https://github.com/emmpaul/golf-handicaps/commit/fe056c0a9bbeb0b7c952769a4b42b8d9164c1677))
+
 ## [0.4.0](https://github.com/emmpaul/golf-handicaps/compare/v0.3.0...v0.4.0) (2026-10-18)
 
 
