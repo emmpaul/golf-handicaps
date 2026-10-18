@@ -83,6 +83,19 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Zones sûres (encoche, barre d'accueil) : 0 hors plein écran. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Barre d'onglets du bas : icône + libellé, cibles de plus de 44 px. */
+  --tabbar-h: 3.5rem;
+  /* Hauteur occupée en bas de l'écran : onglets et barre d'accueil sous `md`, barre d'accueil au-delà. */
+  --bottom-chrome: calc(var(--tabbar-h) + var(--safe-bottom));
+}
+
+@media (width >= 48rem) {
+  :root {
+    --bottom-chrome: var(--safe-bottom);
+  }
 }
 
 .dark {

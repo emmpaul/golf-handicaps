@@ -183,6 +183,11 @@ export const seedFailedImport = (correction: SeededImport["correction"] = null) 
 export const seedQueuedImport = (status: "queued" | "reading") =>
   seedImport({ status, corners: DEFAULT_CORNERS, draft: null });
 
+/** Change la date de création d'un import en base (date affichée dans la liste). */
+export function setImportCreatedAt(id: number, createdAt: Date) {
+  withDb((db) => db.update(imports).set({ createdAt }).where(eq(imports.id, id)).run());
+}
+
 /** Change l'état d'un import en base, comme le ferait le worker. */
 export function setImportStatus(id: number, status: ImportStatus) {
   withDb((db) => db.update(imports).set({ status }).where(eq(imports.id, id)).run());

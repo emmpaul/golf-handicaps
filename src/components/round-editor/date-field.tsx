@@ -78,11 +78,13 @@ export function DateField({
         </PopoverTrigger>
         {ai ? <AiMark /> : null}
       </div>
-      {/* À l'ouverture, le focus va au jour choisi : les flèches partent de lui. */}
+      {/* À l'ouverture, le focus va au jour choisi : les flèches partent de lui. Cases de 44 px,
+          réduites sous 348 px de large pour que les 7 jours tiennent dans l'écran. */}
       <PopoverContent
         ref={popup}
         className="w-auto p-0"
         align="start"
+        collisionPadding={8}
         initialFocus={() =>
           popup.current?.querySelector<HTMLElement>('[aria-selected="true"] button') ?? true
         }
@@ -96,7 +98,7 @@ export function DateField({
           captionLayout="dropdown"
           startMonth={START_MONTH}
           endMonth={new Date(new Date().getFullYear(), 11)}
-          className="[--cell-size:--spacing(11)]"
+          className="[--cell-size:min(--spacing(11),calc((100vw-2.5rem)/7))]"
           components={{ DayButton }}
           onSelect={(date) => {
             onChange(localDateToIso(date));

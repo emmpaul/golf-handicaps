@@ -4,6 +4,9 @@ import { expect, test } from "./fixtures";
 
 const MANU_83 = [6, 5, 3, 6, 5, 5, 5, 3, 5, 3, 5, 5, 6, 4, 5, 4, 3, 5];
 
+/** Texte affiché des cellules : sans la date courte ni la marque réservées aux téléphones. */
+const VISIBLE_TEXT = { useInnerText: true };
+
 const section = (page: Page, name: string) => page.getByRole("region", { name });
 const differentialRows = (page: Page, name: string) =>
   page.getByRole("table", { name: `Différentiels de ${name}` }).getByRole("row");
@@ -35,9 +38,18 @@ test("index affiché, mention « provisoire », « — » sans round, un point p
 
   // Trois différentiels égaux : le plus ancien est celui retenu (meilleur − 2,0).
   const gab = differentialRows(page, "Gab");
-  await expect(gab.nth(1).getByRole("cell")).toHaveText(["17 octobre 2026", "1,0", "-1,0", ""]);
-  await expect(gab.nth(2).getByRole("cell")).toHaveText(["10 octobre 2026", "1,0", "1,0", ""]);
-  await expect(gab.nth(3).getByRole("cell")).toHaveText(["1 octobre 2026", "1,0", "1,0", "Compte"]);
+  await expect(gab.nth(1).getByRole("cell")).toHaveText(
+    ["17 octobre 2026", "1,0", "-1,0", ""],
+    VISIBLE_TEXT,
+  );
+  await expect(gab.nth(2).getByRole("cell")).toHaveText(
+    ["10 octobre 2026", "1,0", "1,0", ""],
+    VISIBLE_TEXT,
+  );
+  await expect(gab.nth(3).getByRole("cell")).toHaveText(
+    ["1 octobre 2026", "1,0", "1,0", "Compte"],
+    VISIBLE_TEXT,
+  );
 });
 
 test("sur 6 rounds, les 2 meilleurs différentiels sont marqués comme comptant", async ({
@@ -53,16 +65,12 @@ test("sur 6 rounds, les 2 meilleurs différentiels sont marqués comme comptant"
   await expect(section(page, "Gab").getByTestId("player-index")).toHaveText("Index 12,0");
   const counted = differentialRows(page, "Gab").filter({ hasText: "Compte" });
   await expect(counted).toHaveCount(2);
-  await expect(counted.nth(0).getByRole("cell")).toHaveText([
-    "5 octobre 2026",
-    "14,0",
-    "12,0",
-    "Compte",
-  ]);
-  await expect(counted.nth(1).getByRole("cell")).toHaveText([
-    "2 octobre 2026",
-    "12,0",
-    "14,5",
-    "Compte",
-  ]);
+  await expect(counted.nth(0).getByRole("cell")).toHaveText(
+    ["5 octobre 2026", "14,0", "12,0", "Compte"],
+    VISIBLE_TEXT,
+  );
+  await expect(counted.nth(1).getByRole("cell")).toHaveText(
+    ["2 octobre 2026", "12,0", "14,5", "Compte"],
+    VISIBLE_TEXT,
+  );
 });

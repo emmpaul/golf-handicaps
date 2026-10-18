@@ -54,13 +54,14 @@ function Calendar({
           "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
           defaultClassNames.nav
         ),
+        // Sans taille de bouton : les flèches suivent `--cell-size`, comme les jours.
         button_previous: cn(
-          buttonVariants({ variant: buttonVariant }),
+          buttonVariants({ variant: buttonVariant, size: null }),
           "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
           defaultClassNames.button_previous
         ),
         button_next: cn(
-          buttonVariants({ variant: buttonVariant }),
+          buttonVariants({ variant: buttonVariant, size: null }),
           "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
           defaultClassNames.button_next
         ),
@@ -76,15 +77,17 @@ function Calendar({
           "relative rounded-(--cell-radius)",
           defaultClassNames.dropdown_root
         ),
+        // Sous `md`, texte de 16 px : iOS zoome sur une liste plus petite au focus.
         dropdown: cn(
-          "absolute inset-0 bg-popover opacity-0",
+          "absolute inset-0 bg-popover text-base opacity-0 md:text-sm",
           defaultClassNames.dropdown
         ),
         caption_label: cn(
           "font-medium select-none",
           captionLayout === "label"
             ? "text-sm"
-            : "flex items-center gap-1 rounded-(--cell-radius) text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
+            : // Sous `md`, le libellé, que couvre la liste, en fixe la zone de toucher : une case.
+              "flex items-center gap-1 rounded-(--cell-radius) text-base max-md:h-(--cell-size) md:text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
           defaultClassNames.caption_label
         ),
         month_grid: cn("w-full border-collapse", defaultClassNames.month_grid),
@@ -194,10 +197,12 @@ function CalendarDayButton({
     if (modifiers.focused) ref.current?.focus()
   }, [modifiers.focused])
 
+  // Sans taille de bouton : la case suit `--cell-size` seule, à toutes les largeurs
+  // (la taille `icon` passe à 44 px sous `md`, ce que `size-auto` n'efface pas à partir de `md`).
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size={null}
       data-day={day.date.toLocaleDateString(locale?.code)}
       data-selected-single={
         modifiers.selected &&
