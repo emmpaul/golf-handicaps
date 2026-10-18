@@ -24,7 +24,7 @@ Aucune.
 
 ## Impact
 
-- **Code** : `src/jobs/imports.ts` (`createImport` convertit avant d'écrire), `src/lib/photo-response.ts` (type selon l'extension), nouveau module de conversion des photos existantes appelé depuis `src/db/prepare.ts`.
+- **Code** : `src/jobs/imports.ts` (`createImport` convertit avant d'écrire), `src/lib/photo-response.ts` (type selon l'extension), nouveau module de conversion des photos existantes lancé sans attente depuis `register()` dans `src/instrumentation.ts`.
 - **Données** : colonnes `imports.photo_path` et `rounds.photo_path` réécrites de `.jpg` en `.webp` ; aucun changement de schéma. Fichiers du volume `DATA_DIR/uploads` remplacés.
 - **Dépendances** : aucune nouvelle ; `sharp` est déjà utilisé côté serveur et marqué externe pour le worker.
 - **Retour arrière** : une version antérieure sait encore lire les `.webp` (sharp décode le WebP) mais les sert en `image/jpeg` ; les JPEG supprimés ne reviennent pas.

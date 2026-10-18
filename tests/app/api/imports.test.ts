@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
+import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readEditorState, toSavedCorrection } from "@/components/round-editor/form-state";
 import { listPlayers } from "@/server/players/players";
@@ -37,7 +38,12 @@ afterAll(() => {
   testDb.cleanup();
 });
 
-const PHOTO = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 9, 8, 7]);
+/** Petit JPEG décodable, comme celui que le navigateur envoie (en plus petit). */
+const PHOTO = new Uint8Array(
+  await sharp({ create: { width: 8, height: 8, channels: 3, background: "#2d6a4f" } })
+    .jpeg()
+    .toBuffer(),
+);
 
 function uploadRequest(fields: { photo?: Blob; corners?: string }) {
   const form = new FormData();
@@ -52,7 +58,7 @@ const statusOf = (id: string) =>
   });
 
 describe("POST /api/imports", () => {
-  it("enregistre la photo, crée l'import en attente et répond 201 avec son id", async () => {
+  it("enregistre la photo en WebP, crée l'import en attente et répond 201 avec son id", async () => {
     const response = await routes.upload.POST(
       uploadRequest({
         photo: new Blob([PHOTO], { type: "image/jpeg" }),
@@ -65,7 +71,23 @@ describe("POST /api/imports", () => {
       .prepare("SELECT status, photo_path AS photoPath FROM imports WHERE id = ?")
       .get(id) as { status: string; photoPath: string };
     expect(row.status).toBe("queued");
-    expect(new Uint8Array(readFileSync(join(testDb.dir, row.photoPath)))).toEqual(PHOTO);
+    expect(row.photoPath).toMatch(/\.webp$/);
+    expect(readFileSync(join(testDb.dir, row.photoPath)).subarray(8, 12).toString("ascii")).toBe(
+      "WEBP",
+    );
+  });
+
+  // Mutation : laisser remonter le rejet de la conversion (500) au lieu de répondre 400.
+  it("refuse une photo qui n'est pas une image avec 400 « Photo illisible », sans import", async () => {
+    const before = testDb.sqlite.prepare("SELECT count(*) FROM imports").pluck().get();
+    const response = await routes.upload.POST(
+      uploadRequest({
+        photo: new Blob(["pas une image"], { type: "image/jpeg" }),
+        corners: JSON.stringify(referenceCorners()),
+      }),
+    );
+    expect([response.status, await response.json()]).toEqual([400, { error: "Photo illisible" }]);
+    expect(testDb.sqlite.prepare("SELECT count(*) FROM imports").pluck().get()).toBe(before);
   });
 
   it.each([

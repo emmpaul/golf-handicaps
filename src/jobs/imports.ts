@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
+import sharp from "sharp";
 import { z } from "zod";
 import type { Db } from "@/db/client";
 import { type importStatuses, imports } from "@/db/schema";
@@ -46,19 +47,41 @@ export function parseCorners(value: unknown): Corners | null {
 }
 
 /**
- * Enregistre la photo sous `DATA_DIR/uploads/<uuid>.jpg`, puis crée l'import et son job
- * `ocr-scorecard` dans la même transaction (design, décision 5.2).
+ * Photo telle qu'elle est gardée sur le disque : WebP avec perte, qualité 90 (design, décisions 1
+ * et 2). `rotate()` applique l'orientation EXIF, que le WebP n'emporte pas. Rejette si le buffer
+ * n'est pas une image que sharp sait décoder.
  */
-export function createImport(
+export function toStoredWebp(photo: Buffer): Promise<Buffer> {
+  return sharp(photo).rotate().webp({ quality: 90 }).toBuffer();
+}
+
+/** La photo envoyée n'est pas une image que sharp sait décoder (design, décision 1). */
+export class UnreadablePhotoError extends Error {
+  constructor(cause: unknown) {
+    super("Photo illisible", { cause });
+    this.name = "UnreadablePhotoError";
+  }
+}
+
+/**
+ * Convertit la photo en WebP et l'enregistre sous `DATA_DIR/uploads/<uuid>.webp` : le fichier
+ * reçu n'est jamais écrit (design, décision 1). Crée ensuite l'import et son job `ocr-scorecard`
+ * dans la même transaction (design de l'import, décision 5.2). Rejette avec
+ * `UnreadablePhotoError`, sans rien écrire, si la photo n'est pas une image lisible.
+ */
+export async function createImport(
   db: Db,
   dataDir: string,
   upload: { photo: Buffer; corners: Corners },
   now: Date,
-): { id: number; photoPath: string } {
-  const photoPath = `uploads/${randomUUID()}.jpg`;
+): Promise<{ id: number; photoPath: string }> {
+  const webp = await toStoredWebp(upload.photo).catch((cause: unknown) => {
+    throw new UnreadablePhotoError(cause);
+  });
+  const photoPath = `uploads/${randomUUID()}.webp`;
   const file = join(dataDir, photoPath);
   mkdirSync(join(dataDir, "uploads"), { recursive: true });
-  writeFileSync(file, upload.photo);
+  writeFileSync(file, webp);
   try {
     return db.transaction((tx) => {
       const { id } = tx

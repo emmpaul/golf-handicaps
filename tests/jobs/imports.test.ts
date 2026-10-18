@@ -1,24 +1,63 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { createImport, getImportStatus, importStatusLabel, recropImport } from "@/jobs/imports";
+import {
+  createImport,
+  getImportStatus,
+  importStatusLabel,
+  recropImport,
+  toStoredWebp,
+  UnreadablePhotoError,
+} from "@/jobs/imports";
+import { referencePhoto } from "../ocr/reference";
 import { freshTestDb, NEW_CORNERS, NOW, referenceCorners } from "./helpers";
 
 const testDb = freshTestDb();
 
-const PHOTO = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
-const upload = () =>
-  createImport(testDb().db, testDb().dir, { photo: PHOTO, corners: referenceCorners() }, NOW);
+/** Petit JPEG décodable, comme celui que le navigateur envoie (en plus petit). */
+const PHOTO = await sharp({
+  create: { width: 8, height: 8, channels: 3, background: "#2d6a4f" },
+})
+  .jpeg()
+  .toBuffer();
 
-describe("createImport", () => {
-  it("enregistre la photo sous uploads/<uuid>.jpg dans DATA_DIR", () => {
-    const { photoPath } = upload();
-    expect(photoPath).toMatch(/^uploads\/[0-9a-f-]{36}\.jpg$/);
-    expect(readFileSync(join(testDb().dir, photoPath))).toEqual(PHOTO);
+const upload = (photo = PHOTO) =>
+  createImport(testDb().db, testDb().dir, { photo, corners: referenceCorners() }, NOW);
+
+const uploadsDir = () => join(testDb().dir, "uploads");
+
+describe("toStoredWebp", () => {
+  // Mutation : `.jpeg()` à la place de `.webp()` → l'en-tête RIFF/WEBP manque.
+  it("convertit un JPEG en WebP (en-tête RIFF, WEBP aux octets 8 à 11)", async () => {
+    const webp = await toStoredWebp(referencePhoto().photo);
+    expect(webp.subarray(0, 4).toString("ascii")).toBe("RIFF");
+    expect(webp.subarray(8, 12).toString("ascii")).toBe("WEBP");
   });
 
-  it("crée l'import en attente avec ses coins et un job ocr-scorecard qui le vise", () => {
-    const { id, photoPath } = upload();
+  // Mutation : rendre le buffer reçu tel quel au lieu de le décoder.
+  it("rejette un buffer qui n'est pas une image", async () => {
+    await expect(toStoredWebp(Buffer.from("pas une image"))).rejects.toThrow(
+      /unsupported image format/,
+    );
+  });
+});
+
+describe("createImport", () => {
+  // Mutation : écrire le buffer reçu au lieu du WebP converti.
+  it("enregistre la photo convertie en WebP sous uploads/<uuid>.webp, seul fichier du dossier", async () => {
+    const { photoPath } = await upload();
+    expect(photoPath).toMatch(/^uploads\/[0-9a-f-]{36}\.webp$/);
+    const stored = readFileSync(join(testDb().dir, photoPath));
+    expect([
+      stored.subarray(0, 4).toString("ascii"),
+      stored.subarray(8, 12).toString("ascii"),
+    ]).toEqual(["RIFF", "WEBP"]);
+    expect(readdirSync(uploadsDir())).toEqual([photoPath.slice("uploads/".length)]);
+  });
+
+  it("crée l'import en attente avec ses coins et un job ocr-scorecard qui le vise", async () => {
+    const { id, photoPath } = await upload();
     expect(
       testDb().sqlite.prepare("SELECT status, photo_path, corners FROM imports").all(),
     ).toEqual([
@@ -29,11 +68,20 @@ describe("createImport", () => {
     ]);
   });
 
-  it("ne garde ni l'import ni la photo si le job ne peut pas être créé (même transaction)", () => {
+  it("ne garde ni l'import ni la photo si le job ne peut pas être créé (même transaction)", async () => {
     testDb().sqlite.exec("DROP TABLE jobs");
-    expect(upload).toThrow(/no such table: jobs/);
+    await expect(upload()).rejects.toThrow(/no such table: jobs/);
     expect(testDb().sqlite.prepare("SELECT count(*) FROM imports").pluck().get()).toBe(0);
-    expect(readdirSync(join(testDb().dir, "uploads"))).toEqual([]);
+    expect(readdirSync(uploadsDir())).toEqual([]);
+  });
+
+  // Mutation : écrire le fichier avant la conversion.
+  it("n'écrit aucun fichier ni import si la photo n'est pas une image", async () => {
+    const rejection = upload(Buffer.from("pas une image"));
+    await expect(rejection).rejects.toThrow(UnreadablePhotoError);
+    await expect(rejection).rejects.toThrow("Photo illisible");
+    expect(testDb().sqlite.prepare("SELECT count(*) FROM imports").pluck().get()).toBe(0);
+    expect(existsSync(uploadsDir()) ? readdirSync(uploadsDir()) : []).toEqual([]);
   });
 });
 
@@ -49,8 +97,8 @@ describe("importStatusLabel", () => {
 });
 
 describe("getImportStatus", () => {
-  it("renvoie l'état affiché et le brouillon d'un import", () => {
-    const { id } = upload();
+  it("renvoie l'état affiché et le brouillon d'un import", async () => {
+    const { id } = await upload();
     expect(getImportStatus(testDb().db, id)).toEqual({
       id,
       status: "queued",
@@ -65,15 +113,15 @@ describe("getImportStatus", () => {
 });
 
 describe("recropImport", () => {
-  function failedImport() {
-    const { id } = upload();
+  async function failedImport() {
+    const { id } = await upload();
     testDb().sqlite.exec("UPDATE jobs SET status = 'failed', attempts = 2");
     testDb().sqlite.prepare("UPDATE imports SET status = 'failed' WHERE id = ?").run(id);
     return id;
   }
 
-  it("remet un import en échec en attente avec ses nouveaux coins et un nouveau job", () => {
-    const id = failedImport();
+  it("remet un import en échec en attente avec ses nouveaux coins et un nouveau job", async () => {
+    const id = await failedImport();
     expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("queued");
     expect(testDb().sqlite.prepare("SELECT status, corners FROM imports").all()).toEqual([
       { status: "queued", corners: JSON.stringify(NEW_CORNERS) },
@@ -96,8 +144,8 @@ describe("recropImport", () => {
     ]);
   });
 
-  it("efface la correction enregistrée : la nouvelle lecture repart de zéro", () => {
-    const id = failedImport();
+  it("efface la correction enregistrée : la nouvelle lecture repart de zéro", async () => {
+    const id = await failedImport();
     testDb()
       .sqlite.prepare("UPDATE imports SET correction = ? WHERE id = ?")
       .run(JSON.stringify({ version: 1, card: { playedOn: "2026-10-13" } }), id);
@@ -107,8 +155,8 @@ describe("recropImport", () => {
     ]);
   });
 
-  it("refuse de recadrer un import qui n'est pas en échec, sans rien changer", () => {
-    const { id } = upload();
+  it("refuse de recadrer un import qui n'est pas en échec, sans rien changer", async () => {
+    const { id } = await upload();
     expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("not-failed");
     expect(testDb().sqlite.prepare("SELECT status, corners FROM imports").all()).toEqual([
       { status: "queued", corners: JSON.stringify(referenceCorners()) },
@@ -120,8 +168,8 @@ describe("recropImport", () => {
     expect(recropImport(testDb().db, 999, NEW_CORNERS, NOW)).toBe("not-found");
   });
 
-  it("garde l'import en échec avec ses anciens coins si le job ne peut pas être créé", () => {
-    const id = failedImport();
+  it("garde l'import en échec avec ses anciens coins si le job ne peut pas être créé", async () => {
+    const id = await failedImport();
     testDb().sqlite.exec("DROP TABLE jobs");
     expect(() => recropImport(testDb().db, id, NEW_CORNERS, NOW)).toThrow(/no such table: jobs/);
     expect(testDb().sqlite.prepare("SELECT status, corners FROM imports").all()).toEqual([
