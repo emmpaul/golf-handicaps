@@ -69,7 +69,7 @@ describe("locatePanel", () => {
     expect(found?.source).toBe("auto");
     expect(cornersDeviation(found?.corners, referenceCorners())).toBeLessThan(0.01);
     expect([found?.panel.width, found?.panel.height]).toEqual([2400, 1224]);
-  }, 60_000);
+  });
 
   // Mutation : garder les coins de l'IA sans affinage local → écart de 0,02.
   it("affine dans la zone de l'IA les coins rendus à 0,02 près, en un seul appel", async () => {
@@ -79,7 +79,7 @@ describe("locatePanel", () => {
     expect(fake.calls).toHaveLength(1);
     expect(found?.source).toBe("ai");
     expect(cornersDeviation(found?.corners, referenceCorners())).toBeLessThan(0.01);
-  }, 60_000);
+  });
 
   // Coins de la référence élargis de 0,01 (0,005 à gauche en haut). Leur zone agrandie remonte plus
   // haut sur la barre blanche, et l'affinage n'y trouve plus le tableau : les coins de l'IA passent
@@ -97,17 +97,17 @@ describe("locatePanel", () => {
       NOW,
     );
     expect([found?.source, found?.corners]).toEqual(["ai", outset]);
-  }, 60_000);
+  });
 
   it("enregistre l'usage d'un cadrage réussi : 12 000 µ$ en 2026-10", async () => {
     const photo = await referenceWithTopBar();
     await locatePanel(photo, fallback(answers(insetReferenceCorners()).locator), NOW);
     expect(usageCosts()).toEqual([{ month: "2026-10", cost: 12_000 }]);
-  }, 60_000);
+  });
 
   it("sans clé, ne trouve rien quand la détection locale échoue", async () => {
     expect(await locatePanel(await referenceWithTopBar(), null, NOW)).toBeNull();
-  }, 60_000);
+  });
 
   // 950 000 + 56 000 > 1 000 000. Mutation : retirer le contrôle du budget → 1 appel.
   it("n'appelle pas l'IA quand le plafond ne permet pas un cadrage", async () => {
@@ -121,7 +121,7 @@ describe("locatePanel", () => {
     );
     expect(fake.calls).toHaveLength(0);
     expect(found).toBeNull();
-  }, 60_000);
+  });
 
   // 940 000 + 56 000 ≤ 1 000 000, mais pas avec le pire coût d'une complétion (94 000).
   // Mutation : réserver MAX_CALL_COST au lieu de MAX_LOCATE_COST → aucun appel.
@@ -131,7 +131,7 @@ describe("locatePanel", () => {
     const fake = answers(insetReferenceCorners());
     await locatePanel(await referenceWithTopBar(), fallback(fake.locator, budget), NOW);
     expect(fake.calls).toHaveLength(1);
-  }, 60_000);
+  });
 
   it("ne trouve rien quand l'API répond par une erreur réseau, sans usage", async () => {
     const fake = fakeLocator(async () => {
@@ -140,7 +140,7 @@ describe("locatePanel", () => {
     const found = await locatePanel(await referenceWithTopBar(), fallback(fake.locator), NOW);
     expect(found).toBeNull();
     expect(usageCosts()).toEqual([]);
-  }, 60_000);
+  });
 
   // Mutation : n'enregistrer l'usage que sur un appel réussi → aucune ligne.
   it("compte un JSON hors schéma facturé pour exactement son coût, et ne trouve rien", async () => {
@@ -150,7 +150,7 @@ describe("locatePanel", () => {
     const found = await locatePanel(await referenceWithTopBar(), fallback(fake.locator), NOW);
     expect(found).toBeNull();
     expect(usageCosts()).toEqual([{ month: "2026-10", cost: 12_000 }]);
-  }, 60_000);
+  });
 
   it("ne trouve rien quand l'IA ne voit pas de carte, et compte l'appel", async () => {
     const found = await locatePanel(
@@ -160,7 +160,7 @@ describe("locatePanel", () => {
     );
     expect(found).toBeNull();
     expect(usageCosts()).toEqual([{ month: "2026-10", cost: 12_000 }]);
-  }, 60_000);
+  });
 
   // Mutation : garder les coins de l'IA sans les vérifier → le logo est accepté.
   it("refuse des coins de l'IA qui encadrent le logo au-dessus du panneau", async () => {
@@ -170,7 +170,7 @@ describe("locatePanel", () => {
       NOW,
     );
     expect(found).toBeNull();
-  }, 60_000);
+  });
 
   // Coins de l'IA exacts sur un mur gris uniforme : ni l'affinage ni la vérification ne passent.
   it("ne trouve rien sur une photo grise uniforme, même avec des coins de l'IA", async () => {
@@ -180,5 +180,5 @@ describe("locatePanel", () => {
       .jpeg()
       .toBuffer();
     expect(await locatePanel(wall, fallback(answers(referenceCorners()).locator), NOW)).toBeNull();
-  }, 60_000);
+  });
 });
