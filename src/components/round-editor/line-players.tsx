@@ -12,7 +12,7 @@ import type { EditorLine, PlayerOption } from "./form-state";
 const NEW_PLAYER = "new";
 
 /** Crée un joueur ; renvoie le message de refus, ou `null` si la ligne lui est associée. */
-export type CreatePlayer = (key: number, name: string) => Promise<string | null>;
+export type CreatePlayer = (key: string, name: string) => Promise<string | null>;
 
 function NewPlayerForm({
   number,
@@ -76,8 +76,8 @@ function LinePlayer({
   position: number;
   players: PlayerOption[];
   invalid: boolean;
-  onAssociate: (key: number, playerId: number | null) => void;
-  onRemove: (key: number) => void;
+  onAssociate: (key: string, playerId: number | null) => void;
+  onRemove: (key: string) => void;
   onCreate: CreatePlayer;
 }) {
   const [creating, setCreating] = useState(false);
@@ -139,9 +139,9 @@ export function LinePlayers({
   players: PlayerOption[];
   invalid: ReadonlySet<string>;
   canAdd: boolean;
-  onAssociate: (key: number, playerId: number | null) => void;
+  onAssociate: (key: string, playerId: number | null) => void;
   onCreate: CreatePlayer;
-  onRemove: (key: number) => void;
+  onRemove: (key: string) => void;
   onAdd: () => void;
 }) {
   return (
