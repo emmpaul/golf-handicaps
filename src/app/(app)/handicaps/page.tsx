@@ -22,6 +22,14 @@ const shortDate = new Intl.DateTimeFormat("fr-FR", {
   timeZone: "UTC",
 });
 
+/** Date de jeu courte sous `md`, « 18 sept. 2026 », pour laisser la place à la marque « Compte ». */
+const compactPlayedOn = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 function PlayerHandicap({ player }: { player: PlayerOverview }) {
   const titleId = `player-${player.id}`;
   const newestFirst = [...player.history].reverse();
@@ -38,7 +46,8 @@ function PlayerHandicap({ player }: { player: PlayerOverview }) {
       {player.history.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucun round pour l'instant.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+          {/* Sur ordinateur, la courbe prend la hauteur de la table voisine. */}
           <IndexCurve
             name={player.name}
             points={player.history.map((round) => ({
@@ -52,7 +61,7 @@ function PlayerHandicap({ player }: { player: PlayerOverview }) {
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Différentiel</TableHead>
                 <TableHead className="text-right">Index après</TableHead>
-                <TableHead>
+                <TableHead className="hidden md:table-cell">
                   <span className="sr-only">Retenu dans l'index actuel</span>
                 </TableHead>
               </TableRow>
@@ -60,14 +69,29 @@ function PlayerHandicap({ player }: { player: PlayerOverview }) {
             <TableBody>
               {newestFirst.map((round) => (
                 <TableRow key={round.roundId}>
-                  <TableCell>{formatPlayedOn(round.playedOn)}</TableCell>
+                  {/* Sous `md`, la marque passe sous la date (courte) : la 4e colonne serait coupée,
+                      et à côté de la date elle élargirait la 1re jusqu'à couper « Index après ». Les
+                      deux dates sont rendues, l'une ou l'autre masquée en CSS. */}
+                  <TableCell>
+                    <span className="max-md:hidden">{formatPlayedOn(round.playedOn)}</span>
+                    <span className="md:hidden">
+                      {compactPlayedOn.format(new Date(`${round.playedOn}T00:00:00Z`))}
+                    </span>
+                    {round.countsInCurrent ? (
+                      <span className="mt-1 block md:hidden">
+                        <Badge>Compte</Badge>
+                      </span>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {formatTenths(round.differentialT)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {formatTenths(round.indexAfterT)}
                   </TableCell>
-                  <TableCell>{round.countsInCurrent ? <Badge>Compte</Badge> : null}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {round.countsInCurrent ? <Badge>Compte</Badge> : null}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

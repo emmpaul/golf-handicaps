@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageTitle } from "@/components/page-title";
 import { formatPlayedOn, NO_VALUE } from "@/lib/format";
 import { requestDb } from "@/lib/request-db";
+import { ACTION_LINK, cn } from "@/lib/utils";
 import { listRounds } from "@/server/rounds/list";
 
 export const metadata: Metadata = { title: "Rounds · Handicaps golf" };
@@ -14,7 +15,7 @@ export default async function RoundsPage() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTitle>Rounds</PageTitle>
-        <Link href="/rounds/new" className="text-sm underline underline-offset-3">
+        <Link href="/rounds/new" className={cn(ACTION_LINK, "text-sm")}>
           Saisie manuelle
         </Link>
       </div>

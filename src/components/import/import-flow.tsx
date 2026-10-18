@@ -1,11 +1,10 @@
 "use client";
 
-import { CameraIcon } from "lucide-react";
+import { CameraIcon, ImageIcon } from "lucide-react";
 import { type ChangeEvent, useEffect, useState } from "react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
 import { Pending } from "@/components/ui/pending";
 import { cn } from "@/lib/utils";
 import type { Corners } from "@/ocr/corners";
@@ -15,6 +14,13 @@ import { decodePhoto } from "./decode-photo";
 import { UnreadablePhoto } from "./unreadable-photo";
 
 type Photo = { blob: Blob; url: string };
+
+/**
+ * Libellé stylé en bouton autour d'un champ fichier masqué (`sr-only`) : le champ garde le
+ * focus clavier, dont le contour s'affiche sur le bouton.
+ */
+const PICK_BUTTON =
+  "cursor-pointer focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50";
 
 type Step =
   | { kind: "pick" }
@@ -80,7 +86,8 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
       <label
         className={cn(
           buttonVariants({ size: "lg" }),
-          "hidden h-11 cursor-pointer focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 pointer-coarse:inline-flex",
+          PICK_BUTTON,
+          "hidden md:h-11 pointer-coarse:inline-flex",
         )}
       >
         <CameraIcon aria-hidden="true" />
@@ -93,10 +100,24 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
           onChange={pickFrom}
         />
       </label>
+      {/* Champ natif (« Choose File ») remplacé par un bouton ; son nom reste « Photo de la carte ». */}
       <Field>
-        <FieldLabel htmlFor="photo">Photo de la carte</FieldLabel>
-        <Input id="photo" type="file" accept="image/*" onChange={pickFrom} />
-        <FieldDescription>Photo de l'écran de fin de round, prise au téléphone.</FieldDescription>
+        <FieldTitle>Photo de la carte</FieldTitle>
+        <label className={cn(buttonVariants({ variant: "outline" }), PICK_BUTTON, "md:w-fit")}>
+          <ImageIcon aria-hidden="true" />
+          Choisir une photo
+          <input
+            type="file"
+            accept="image/*"
+            aria-label="Photo de la carte"
+            aria-describedby="photo-description"
+            className="sr-only"
+            onChange={pickFrom}
+          />
+        </label>
+        <FieldDescription id="photo-description">
+          Photo de l'écran de fin de round, prise au téléphone.
+        </FieldDescription>
       </Field>
       <Pending
         label={step.kind === "preparing" ? "Préparation de la photo…" : null}

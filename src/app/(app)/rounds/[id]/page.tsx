@@ -28,7 +28,10 @@ export default async function RoundPage({ params }: PageProps<"/rounds/[id]">) {
         className={cn("grid grid-cols-1 gap-4 lg:items-start", round.photoPath && "lg:grid-cols-2")}
       >
         <div className="flex flex-col gap-4">
-          <NetLeaderboard entries={round.leaderboard} />
+          {/* Largeur bornée : à 1 440 px, cinq colonnes étirées sur 1 248 px se lisent mal. */}
+          <div className="max-w-2xl">
+            <NetLeaderboard entries={round.leaderboard} />
+          </div>
           <div className="flex flex-wrap gap-2">
             <Link href={`/rounds/${round.id}/edit`} className={buttonVariants({ size: "lg" })}>
               Modifier

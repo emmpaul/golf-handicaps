@@ -1,19 +1,11 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 import { seedReadyImport } from "./data";
-import { expect, test } from "./fixtures";
+import { expect, expectNoHorizontalScroll, test } from "./fixtures";
 import { choosePhoto, HANDLE_NAMES } from "./import";
 
 /** Tâche 8.9 : projet WebKit iPhone uniquement (voir playwright.config.ts). */
 
 const MIN_TOUCH_TARGET = 44;
-
-async function expectNoHorizontalScroll(page: Page) {
-  const widths = await page.evaluate(() => ({
-    scroll: document.documentElement.scrollWidth,
-    viewport: window.innerWidth,
-  }));
-  expect(widths.scroll).toBeLessThanOrEqual(widths.viewport);
-}
 
 async function center(locator: Locator) {
   const box = await locator.boundingBox();
