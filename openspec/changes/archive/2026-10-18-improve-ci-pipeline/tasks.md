@@ -47,28 +47,28 @@ Règle pour tout le change : le code de production (`scripts/ci-scope.ts`) suit 
 
 ## 2. Job `scope` et sauts sur les PR (décisions 1 et 4 ; specs « Changement de documentation seule », « PR de release traitée comme documentation », « Repli sur la suite complète », « PR fusionnable quand des jobs sont sautés »)
 
-- [ ] 2.1 Ajouter le job `scope` à `checks.yml` : checkout `fetch-depth: 0`, liste des fichiers par `git diff --name-only "$FROM" "$TO"`, les deux `package.json` par `git show` quand il est dans la liste, puis `node scripts/ci-scope.ts ... >> "$GITHUB_OUTPUT"`. `code=true` quand `commit-from` est vide. Conditions : `quality` en `needs: scope` et `if: ${{ !cancelled() }}`, ses étapes Tesseract, typecheck, tests unitaires et jscpd en `if: needs.scope.outputs.code != 'false'` ; `docker` en `if: ${{ !cancelled() && inputs.docker && needs.scope.outputs.code != 'false' }}`. Vérifier : sur la PR de ce change (qui touche `.github/` et `scripts/`), `scope` sort `code=true` et `quality` lance toutes ses étapes.
+- [x] 2.1 Ajouter le job `scope` à `checks.yml` : checkout `fetch-depth: 0`, liste des fichiers par `git diff --name-only "$FROM" "$TO"`, les deux `package.json` par `git show` quand il est dans la liste, puis `node scripts/ci-scope.ts ... >> "$GITHUB_OUTPUT"`. `code=true` quand `commit-from` est vide. Conditions : `quality` en `needs: scope` et `if: ${{ !cancelled() }}`, ses étapes Tesseract, typecheck, tests unitaires et jscpd en `if: needs.scope.outputs.code != 'false'` ; `docker` en `if: ${{ !cancelled() && inputs.docker && needs.scope.outputs.code != 'false' }}`. Vérifier : sur la PR de ce change (qui touche `.github/` et `scripts/`), `scope` sort `code=true` et `quality` lance toutes ses étapes.
 - [ ] 2.2 Vérifier sur la première PR qui ne touche que `openspec/` après la fusion : `checks / e2e` est « skipped », `checks / quality` n'a lancé ni `pnpm test` ni le typecheck, l'exécution finit en moins de 2 min, et la PR est fusionnable sans contournement d'administrateur. Pousser ensuite sur cette PR un commit `bad message` : `checks / quality` échoue sur commitlint et le bouton de fusion est bloqué ; retirer le commit avant de fusionner.
 - [ ] 2.3 Vérifier le repli sur une PR brouillon jetable, jamais fusionnée, qui ne touche que `openspec/` et force l'échec de `scope` (une ligne `exit 1` dans l'étape) : `checks / quality` lance toutes ses étapes, les trois tranches e2e tournent, et `checks / e2e` finit en échec. Fermer la PR et supprimer la branche.
-- [ ] 2.4 Vérifier à la première PR de release après la fusion : `scope` sort `code=false`, `checks / e2e` est « skipped », `checks / quality` n'a pas lancé `pnpm test`, et la PR est fusionnable.
+- [x] 2.4 Vérifier à la première PR de release après la fusion : `scope` sort `code=false`, `checks / e2e` est « skipped », `checks / quality` n'a pas lancé `pnpm test`, et la PR est fusionnable.
 
 ## 3. Sauts gardés sur `main` (décision 2 ; spec « Push de documentation ou de release sur main »)
 
-- [ ] 3.1 Dans `scope`, sur un push : lire la conclusion de l'exécution `main` du commit parent avec `gh run list --workflow main.yml --commit "$BEFORE" --json conclusion --jq '.[0].conclusion'` et la passer à `--parent-conclusion`. Ajouter `actions: read` aux permissions de l'appel de `checks.yml` dans `main.yml`, et à celles du job `scope`. Vérifier : `actionlint` ne signale rien, et sur le push de ce change sur `main`, le log de `scope` affiche la conclusion lue pour le commit parent.
-- [ ] 3.2 Vérifier au premier push de documentation sur `main` après la fusion, dont le parent est vert : `checks / e2e` et `checks / docker` sont « skipped », et le log de `scope` affiche `success` pour le parent.
-- [ ] 3.3 Sur ce même push, vérifier que `release-please` tourne et réussit. S'il est sauté, ajouter à `release-please` la condition `if: ${{ !cancelled() && needs.checks.result == 'success' }}` dans une PR `fix(ci):` et refaire la vérification.
+- [x] 3.1 Dans `scope`, sur un push : lire la conclusion de l'exécution `main` du commit parent avec `gh run list --workflow main.yml --commit "$BEFORE" --json conclusion --jq '.[0].conclusion'` et la passer à `--parent-conclusion`. Ajouter `actions: read` aux permissions de l'appel de `checks.yml` dans `main.yml`, et à celles du job `scope`. Vérifier : `actionlint` ne signale rien, et sur le push de ce change sur `main`, le log de `scope` affiche la conclusion lue pour le commit parent.
+- [x] 3.2 Vérifier au premier push de documentation sur `main` après la fusion, dont le parent est vert : `checks / e2e` et `checks / docker` sont « skipped », et le log de `scope` affiche `success` pour le parent.
+- [x] 3.3 Sur ce même push, vérifier que `release-please` tourne et réussit. S'il est sauté, ajouter à `release-please` la condition `if: ${{ !cancelled() && needs.checks.result == 'success' }}` dans une PR `fix(ci):` et refaire la vérification.
 - [ ] 3.4 Vérifier à la première fusion d'une PR de release : `checks / e2e` et `checks / docker` sont « skipped », `release-please` crée le tag, `publish-image` et `publish-manifest` tournent et poussent `vX.Y.Z`, et l'exécution finit en moins de 5 min, contre 10,7 min pour v0.2.0 (39064366413).
-- [ ] 3.5 Vérifier la garde dans l'autre sens dès qu'un push sur `main` finit rouge ou annulé : le push de documentation suivant lance la suite complète, build Docker compris, et le log de `scope` affiche la conclusion du parent. Si ça n'arrive pas avant l'archivage, le noter dans la PR de vérification ; les cas de 1.3 couvrent la décision.
+- [x] 3.5 Vérifier la garde dans l'autre sens dès qu'un push sur `main` finit rouge ou annulé : le push de documentation suivant lance la suite complète, build Docker compris, et le log de `scope` affiche la conclusion du parent. Si ça n'arrive pas avant l'archivage, le noter dans la PR de vérification ; les cas de 1.3 couvrent la décision.
 
 ## 4. E2e en trois tranches (décision 3 ; spec « E2e répartis sur trois machines »)
 
-- [ ] 4.1 Dans `checks.yml`, remplacer `e2e` par `e2e-shard` (matrice `shard: [1, 2, 3]`, `fail-fast: false`, `if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}`, `playwright install --with-deps chromium webkit`, `pnpm e2e --shard=${{ matrix.shard }}/3`, rapport d'échec sous `playwright-report-${{ matrix.shard }}`) et ajouter l'agrégateur `e2e` (`needs: [scope, e2e-shard]`, même `if`, une étape qui échoue sauf si `needs.scope.result` et `needs.e2e-shard.result` valent `success`). `playwright.config.ts` garde `workers: 1` et passe à `fullyParallel: true`, pour que `--shard` coupe la liste test par test. Vérifier : sur la PR de ce change, `checks / e2e-shard (1)`, `checks / e2e-shard (2)`, `checks / e2e-shard (3)` et `checks / e2e` sont verts.
+- [x] 4.1 Dans `checks.yml`, remplacer `e2e` par `e2e-shard` (matrice `shard: [1, 2, 3]`, `fail-fast: false`, `if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}`, `playwright install --with-deps chromium webkit`, `pnpm e2e --shard=${{ matrix.shard }}/3`, rapport d'échec sous `playwright-report-${{ matrix.shard }}`) et ajouter l'agrégateur `e2e` (`needs: [scope, e2e-shard]`, même `if`, une étape qui échoue sauf si `needs.scope.result` et `needs.e2e-shard.result` valent `success`). `playwright.config.ts` garde `workers: 1` et passe à `fullyParallel: true`, pour que `--shard` coupe la liste test par test. Vérifier : sur la PR de ce change, `checks / e2e-shard (1)`, `checks / e2e-shard (2)`, `checks / e2e-shard (3)` et `checks / e2e` sont verts.
 - [ ] 4.2 Sur cette même exécution, vérifier que la somme des « N passed » des trois tranches vaut le nombre de tests listés par `pnpm exec playwright test --list` en local (75 aujourd'hui), que des tests `webkit-iphone` ont tourné, que l'étape « Tests e2e » la plus longue des trois tranches dépasse la plus courte de moins de 30 %, et que `checks / e2e` est vert en moins de 3,5 min après le début de l'exécution (médiane actuelle du job : 261 s).
 - [ ] 4.3 Vérifier l'échec sur une PR brouillon jetable, jamais fusionnée, avec un test e2e qui échoue toujours : sa tranche est rouge, les deux autres vont au bout (`fail-fast: false`), `checks / e2e` est rouge, et la PR n'est pas fusionnable. Fermer la PR et supprimer la branche.
 
 ## 5. Publication arm64 native (décision 5 ; spec « Publication multi-arch native »)
 
-- [ ] 5.1 Remplacer `publish` dans `main.yml` par `publish-image` (matrice `linux/amd64` sur `ubuntu-24.04`, `linux/arm64` sur `ubuntu-24.04-arm`, push par digest, cache `gha` `scope=golf-handicaps-<arch>`, digest en artefact) et `publish-manifest` (`docker buildx imagetools create` avec les tags et annotations de `docker/metadata-action`), tous deux sous la condition `release_created`. Retirer `docker/setup-qemu-action`. Permissions : `contents: read` et `packages: write` sur les deux jobs, rien d'autre. Vérifier : `actionlint .github/workflows/main.yml` ne signale rien, et la PR passe sa CI.
+- [x] 5.1 Remplacer `publish` dans `main.yml` par `publish-image` (matrice `linux/amd64` sur `ubuntu-24.04`, `linux/arm64` sur `ubuntu-24.04-arm`, push par digest, cache `gha` `scope=golf-handicaps-<arch>`, digest en artefact) et `publish-manifest` (`docker buildx imagetools create` avec les tags et annotations de `docker/metadata-action`), tous deux sous la condition `release_created`. Retirer `docker/setup-qemu-action`. Permissions : `contents: read` et `packages: write` sur les deux jobs, rien d'autre. Vérifier : `actionlint .github/workflows/main.yml` ne signale rien, et la PR passe sa CI.
 - [ ] 5.2 Vérifier à la première release après la fusion :
   - `docker buildx imagetools inspect ghcr.io/emmpaul/golf-handicaps:vX.Y.Z` liste `linux/amd64` et `linux/arm64` ;
   - `latest` et le tag du SHA ont le même digest que `vX.Y.Z` ;
@@ -82,16 +82,39 @@ Règle pour tout le change : le code de production (`scripts/ci-scope.ts`) suit 
 
 ## 7. Hygiène et documentation
 
-- [ ] 7.1 Ajouter `DOCKER_BUILD_RECORD_UPLOAD: false` à l'environnement des étapes `docker/build-push-action` de `checks.yml` et de `main.yml`. Vérifier : le push sur `main` qui suit la fusion ne crée aucun nouvel artefact `*.dockerbuild` (`gh api repos/emmpaul/golf-handicaps/actions/runs/<id>/artifacts` renvoie `total_count: 0` pour une exécution verte).
+- [x] 7.1 Ajouter `DOCKER_BUILD_RECORD_UPLOAD: false` à l'environnement des étapes `docker/build-push-action` de `checks.yml` et de `main.yml`. Vérifier : le push sur `main` qui suit la fusion ne crée aucun nouvel artefact `*.dockerbuild` (`gh api repos/emmpaul/golf-handicaps/actions/runs/<id>/artifacts` renvoie `total_count: 0` pour une exécution verte).
 - [x] 7.2 Mettre à jour la section CI/CD de `README.md` et la décision 7 de `openspec/changes/add-golf-handicap-tracker/design.md` : contrôles sautés pour la documentation et la PR de release, garde sur `main`, e2e en trois tranches avec l'agrégateur `checks / e2e`, publication native par architecture. Vérifier : `grep -n "QEMU\|setup-qemu" README.md .github/workflows/*.yml` ne trouve rien.
 
 ## 8. Réglages du repo (humain)
 
-- [ ] 8.1 Après la fusion de ce change, vérifier que les contrôles requis n'ont pas changé malgré la matrice e2e : `gh api repos/emmpaul/golf-handicaps/branches/main/protection --jq '.required_status_checks.contexts'` renvoie exactement `["checks / quality","checks / e2e"]`, sans `checks / e2e-shard (1)`, `(2)` ni `(3)`. Ne rien ajouter ni retirer.
-- [ ] 8.2 Vérifier que l'option « Require branches to be up to date before merging » est toujours cochée (décision 7) : `gh api repos/emmpaul/golf-handicaps/branches/main/protection --jq '.required_status_checks.strict'` renvoie `true`. La garde de la décision 2 en dépend pour la release.
+- [x] 8.1 Après la fusion de ce change, vérifier que les contrôles requis n'ont pas changé malgré la matrice e2e : `gh api repos/emmpaul/golf-handicaps/branches/main/protection --jq '.required_status_checks.contexts'` renvoie exactement `["checks / quality","checks / e2e"]`, sans `checks / e2e-shard (1)`, `(2)` ni `(3)`. Ne rien ajouter ni retirer.
+- [x] 8.2 Vérifier que l'option « Require branches to be up to date before merging » est toujours cochée (décision 7) : `gh api repos/emmpaul/golf-handicaps/branches/main/protection --jq '.required_status_checks.strict'` renvoie `true`. La garde de la décision 2 en dépend pour la release.
 
 ## Workflow follow-up
 
 - Brancher depuis `origin/main` (`ci/improve-ci-pipeline`), une PR pour le change, fusion une fois la CI verte.
 - Les vérifications 2.2, 2.4, 3.2 à 3.5, 5.2 et 7.1 se font après la fusion, sur les exécutions suivantes ; on coche les tâches avec le numéro d'exécution dans une PR `docs(openspec):`.
 - Archiver ce change (`/opsx:archive`) une fois ces vérifications cochées.
+
+## Bilan à l'archivage (18/10/2026)
+
+Vérifié sur les exécutions GitHub :
+
+- 2.1 : `scope` sort `code=true` sur les PR de code et `quality` lance toutes ses étapes (39136663351, #28).
+- 2.4 : PR de release 0.5.0 (39137843231) : `checks / e2e` sauté, `quality` sans Tesseract, typecheck, tests ni jscpd, 43 s.
+- 3.1, 3.2, 3.3 : push de documentation 39086754512 : le log de `scope` lit `success` pour le parent 48cb508, sort `code=false`, `checks / e2e` et `checks / docker` sont sautés, `release-please` réussit, 51 s.
+- 3.5 : push de documentation 39084974744 : le log lit `failure` pour le parent 223f80c, sort `code=true`, la suite complète tourne, Docker compris.
+- 4.1 : trois tranches et l'agrégateur verts (39136663351).
+- 5.1 : `publish-image` sur runners natifs, sans QEMU, puis `publish-manifest` (39138246818).
+- 7.1 : aucun artefact sur l'exécution verte 39137446477 ; seulement `digests-amd64` et `digests-arm64` (1 jour) sur la release 39138246818.
+- 8.1, 8.2 : `required_status_checks` = `["checks / quality","checks / e2e"]`, `strict: true`.
+
+Non vérifié ou critère manqué, laissé décoché :
+
+- 2.2 : PR de documentation verte en 43 s, `e2e` sauté, `quality` sans tests (39086158330) ; le commit `bad message` n'a pas été poussé.
+- 2.3, 4.3, 6.2 : PR brouillons jetables jamais créées.
+- 3.4 : release v0.5.0 (39138246818) : e2e et Docker sautés, tag créé, image poussée, mais 309 s au lieu de moins de 300 s.
+- 4.2 : la tranche 2 met environ deux fois plus de temps que les autres (260 s contre 97 et 107 s sur 39136663351) ; repris par `rationalize-ci-runs`.
+- 5.2 : `linux/amd64` et `linux/arm64` présents, `v0.5.0`, `latest` et `18f0a64` sur le digest `sha256:ecddefbe…`, annotation `org.opencontainers.image.version` = `0.5.0`, pas de QEMU ; mais `publish-image` + `publish-manifest` prennent 4 min 05 au lieu de moins de 4 min.
+
+La garde sur le commit parent (décision 2) est remplacée par `rationalize-ci-runs`.

@@ -30,8 +30,6 @@ describe("attemptLogin", () => {
     },
   );
 
-  // 30 s pour les trois tests suivants : chacun fait 11 calculs scrypt synchrones, et en CI les
-  // fichiers qui lancent Tesseract se disputent les 4 vCPU ; ils ont déjà pris plus de 5 s.
   it("au 11e essai dans la minute, refuse la requête même avec le bon code", () => {
     const guard = createLoginGuard();
     exhaust(guard, "203.0.113.7");
@@ -39,19 +37,19 @@ describe("attemptLogin", () => {
       ok: false,
       error: "Trop d'essais. Réessaie dans une minute.",
     });
-  }, 30_000);
+  });
 
   it("compte les essais par IP", () => {
     const guard = createLoginGuard();
     exhaust(guard, "203.0.113.7");
     expect(login("birdie-42", guard, "198.51.100.9", NOW + 11).ok).toBe(true);
-  }, 30_000);
+  });
 
   it("accepte de nouveau une minute après les 10 premiers essais", () => {
     const guard = createLoginGuard();
     exhaust(guard, "203.0.113.7");
     expect(login("birdie-42", guard, "203.0.113.7", NOW + 60_001).ok).toBe(true);
-  }, 30_000);
+  });
 });
 
 describe("clientIp", () => {
