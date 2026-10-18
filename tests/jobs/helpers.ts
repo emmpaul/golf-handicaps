@@ -60,12 +60,7 @@ export function cornersDeviation(actual: Corners | null | undefined, expected: C
   );
 }
 
-/**
- * La référence avec une barre blanche de 40 × 900 px qui descend du bord haut de la photo
- * jusque dans le tableau (x 1480 à 1520) : le tableau touche le bord, donc la détection sur
- * toute la photo échoue. Limitée à la zone d'un cadrage de l'IA, elle retrouve le panneau.
- */
-export async function referenceWithTopBar(): Promise<Buffer> {
+async function buildReferenceWithTopBar(): Promise<Buffer> {
   const bar = await sharp({
     create: { width: 40, height: 900, channels: 3, background: "#ffffff" },
   })
@@ -75,6 +70,20 @@ export async function referenceWithTopBar(): Promise<Buffer> {
     .composite([{ input: bar, left: 1480, top: 0 }])
     .jpeg({ quality: 92 })
     .toBuffer();
+}
+
+let referenceWithTopBarJpeg: Promise<Buffer> | undefined;
+
+/**
+ * La référence avec une barre blanche de 40 × 900 px qui descend du bord haut de la photo
+ * jusque dans le tableau (x 1480 à 1520) : le tableau touche le bord, donc la détection sur
+ * toute la photo échoue. Limitée à la zone d'un cadrage de l'IA, elle retrouve le panneau.
+ * Construite une fois par fichier de test (un encodage JPEG de 3000 × 2250 px) : les appelants
+ * lisent la photo sans la modifier.
+ */
+export function referenceWithTopBar(): Promise<Buffer> {
+  referenceWithTopBarJpeg ??= buildReferenceWithTopBar();
+  return referenceWithTopBarJpeg;
 }
 
 /** Coins de la référence rentrés de 0,02 sur chaque axe : un cadrage approximatif de l'IA. */
