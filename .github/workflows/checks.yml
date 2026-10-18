@@ -1,8 +1,13 @@
-# Contrôles communs aux PR et à main (design, décisions 7, 8 et 10 ; improve-ci-pipeline, décisions 1 à 3).
-# Le job scope classe les fichiers modifiés : pour de la documentation seule (dont la PR et le push de release),
-# quality ne garde que check:pins, commitlint et le lint, et les e2e et le build Docker sont sautés.
-# Les e2e tournent en trois tranches ; l'agrégateur e2e porte le contrôle requis `checks / e2e`.
-# Le job docker ne tourne que si l'appelant passe `docker: true` (main).
+# Contrôles communs aux PR et à main (design, décisions 7, 8 et 10 ; improve-ci-pipeline, décisions 1 à 3 ;
+# rationalize-ci-runs, décisions 3 à 6).
+# Le job scope décide si le code doit être vérifié. Sur une PR, il classe les fichiers modifiés : pour de la
+# documentation seule (dont la PR de release), quality ne garde que check:pins, commitlint et le lint, et les
+# e2e et le build Docker sont sautés. Sur un push main, le classement ne joue plus : les mêmes jobs ne sont
+# sautés que si l'arbre poussé a déjà été vérifié par sa PR (exécution pr réussie sur le dernier commit de la
+# PR, même arbre, PR à jour du commit précédent de main) ; sinon la suite complète tourne.
+# Les e2e partagent un seul build de l'app (e2e-build) et tournent en trois tranches ; l'agrégateur e2e porte
+# le contrôle requis `checks / e2e`.
+# Le job docker tourne si l'appelant passe `docker: true` (PR et main).
 name: checks
 
 on:
@@ -18,21 +23,23 @@ on:
         required: true
         type: string
       docker:
-        description: Build de l'image sans push et test de fumée compose (push sur main seulement)
+        description: Build de l'image sans push et test de fumée compose
         required: false
         default: false
         type: boolean
 
 # Pas de permissions au niveau du workflow : elles plafonneraient celles de l'appelant pour tous les jobs.
-# Chaque job déclare `contents: read`, sauf scope, qui hérite de l'appelant : `contents: read` depuis pr.yml,
-# `contents: read` et `actions: read` depuis main.yml. Un job appelé qui demande `actions: read` ferait
-# échouer pr.yml au démarrage, puisque pr.yml ne l'accorde pas.
+# Chaque job déclare `contents: read`, sauf scope, qui hérite de l'appelant : `contents: read` depuis pr.yml ;
+# `contents: read`, `actions: read` (exécution pr du dernier commit de la PR) et `pull-requests: read` (PR
+# associée au commit poussé) depuis main.yml. Un job appelé qui demande `actions: read` ou `pull-requests: read`
+# ferait échouer pr.yml au démarrage, puisque pr.yml ne les accorde pas.
 
 env:
   IMAGE: golf-handicaps:ci
 
 jobs:
-  # Sortie `code` : `false` pour de la documentation seule, `true` sinon. Les jobs testent `code != 'false'` :
+  # Sortie `code` : `false` pour de la documentation seule (PR) ou un arbre déjà vérifié par sa PR (push main),
+  # `true` sinon. Les jobs testent `code != 'false'` :
   # si scope échoue, la sortie est vide et tout tourne (repli sur la suite complète).
   scope:
     runs-on: ubuntu-24.04
@@ -74,12 +81,54 @@ jobs:
             && git show "$TO:package.json" > "$RUNNER_TEMP/package-after.json"; then
             args+=(--package-before "$RUNNER_TEMP/package-before.json" --package-after "$RUNNER_TEMP/package-after.json")
           fi
-          # Garde sur main : la documentation n'est sautée que si l'exécution main du commit parent a réussi.
-          # Une erreur de l'API donne une conclusion vide, donc la suite complète.
+          # Sur main (rationalize-ci-runs, décision 3) : le push n'est sauté que si l'arbre a déjà été vérifié
+          # par sa PR. Quatre lectures, journalisées sur stderr (stdout ne porte que le JSON) ; toute erreur
+          # de lecture rend 1 et laisse --verified-by-pr absent, donc la suite complète. Chaque commande est
+          # gardée explicitement : set -e ne s'applique pas dans une fonction appelée depuis un `if`.
+          verified_by_pr() {
+            local pr_line pr head conclusion to_tree head_tree same_tree contains status
+            # 1. PR associée : la première dont merged_at est renseigné.
+            pr_line=$(gh api "repos/$GH_REPO/commits/$TO/pulls" \
+              --jq 'first(.[] | select(.merged_at != null)) | "\(.number) \(.head.sha)"') || {
+              echo "Lecture de la PR associée à $TO impossible" >&2; return 1; }
+            if [ -z "$pr_line" ]; then echo "Aucune PR fusionnée associée à $TO" >&2; return 1; fi
+            read -r pr head <<< "$pr_line"
+            echo "PR associée à $TO : #$pr, dernier commit $head" >&2
+            # 2. Conclusion de la dernière exécution pr sur ce commit.
+            conclusion=$(gh run list --workflow pr.yml --commit "$head" --json conclusion \
+              --jq '.[0].conclusion // ""') || {
+              echo "Lecture de l'exécution pr de $head impossible" >&2; return 1; }
+            echo "Conclusion de l'exécution pr de $head : ${conclusion:-(aucune)}" >&2
+            # Le commit de la PR manque au checkout si sa branche a été supprimée : on le récupère par SHA.
+            if ! git cat-file -e "$head^{commit}" 2>/dev/null; then
+              git fetch --no-tags --quiet origin "$head" || {
+                echo "Commit $head introuvable sur origin" >&2; return 1; }
+            fi
+            # 3. Arbres du commit poussé et du dernier commit de la PR.
+            to_tree=$(git rev-parse "$TO^{tree}") || { echo "Arbre de $TO illisible" >&2; return 1; }
+            head_tree=$(git rev-parse "$head^{tree}") || { echo "Arbre de $head illisible" >&2; return 1; }
+            if [ "$to_tree" = "$head_tree" ]; then same_tree=true; else same_tree=false; fi
+            echo "Arbre de $TO : $to_tree ; arbre de $head : $head_tree ; identiques : $same_tree" >&2
+            # 4. La PR contenait le commit précédent de main (code 1 : non ; autre code : erreur).
+            status=0
+            git merge-base --is-ancestor "$FROM" "$head" || status=$?
+            case "$status" in
+              0) contains=true ;;
+              1) contains=false ;;
+              *) echo "merge-base --is-ancestor $FROM $head en erreur ($status)" >&2; return 1 ;;
+            esac
+            echo "$head contient le commit précédent de main $FROM : $contains" >&2
+            jq -cn --argjson pr "$pr" --arg headSha "$head" --arg runConclusion "$conclusion" \
+              --argjson sameTree "$same_tree" --argjson headContainsBefore "$contains" \
+              '{pr: $pr, headSha: $headSha, runConclusion: $runConclusion, sameTree: $sameTree, headContainsBefore: $headContainsBefore}'
+          }
           if [ "$EVENT" = "push" ]; then
-            parent=$(gh run list --workflow main.yml --commit "$FROM" --json conclusion --jq '.[0].conclusion' || true)
-            echo "Conclusion de l'exécution main du commit parent $FROM : ${parent:-(aucune)}"
-            args+=(--parent-conclusion "$parent")
+            if verified=$(verified_by_pr) && [ -n "$verified" ]; then
+              echo "Lectures passées à ci-scope : $verified"
+              args+=(--verified-by-pr "$verified")
+            else
+              echo "Lectures incomplètes : --verified-by-pr absent, suite complète"
+            fi
           fi
           node scripts/ci-scope.ts "${args[@]}" < "$paths" | tee -a "$GITHUB_OUTPUT"
 
@@ -125,10 +174,37 @@ jobs:
         if: needs.scope.outputs.code != 'false'
         run: pnpm jscpd
 
-  # Une machine par tranche : chacune lance son build, son serveur, son worker et sa base (workers: 1).
-  e2e-shard:
+  # Un seul build Next pour les trois tranches (rationalize-ci-runs, décision 5). L'archive tar garde les liens
+  # symboliques de .next/node_modules (paquets externes better-sqlite3 et sharp, relatifs à node_modules/.pnpm,
+  # identique d'une machine à l'autre pour un même lockfile) ; upload-artifact les suivrait et copierait les
+  # paquets hors de pnpm, où leurs dépendances natives ne se résolvent plus. Ni cache ni dev (inutiles à
+  # `next start`), ni standalone (sortie de l'image Docker et du worker esbuild : les tranches lancent
+  # `next start` et le worker par tsx depuis les sources).
+  e2e-build:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Build de l'app
+        run: pnpm build
+      - name: Archive de .next
+        run: tar -cf "$RUNNER_TEMP/next-build.tar" --exclude=.next/cache --exclude=.next/dev --exclude=.next/standalone .next
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: next-build
+          path: ${{ runner.temp }}/next-build.tar
+          if-no-files-found: error
+          retention-days: 1
+
+  # Une machine par tranche : chacune lance son serveur (sur le build de e2e-build), son worker et sa base
+  # (workers: 1). Sans build réussi, les tranches ne tournent pas et e2e échoue.
+  e2e-shard:
+    needs: [scope, e2e-build]
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' && needs.e2e-build.result == 'success' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -146,8 +222,24 @@ jobs:
       # Les tests WebKit iPhone peuvent tomber dans n'importe quelle tranche : les deux navigateurs partout.
       - name: Navigateurs Playwright
         run: pnpm exec playwright install --with-deps chromium webkit
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: next-build
+          path: ${{ runner.temp }}
+      - name: Build de l'app (artefact)
+        run: tar -xf "$RUNNER_TEMP/next-build.tar"
+      # E2E_PREBUILT=1 : playwright.config.ts lance `pnpm start` sans `pnpm build`.
       - name: Tests e2e
+        env:
+          E2E_PREBUILT: "1"
         run: pnpm e2e --shard=${{ matrix.shard }}/3
+      # Durée de chaque test de la tranche (reporter json, rationalize-ci-runs, décision 6).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: playwright-durations-${{ matrix.shard }}
+          path: playwright-durations.json
+          retention-days: 7
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
@@ -157,23 +249,25 @@ jobs:
             test-results/
           retention-days: 7
 
-  # Contrôle requis `checks / e2e` : vert seulement si scope et les trois tranches ont réussi,
-  # sauté (donc compté réussi) pour de la documentation seule.
+  # Contrôle requis `checks / e2e` : vert seulement si scope, le build et les trois tranches ont réussi,
+  # sauté (donc compté réussi) quand le code n'est pas à vérifier.
   e2e:
-    needs: [scope, e2e-shard]
+    needs: [scope, e2e-build, e2e-shard]
     if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
-      - name: Résultat des tranches
+      - name: Résultat du build et des tranches
         env:
           SCOPE_RESULT: ${{ needs.scope.result }}
+          BUILD_RESULT: ${{ needs.e2e-build.result }}
           SHARDS_RESULT: ${{ needs.e2e-shard.result }}
         run: |
-          echo "scope : $SCOPE_RESULT ; e2e-shard : $SHARDS_RESULT"
-          [ "$SCOPE_RESULT" = "success" ] && [ "$SHARDS_RESULT" = "success" ]
+          echo "scope : $SCOPE_RESULT ; e2e-build : $BUILD_RESULT ; e2e-shard : $SHARDS_RESULT"
+          [ "$SCOPE_RESULT" = "success" ] && [ "$BUILD_RESULT" = "success" ] && [ "$SHARDS_RESULT" = "success" ]
 
+  # Build de l'image et test de fumée avant la fusion (rationalize-ci-runs, décision 4), en parallèle des e2e.
   docker:
     needs: scope
     if: ${{ !cancelled() && inputs.docker && needs.scope.outputs.code != 'false' }}
@@ -193,7 +287,11 @@ jobs:
           load: true
           push: false
           tags: ${{ env.IMAGE }}
-          cache-from: type=gha,scope=golf-handicaps
+          # Un cache gha écrit par une PR n'est lisible que par elle et sa branche de base : golf-handicaps-amd64,
+          # écrit sur main par publish-image à chaque release, fait démarrer chaud une nouvelle PR.
+          cache-from: |
+            type=gha,scope=golf-handicaps
+            type=gha,scope=golf-handicaps-amd64
           cache-to: type=gha,mode=max,scope=golf-handicaps
       - name: Aucune fixture ni secret dans l'image
         run: |

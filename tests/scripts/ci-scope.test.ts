@@ -99,16 +99,45 @@ describe("isDocsOnly", () => {
   });
 });
 
+const HEAD_SHA = "5acf90a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7";
+
+function verified(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    pr: 28,
+    headSha: HEAD_SHA,
+    runConclusion: "success",
+    sameTree: true,
+    headContainsBefore: true,
+    ...overrides,
+  });
+}
+
 describe("decideScope", () => {
   it.each([
-    [{ docsOnly: true, event: "pull_request", parentConclusion: null }, "false"],
-    [{ docsOnly: false, event: "pull_request", parentConclusion: null }, "true"],
-    [{ docsOnly: true, event: "push", parentConclusion: "success" }, "false"],
-    [{ docsOnly: true, event: "push", parentConclusion: "failure" }, "true"],
-    [{ docsOnly: true, event: "push", parentConclusion: "cancelled" }, "true"],
-    [{ docsOnly: true, event: "push", parentConclusion: null }, "true"],
-  ])("pour %j, rend %j", (scope, code) => {
+    [{ docsOnly: true, event: "pull_request", verifiedByPr: null }, "false"],
+    [{ docsOnly: false, event: "pull_request", verifiedByPr: null }, "true"],
+  ])("pour une PR %j, rend %j", (scope, code) => {
     expect(decideScope(scope)).toBe(code);
+  });
+
+  it("rend false sur push quand la PR a réussi sur le même arbre et contenait le commit précédent", () => {
+    expect(decideScope({ docsOnly: false, event: "push", verifiedByPr: verified() })).toBe("false");
+  });
+
+  it.each([
+    ['runConclusion "failure"', verified({ runConclusion: "failure" })],
+    ['runConclusion "cancelled"', verified({ runConclusion: "cancelled" })],
+    ['runConclusion ""', verified({ runConclusion: "" })],
+    ["sameTree false", verified({ sameTree: false })],
+    ["headContainsBefore false", verified({ headContainsBefore: false })],
+    ["argument absent", null],
+    ["JSON invalide", '{"pr": 28, "runConclusion": "success"'],
+  ])("rend true sur push avec %s", (_label, verifiedByPr) => {
+    expect(decideScope({ docsOnly: false, event: "push", verifiedByPr })).toBe("true");
+  });
+
+  it("rend true sur push pour de la documentation seule non vérifiée par une PR", () => {
+    expect(decideScope({ docsOnly: true, event: "push", verifiedByPr: null })).toBe("true");
   });
 });
 
@@ -143,6 +172,16 @@ describe("ci-scope.ts en ligne de commande", () => {
         after,
       ]),
     ).toBe("code=false\n");
+  });
+
+  it("écrit code=false sur push pour src/lib/env.ts vérifié par sa PR", () => {
+    expect(runScope("src/lib/env.ts\n", ["--event", "push", "--verified-by-pr", verified()])).toBe(
+      "code=false\n",
+    );
+  });
+
+  it("écrit code=true sur push pour openspec/x.md non vérifié par une PR", () => {
+    expect(runScope("openspec/x.md\n", ["--event", "push"])).toBe("code=true\n");
   });
 
   it("écrit code=true pour une entrée vide", () => {

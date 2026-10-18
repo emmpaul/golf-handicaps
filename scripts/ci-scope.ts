@@ -28,13 +28,33 @@ export function isDocsOnly(paths: string[], packageJsonVersionOnly: boolean): bo
 type Scope = {
   docsOnly: boolean;
   event: string;
-  parentConclusion: string | null;
+  /** JSON des lectures du job scope sur push (PR associée, exécution pr, arbres, ancêtre), ou null. */
+  verifiedByPr: string | null;
 };
 
-export function decideScope({ docsOnly, event, parentConclusion }: Scope): "true" | "false" {
-  if (!docsOnly) return "true";
-  if (event === "push" && parentConclusion !== "success") return "true";
-  return "false";
+/**
+ * Vrai seulement si l'exécution pr du dernier commit de la PR a réussi, sur le même arbre que le
+ * commit poussé, et que ce dernier commit contenait le commit précédent de main. Tout doute
+ * (argument absent, JSON invalide, valeur manquante) rend faux.
+ */
+function isVerifiedByPr(verifiedByPr: string | null): boolean {
+  if (verifiedByPr === null) return false;
+  try {
+    const reads = JSON.parse(verifiedByPr);
+    return (
+      reads?.runConclusion === "success" &&
+      reads?.sameTree === true &&
+      reads?.headContainsBefore === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function decideScope({ docsOnly, event, verifiedByPr }: Scope): "true" | "false" {
+  // Sur main, le classement documentation ne joue plus : seul l'arbre déjà vérifié par la PR compte.
+  if (event === "push") return isVerifiedByPr(verifiedByPr) ? "false" : "true";
+  return docsOnly ? "false" : "true";
 }
 
 function main(): void {
@@ -43,7 +63,7 @@ function main(): void {
       event: { type: "string" },
       "package-before": { type: "string" },
       "package-after": { type: "string" },
-      "parent-conclusion": { type: "string" },
+      "verified-by-pr": { type: "string" },
     },
   });
   const paths = readFileSync(0, "utf8")
@@ -58,7 +78,7 @@ function main(): void {
   const code = decideScope({
     docsOnly: isDocsOnly(paths, packageJsonVersionOnly),
     event: values.event ?? "",
-    parentConclusion: values["parent-conclusion"] || null,
+    verifiedByPr: values["verified-by-pr"] || null,
   });
   process.stdout.write(`code=${code}\n`);
 }
