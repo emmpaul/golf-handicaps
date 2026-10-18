@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/emmpaul/golf-handicaps/compare/v0.5.0...v0.6.0) (2026-10-18)
+
+
+### Features
+
+* **imports:** delete imports, and aliases from players ([#31](https://github.com/emmpaul/golf-handicaps/issues/31)) ([bdbd344](https://github.com/emmpaul/golf-handicaps/commit/bdbd3449c9254d65851f870fc466762136472cf8))
+
 ## [0.5.0](https://github.com/emmpaul/golf-handicaps/compare/v0.4.0...v0.5.0) (2026-10-18)
 
 
