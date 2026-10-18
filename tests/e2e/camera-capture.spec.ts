@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { REFERENCE_PHOTO } from "./import";
+import { photoQueued, REFERENCE_PHOTO } from "./import";
 
 /**
  * « Prendre une photo » : visible seulement avec un pointeur grossier. Le projet `webkit-iphone`
@@ -38,9 +38,17 @@ test.describe("pointeur grossier (iPhone)", () => {
     await expect(file).not.toHaveAttribute("capture");
   });
 
-  test("la photo prise s'affiche à l'écran de cadrage", async ({ page }) => {
+  test("la photo prise part en file sans cadrage, comme une photo choisie", async ({ page }) => {
+    const created = photoQueued(page);
     await page.getByLabel(CAMERA).setInputFiles(REFERENCE_PHOTO);
-    await expect(page.getByRole("img", { name: "Carte à cadrer" })).toBeVisible();
+    const { id } = await created;
+    await expect(
+      page
+        .getByRole("listitem")
+        .filter({ hasText: `Import n°${id}` })
+        .getByTestId("import-status"),
+    ).toHaveText(/^(En attente|Lecture en cours|Prêt à vérifier)$/);
+    await expect(page.getByRole("button", { name: "Coin haut gauche" })).toHaveCount(0);
   });
 
   test("une photo prise illisible affiche le message JPEG", async ({ page }) => {
@@ -57,7 +65,7 @@ test.describe("pointeur grossier (iPhone)", () => {
   test("annuler la prise de vue ne change rien à l'écran", async ({ page }) => {
     await page.getByLabel(CAMERA).setInputFiles([]);
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
-    await expect(page.getByRole("img", { name: "Carte à cadrer" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Imports" })).toHaveCount(0);
   });
 });
 

@@ -10,7 +10,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { ORB_FOR, Pending, PendingOrb } from "@/components/ui/pending";
-import { cn } from "@/lib/utils";
+import { ACTION_LINK, cn } from "@/lib/utils";
 import { checkRoundForm, problemCountLabel } from "@/scorecard/checks";
 import type { DraftValue } from "@/scorecard/draft";
 import { SAVING, useCorrectionAutosave } from "./autosave";
@@ -115,22 +115,25 @@ function gridRows(state: EditorState, players: readonly PlayerOption[]): GridRow
 /**
  * Écran de correction, partagé par l'import, la saisie manuelle et la correction d'un
  * round. Les contrôles de cohérence se recalculent à chaque modification ; le bouton
- * d'enregistrement compte les problèmes restants. `aiNote` : message de la complétion par
- * l'IA, affiché au-dessus de la grille.
+ * d'enregistrement compte les problèmes restants. `notes` : messages de l'IA (cadrage,
+ * complétion), affichés au-dessus de la grille. `recropUrl` : lien « Recadrer la photo » sous
+ * la photo, pour un import recadrable.
  */
 export function RoundEditor({
   initial,
   players,
   courses,
   photoUrl,
-  aiNote,
+  recropUrl,
+  notes = [],
   target,
 }: {
   initial: EditorState;
   players: PlayerOption[];
   courses?: KnownCourse[];
   photoUrl?: string;
-  aiNote?: string | null;
+  recropUrl?: string;
+  notes?: string[];
   target: SaveTarget;
 }) {
   const router = useRouter();
@@ -211,14 +214,21 @@ export function RoundEditor({
       {/* Sur ordinateur, la photo se place à côté des champs : la grille tient sans défiler. */}
       <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
         {photoUrl ? (
-          <a href={photoUrl} target="_blank" rel="noreferrer" className="self-start lg:shrink-0">
-            {/* biome-ignore lint/performance/noImgElement: servie par une route authentifiée. */}
-            <img
-              src={photoUrl}
-              alt="Carte importée"
-              className="max-h-72 w-full rounded-lg border object-contain lg:h-72 lg:w-auto"
-            />
-          </a>
+          <div className="flex flex-col items-start gap-1 self-start lg:shrink-0">
+            <a href={photoUrl} target="_blank" rel="noreferrer">
+              {/* biome-ignore lint/performance/noImgElement: servie par une route authentifiée. */}
+              <img
+                src={photoUrl}
+                alt="Carte importée"
+                className="max-h-72 w-full rounded-lg border object-contain lg:h-72 lg:w-auto"
+              />
+            </a>
+            {recropUrl ? (
+              <Link href={recropUrl} className={cn(ACTION_LINK, "text-sm")}>
+                Recadrer la photo
+              </Link>
+            ) : null}
+          </div>
         ) : null}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <FieldGroup className="gap-4">
@@ -295,11 +305,11 @@ export function RoundEditor({
           />
         </div>
       </div>
-      {aiNote ? (
-        <Alert>
-          <AlertTitle>{aiNote}</AlertTitle>
+      {notes.map((note) => (
+        <Alert key={note}>
+          <AlertTitle>{note}</AlertTitle>
         </Alert>
-      ) : null}
+      ))}
       <ScoreGrid
         rows={gridRows(state, playerOptions)}
         invalid={invalid}

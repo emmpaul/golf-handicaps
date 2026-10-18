@@ -9,6 +9,7 @@ import type { RoundForm } from "../../src/scorecard/checks";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
 import { listPlayers } from "../../src/server/players/players";
 import { saveRound } from "../../src/server/rounds/save";
+import referenceCorners from "../fixtures/scorecards/gspro-img3064.corners.json";
 import referenceDraft from "../fixtures/scorecards/gspro-img3064.draft.json";
 
 /** Tables vidées entre deux tests, enfants avant parents. */
@@ -131,11 +132,14 @@ export function scoresOverPar(over: number) {
 
 type SeededImport = Pick<
   typeof imports.$inferInsert,
-  "status" | "corners" | "draft" | "aiCells" | "aiNote" | "correction"
+  "status" | "corners" | "cornersSource" | "draft" | "aiCells" | "aiNote" | "correction" | "roundId"
 >;
 
-/** Provenance IA d'un import : cases complétées par l'IA et message affiché. */
-type SeededAi = Pick<SeededImport, "aiCells" | "aiNote">;
+/**
+ * Provenance d'un import lu : cases complétées par l'IA, message affiché, provenance du cadrage
+ * (`cornersSource`) et round déjà enregistré (`roundId`).
+ */
+type SeededReading = Pick<SeededImport, "aiCells" | "aiNote" | "cornersSource" | "roundId">;
 
 /** Import de la photo de référence dans l'état donné, sans passer par le worker. Renvoie son id. */
 function seedImport(values: SeededImport): number {
@@ -155,14 +159,17 @@ function seedImport(values: SeededImport): number {
 }
 
 /**
- * Import « Prêt à vérifier » de la photo de référence, avec la lecture de la tâche 6.7
- * (ou le brouillon `draft`), et éventuellement une complétion par l'IA (`ai`).
+ * Import « Prêt à vérifier » de la photo de référence, cadré sur ses coins mesurés à la main,
+ * avec la lecture de la tâche 6.7 (ou le brouillon `draft`), et éventuellement une complétion
+ * par l'IA, une provenance du cadrage ou un round (`reading`).
  */
-export const seedReadyImport = (draft: ScorecardDraft = referenceDraft, ai: SeededAi = {}) =>
-  seedImport({ status: "ready", corners: {}, draft, ...ai });
+export const seedReadyImport = (
+  draft: ScorecardDraft = referenceDraft,
+  reading: SeededReading = {},
+) => seedImport({ status: "ready", corners: referenceCorners, draft, ...reading });
 
-/** Coins par défaut de l'éditeur, à côté du panneau de la photo de référence. */
-const DEFAULT_CORNERS = {
+/** Coins par défaut de l'éditeur (10 % et 90 %), à côté du panneau de la photo de référence. */
+export const DEFAULT_CORNERS = {
   topLeft: { x: 0.1, y: 0.1 },
   topRight: { x: 0.9, y: 0.1 },
   bottomRight: { x: 0.9, y: 0.9 },
@@ -176,6 +183,10 @@ const DEFAULT_CORNERS = {
 export const seedFailedImport = (correction: SeededImport["correction"] = null) =>
   seedImport({ correction, status: "failed", corners: DEFAULT_CORNERS, draft: null });
 
+/** Import « Échec » sans coins : aucun cadrage trouvé sur la photo (« Panneau introuvable »). */
+export const seedPanelNotFoundImport = () =>
+  seedImport({ status: "failed", corners: null, draft: null });
+
 /**
  * Import « En attente » ou « Lecture en cours » sans job : le worker ne le touche pas, il
  * garde son état jusqu'à `setImportStatus`.
@@ -186,6 +197,17 @@ export const seedQueuedImport = (status: "queued" | "reading") =>
 /** Change la date de création d'un import en base (date affichée dans la liste). */
 export function setImportCreatedAt(id: number, createdAt: Date) {
   withDb((db) => db.update(imports).set({ createdAt }).where(eq(imports.id, id)).run());
+}
+
+/** Coins enregistrés d'un import et leur provenance. */
+export function importCorners(id: number) {
+  return withDb((db) =>
+    db
+      .select({ corners: imports.corners, cornersSource: imports.cornersSource })
+      .from(imports)
+      .where(eq(imports.id, id))
+      .get(),
+  );
 }
 
 /** Change l'état d'un import en base, comme le ferait le worker. */

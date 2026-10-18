@@ -77,6 +77,13 @@ export const GSPRO_PLAYER_ROWS = ROW_Y.players.length;
 export const COURSE_NAME_ZONE: Rect = { x: 60 / W, y: 26 / H, width: 600 / W, height: 58 / H };
 
 /**
+ * The light table, from under the dark HOLE row down to the dark ROUND SETTINGS band, across
+ * the whole panel width. Panel detection finds this rectangle on the photo and maps it back
+ * to the panel corners.
+ */
+export const TABLE_RECT: Rect = { x: 0, y: 220 / H, width: 1, height: 845 / H };
+
+/**
  * The two ROUND SETTINGS text lines (game type, tees… / greens, date…), dark on light.
  * Read one line at a time: on the whole band Tesseract drops the second line.
  */

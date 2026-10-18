@@ -105,6 +105,20 @@ describe("migrations", () => {
     expect(columns).toEqual([{ name: "correction", type: "TEXT", notnull: 0, dflt: null }]);
   });
 
+  // Mutation : garder `corners` NOT NULL, ou ne pas ajouter `corners_source`.
+  it("rend imports.corners nullable et ajoute corners_source, texte nul par défaut", () => {
+    testDb = createTestDb();
+    const columns = testDb.sqlite
+      .prepare(
+        "SELECT name, type, \"notnull\", dflt_value AS dflt FROM pragma_table_info('imports') WHERE name LIKE 'corners%' ORDER BY name",
+      )
+      .all();
+    expect(columns).toEqual([
+      { name: "corners", type: "TEXT", notnull: 0, dflt: null },
+      { name: "corners_source", type: "TEXT", notnull: 0, dflt: null },
+    ]);
+  });
+
   it("crée ai_usage avec les colonnes du design (décision 6)", () => {
     testDb = createTestDb();
     const columns = testDb.sqlite
@@ -196,6 +210,53 @@ describe("migration d'une base existante", () => {
         draft: '{"courseName":"BETHPAGE BLACK"}',
         aiCells: '["player0:9"]',
         correction: null,
+      },
+    ]);
+  });
+
+  // La migration 0003 reconstruit la table (SQLite) : chaque import garde ses coins et son état,
+  // sans provenance du cadrage. Mutation : une table recréée sans recopier les lignes.
+  it("garde les imports en attente, prêts et en échec d'une base migrée en 0002, avec leurs coins", () => {
+    dir = mkdtempSync(join(tmpdir(), "golf-migrate-"));
+    const opened = openDatabase(join(dir, "app.db"));
+    sqlite = opened.sqlite;
+    migrateDatabase(opened.db, migrationsUntil("0002_correction_autosave"));
+    const insert = sqlite.prepare(
+      "INSERT INTO imports (id, status, photo_path, corners, created_at) VALUES (?, ?, ?, ?, 0)",
+    );
+    insert.run(1, "queued", "uploads/1.webp", '{"topLeft":{"x":0.1,"y":0.2}}');
+    insert.run(2, "ready", "uploads/2.webp", '{"topLeft":{"x":0.3,"y":0.4}}');
+    insert.run(3, "failed", "uploads/3.webp", '{"topLeft":{"x":0.5,"y":0.6}}');
+
+    migrateDatabase(opened.db);
+
+    expect(
+      sqlite
+        .prepare(
+          "SELECT id, status, photo_path AS photoPath, corners, corners_source AS source FROM imports ORDER BY id",
+        )
+        .all(),
+    ).toEqual([
+      {
+        id: 1,
+        status: "queued",
+        photoPath: "uploads/1.webp",
+        corners: '{"topLeft":{"x":0.1,"y":0.2}}',
+        source: null,
+      },
+      {
+        id: 2,
+        status: "ready",
+        photoPath: "uploads/2.webp",
+        corners: '{"topLeft":{"x":0.3,"y":0.4}}',
+        source: null,
+      },
+      {
+        id: 3,
+        status: "failed",
+        photoPath: "uploads/3.webp",
+        corners: '{"topLeft":{"x":0.5,"y":0.6}}',
+        source: null,
       },
     ]);
   });

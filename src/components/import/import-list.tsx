@@ -34,6 +34,14 @@ function ImportOrb({ item }: { item: ImportListItem }) {
   return state && <PendingOrb state={state} />;
 }
 
+function RecropLink({ id }: { id: number }) {
+  return (
+    <Link href={`/imports/${id}/recadrer`} className={ACTION_LINK}>
+      Recadrer la photo
+    </Link>
+  );
+}
+
 function ImportAction({ item }: { item: ImportListItem }) {
   if (item.roundId !== null) {
     return (
@@ -42,19 +50,21 @@ function ImportAction({ item }: { item: ImportListItem }) {
       </Link>
     );
   }
+  // Sans round, un import lu ou en échec se recadre (spec « Nouvelle lecture après recadrage »).
   if (item.status === "ready") {
     return (
-      <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
-        Vérifier
-      </Link>
+      <span className="flex flex-wrap gap-x-3">
+        <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
+          Vérifier
+        </Link>
+        <RecropLink id={item.id} />
+      </span>
     );
   }
   if (item.status === "failed") {
     return (
       <span className="flex flex-wrap gap-x-3">
-        <Link href={`/imports/${item.id}/recadrer`} className={ACTION_LINK}>
-          Recadrer la photo
-        </Link>
+        <RecropLink id={item.id} />
         <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
           Ouvrir l'écran de correction vide
         </Link>
@@ -122,6 +132,10 @@ export function ImportList({
                 <ImportAction item={item} />
               </span>
             </span>
+            {/* Ligne à part, sous le badge : la raison de l'échec quand aucun cadrage n'est trouvé. */}
+            {item.panelNotFound ? (
+              <p className="basis-full text-muted-foreground">Panneau introuvable sur la photo</p>
+            ) : null}
           </li>
         ))}
       </ul>

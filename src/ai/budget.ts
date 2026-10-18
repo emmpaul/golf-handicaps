@@ -1,7 +1,6 @@
 import { eq, sum } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { aiUsage } from "@/db/schema";
-import { MAX_CALL_COST } from "./pricing";
 
 /** Mois civil `YYYY-MM` à l'heure de Montréal. */
 const monthFormat = new Intl.DateTimeFormat("en-CA", {
@@ -34,9 +33,12 @@ export class AiBudget {
     this.ceilingMicroUsd = Math.round(monthlyUsd * 1_000_000);
   }
 
-  /** Un appel est permis si son pire coût tient encore dans le plafond du mois. */
-  canSpend(now: Date): boolean {
-    return this.spent(montrealMonth(now)) + MAX_CALL_COST <= this.ceilingMicroUsd;
+  /**
+   * Un appel est permis si son pire coût `maxCost` (micro-dollars, `MAX_CALL_COST` ou
+   * `MAX_LOCATE_COST`) tient encore dans le plafond du mois.
+   */
+  canSpend(now: Date, maxCost: number): boolean {
+    return this.spent(montrealMonth(now)) + maxCost <= this.ceilingMicroUsd;
   }
 
   record(usage: AiCallUsage, now: Date): void {

@@ -22,18 +22,19 @@ const PHOTO = await sharp({
   .jpeg()
   .toBuffer();
 
-const upload = (photo = PHOTO) =>
-  createImport(testDb().db, testDb().dir, { photo, corners: referenceCorners() }, NOW);
+const upload = (photo = PHOTO) => createImport(testDb().db, testDb().dir, { photo }, NOW);
 
 const uploadsDir = () => join(testDb().dir, "uploads");
 
 describe("toStoredWebp", () => {
   // Mutation : `.jpeg()` à la place de `.webp()` → l'en-tête RIFF/WEBP manque.
+  // 60 s : encode la photo de référence en taille réelle, premier appel à sharp du fichier, et en
+  // CI les fichiers qui lancent Tesseract se disputent les 4 vCPU ; il a déjà pris plus de 5 s.
   it("convertit un JPEG en WebP (en-tête RIFF, WEBP aux octets 8 à 11)", async () => {
     const webp = await toStoredWebp(referencePhoto().photo);
     expect(webp.subarray(0, 4).toString("ascii")).toBe("RIFF");
     expect(webp.subarray(8, 12).toString("ascii")).toBe("WEBP");
-  });
+  }, 60_000);
 
   // Mutation : rendre le buffer reçu tel quel au lieu de le décoder.
   it("rejette un buffer qui n'est pas une image", async () => {
@@ -56,13 +57,15 @@ describe("createImport", () => {
     expect(readdirSync(uploadsDir())).toEqual([photoPath.slice("uploads/".length)]);
   });
 
-  it("crée l'import en attente avec ses coins et un job ocr-scorecard qui le vise", async () => {
+  // Le cadrage est cherché par le worker (design, décision 1). Mutation : écrire des coins par
+  // défaut à la création.
+  it("crée l'import en attente sans coins et un job ocr-scorecard qui le vise", async () => {
     const { id, photoPath } = await upload();
     expect(
-      testDb().sqlite.prepare("SELECT status, photo_path, corners FROM imports").all(),
-    ).toEqual([
-      { status: "queued", photo_path: photoPath, corners: JSON.stringify(referenceCorners()) },
-    ]);
+      testDb()
+        .sqlite.prepare("SELECT status, photo_path, corners, corners_source FROM imports")
+        .all(),
+    ).toEqual([{ status: "queued", photo_path: photoPath, corners: null, corners_source: null }]);
     expect(testDb().sqlite.prepare("SELECT type, payload, status FROM jobs").all()).toEqual([
       { type: "ocr-scorecard", payload: JSON.stringify({ importId: id }), status: "queued" },
     ]);
@@ -113,54 +116,94 @@ describe("getImportStatus", () => {
 });
 
 describe("recropImport", () => {
-  async function failedImport() {
+  /** Import créé puis passé à `status`, ses coins détectés enregistrés, son job terminé. */
+  async function importIn(status: "queued" | "reading" | "ready" | "failed") {
     const { id } = await upload();
     testDb().sqlite.exec("UPDATE jobs SET status = 'failed', attempts = 2");
-    testDb().sqlite.prepare("UPDATE imports SET status = 'failed' WHERE id = ?").run(id);
+    testDb()
+      .sqlite.prepare(
+        "UPDATE imports SET status = ?, corners = ?, corners_source = 'auto' WHERE id = ?",
+      )
+      .run(status, JSON.stringify(referenceCorners()), id);
     return id;
   }
 
-  it("remet un import en échec en attente avec ses nouveaux coins et un nouveau job", async () => {
-    const id = await failedImport();
-    expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("queued");
-    expect(testDb().sqlite.prepare("SELECT status, corners FROM imports").all()).toEqual([
-      { status: "queued", corners: JSON.stringify(NEW_CORNERS) },
-    ]);
-    expect(
-      testDb().sqlite.prepare("SELECT type, payload, status, attempts FROM jobs ORDER BY id").all(),
-    ).toEqual([
-      {
-        type: "ocr-scorecard",
-        payload: JSON.stringify({ importId: id }),
-        status: "failed",
-        attempts: 2,
-      },
-      {
-        type: "ocr-scorecard",
-        payload: JSON.stringify({ importId: id }),
+  /** Import prêt à vérifier déjà enregistré en round. */
+  async function savedImport() {
+    const id = await importIn("ready");
+    const roundId = testDb()
+      .sqlite.prepare(
+        "INSERT INTO rounds (course_name, tees, played_on, created_at) VALUES ('BETHPAGE BLACK', 'Red', '2026-10-17', 0)",
+      )
+      .run().lastInsertRowid;
+    testDb().sqlite.prepare("UPDATE imports SET round_id = ? WHERE id = ?").run(roundId, id);
+    return id;
+  }
+
+  const importRow = () =>
+    testDb().sqlite.prepare("SELECT status, corners, corners_source AS source FROM imports").get();
+
+  // En échec, ou prêt à vérifier sans round (spec « Nouvelle lecture après recadrage »).
+  // Mutations : ne pas écrire `corners_source` (la provenance reste `auto`) ; n'accepter que
+  // `failed` (refus de l'import prêt).
+  it.each([
+    ["en échec", "failed"],
+    ["prêt à vérifier sans round", "ready"],
+  ] as const)(
+    "remet un import %s en attente avec ses coins placés à la main et un nouveau job",
+    async (_case, status) => {
+      const id = await importIn(status);
+      expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("queued");
+      expect(importRow()).toEqual({
         status: "queued",
-        attempts: 0,
-      },
-    ]);
-  });
+        corners: JSON.stringify(NEW_CORNERS),
+        source: "manual",
+      });
+      expect(
+        testDb()
+          .sqlite.prepare("SELECT type, payload, status, attempts FROM jobs ORDER BY id")
+          .all(),
+      ).toEqual([
+        {
+          type: "ocr-scorecard",
+          payload: JSON.stringify({ importId: id }),
+          status: "failed",
+          attempts: 2,
+        },
+        {
+          type: "ocr-scorecard",
+          payload: JSON.stringify({ importId: id }),
+          status: "queued",
+          attempts: 0,
+        },
+      ]);
+    },
+  );
 
-  it("efface la correction enregistrée : la nouvelle lecture repart de zéro", async () => {
-    const id = await failedImport();
-    testDb()
-      .sqlite.prepare("UPDATE imports SET correction = ? WHERE id = ?")
-      .run(JSON.stringify({ version: 1, card: { playedOn: "2026-10-13" } }), id);
-    expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("queued");
-    expect(testDb().sqlite.prepare("SELECT status, correction FROM imports").all()).toEqual([
-      { status: "queued", correction: null },
-    ]);
-  });
+  it.each(["failed", "ready"] as const)(
+    "efface la correction enregistrée d'un import %s : la nouvelle lecture repart de zéro",
+    async (status) => {
+      const id = await importIn(status);
+      testDb()
+        .sqlite.prepare("UPDATE imports SET correction = ? WHERE id = ?")
+        .run(JSON.stringify({ version: 1, card: { playedOn: "2026-10-13" } }), id);
+      expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("queued");
+      expect(testDb().sqlite.prepare("SELECT status, correction FROM imports").all()).toEqual([
+        { status: "queued", correction: null },
+      ]);
+    },
+  );
 
-  it("refuse de recadrer un import qui n'est pas en échec, sans rien changer", async () => {
-    const { id } = await upload();
-    expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("not-failed");
-    expect(testDb().sqlite.prepare("SELECT status, corners FROM imports").all()).toEqual([
-      { status: "queued", corners: JSON.stringify(referenceCorners()) },
-    ]);
+  // Mutation : accepter tout import `ready`, ou tout statut autre que `failed`.
+  it.each([
+    ["prêt à vérifier déjà enregistré en round", savedImport],
+    ["en attente", () => importIn("queued")],
+    ["en lecture", () => importIn("reading")],
+  ])("refuse de recadrer un import %s, sans rien changer", async (_case, create) => {
+    const id = await create();
+    const before = importRow();
+    expect(recropImport(testDb().db, id, NEW_CORNERS, NOW)).toBe("not-recroppable");
+    expect(importRow()).toEqual(before);
     expect(testDb().sqlite.prepare("SELECT count(*) FROM jobs").pluck().get()).toBe(1);
   });
 
@@ -169,11 +212,13 @@ describe("recropImport", () => {
   });
 
   it("garde l'import en échec avec ses anciens coins si le job ne peut pas être créé", async () => {
-    const id = await failedImport();
+    const id = await importIn("failed");
     testDb().sqlite.exec("DROP TABLE jobs");
     expect(() => recropImport(testDb().db, id, NEW_CORNERS, NOW)).toThrow(/no such table: jobs/);
-    expect(testDb().sqlite.prepare("SELECT status, corners FROM imports").all()).toEqual([
-      { status: "failed", corners: JSON.stringify(referenceCorners()) },
-    ]);
+    expect(importRow()).toEqual({
+      status: "failed",
+      corners: JSON.stringify(referenceCorners()),
+      source: "auto",
+    });
   });
 });

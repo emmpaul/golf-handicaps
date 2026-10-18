@@ -50,6 +50,22 @@ export async function dragHandle(page: Page, name: string, target: { x: number; 
   await page.mouse.up();
 }
 
+/** Centre de chaque poignée, en coordonnées normalisées de la photo à cadrer. */
+export async function handleCenters(page: Page): Promise<Corners> {
+  const photo = await page.getByRole("img", { name: "Carte à cadrer" }).boundingBox();
+  if (!photo) throw new Error("Photo absente");
+  const centers = {} as Corners;
+  for (const corner of Object.keys(HANDLE_NAMES) as (keyof Corners)[]) {
+    const handle = await page.getByRole("button", { name: HANDLE_NAMES[corner] }).boundingBox();
+    if (!handle) throw new Error(`Poignée ${HANDLE_NAMES[corner]} absente`);
+    centers[corner] = {
+      x: (handle.x + handle.width / 2 - photo.x) / photo.width,
+      y: (handle.y + handle.height / 2 - photo.y) / photo.height,
+    };
+  }
+  return centers;
+}
+
 /** Place les 4 poignées sur des coins donnés (par défaut ceux de la photo de référence). */
 export async function placeCorners(page: Page, corners: Corners = REFERENCE_CORNERS) {
   for (const corner of Object.keys(HANDLE_NAMES) as (keyof Corners)[]) {
@@ -57,16 +73,19 @@ export async function placeCorners(page: Page, corners: Corners = REFERENCE_CORN
   }
 }
 
-/** Envoie la photo de référence cadrée sur ses coins : l'import est mis en file. */
-export async function enqueueReferencePhoto(page: Page) {
-  await choosePhoto(page);
-  await placeCorners(page);
-  await page.getByRole("button", { name: "Valider le cadrage" }).click();
-  const created = page.waitForResponse(
+/** Réponse 201 de la mise en file d'une photo (`POST /api/imports`) : l'import créé. */
+export async function photoQueued(page: Page) {
+  const response = await page.waitForResponse(
     (response) => response.url().endsWith("/api/imports") && response.status() === 201,
   );
-  await page.getByRole("button", { name: "Lancer la lecture" }).click();
-  return (await (await created).json()) as { id: number };
+  return (await response.json()) as { id: number };
+}
+
+/** Choisit la photo de référence : elle part en file sans cadrage, l'import est créé. */
+export async function enqueueReferencePhoto(page: Page) {
+  const created = photoQueued(page);
+  await choosePhoto(page);
+  return created;
 }
 
 /** Met la photo de référence en file, attend sa lecture et ouvre son écran de correction. */
