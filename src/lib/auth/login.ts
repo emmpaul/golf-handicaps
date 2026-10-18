@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { scryptSync, timingSafeEqual } from "node:crypto";
 import { createSessionToken } from "./session";
 
 export const WRONG_PASSCODE = "Code incorrect";
@@ -6,6 +6,7 @@ export const TOO_MANY_ATTEMPTS = "Trop d'essais. Réessaie dans une minute.";
 
 const MAX_ATTEMPTS = 10;
 const WINDOW_MS = 60_000;
+const DIGEST_SALT = "golf-handicaps-login";
 
 export type LoginResult = { ok: true; token: string } | { ok: false; error: string };
 export type LoginGuard = { allow(ip: string, now: number): boolean };
@@ -24,7 +25,7 @@ export function createLoginGuard(): LoginGuard {
 }
 
 function digest(value: string): Buffer {
-  return createHash("sha256").update(value).digest();
+  return scryptSync(value, DIGEST_SALT, 32);
 }
 
 export function attemptLogin(
