@@ -47,10 +47,15 @@ function leastSquares(points: readonly Point[]): EdgeFit {
 export function fitEdge(points: readonly Point[]): EdgeFit {
   const keep = points.length - Math.floor(points.length * OUTLIER_SHARE);
   let fit = leastSquares(points);
+  const residuals = new Float64Array(points.length);
   for (let pass = 0; pass < TRIM_PASSES; pass++) {
     const { slope, intercept } = fit;
-    const residual = (p: Point) => Math.abs(p.y - (slope * p.x + intercept));
-    fit = leastSquares([...points].sort((p, q) => residual(p) - residual(q)).slice(0, keep));
+    points.forEach((p, i) => {
+      residuals[i] = Math.abs(p.y - (slope * p.x + intercept));
+    });
+    // Sorting indices by precomputed residuals compares the same values as sorting the points.
+    const order = Array.from(points.keys()).sort((i, j) => residuals[i] - residuals[j]);
+    fit = leastSquares(order.slice(0, keep).map((i) => points[i]));
   }
   return fit;
 }
@@ -102,9 +107,17 @@ function isPlausibleQuad(corners: Corners): boolean {
   return area >= MIN_PANEL_AREA;
 }
 
+/** The middle grey of the sorted pixels (`sorted[length >> 1]`), read off a histogram. */
 function median(image: GrayImage): number {
-  const sorted = Uint8Array.from(image.data).sort();
-  return sorted[sorted.length >> 1];
+  const histogram = new Uint32Array(256);
+  for (const v of image.data) histogram[v]++;
+  const rank = image.data.length >> 1;
+  let count = 0;
+  for (let v = 0; v < 256; v++) {
+    count += histogram[v];
+    if (count > rank) return v;
+  }
+  return Number.NaN;
 }
 
 /** The values the panel check of design §3 looks at, on a rectified panel. */
@@ -169,21 +182,33 @@ async function workingCopy(photo: Buffer): Promise<GrayImage> {
 /** Crossing-number test, on a polygon given in pixels. */
 function inside(polygon: readonly Point[], x: number, y: number): boolean {
   let crossings = 0;
-  polygon.forEach((p, i) => {
+  for (let i = 0; i < polygon.length; i++) {
+    const p = polygon[i];
     const q = polygon[(i + 1) % polygon.length];
     if (p.y > y !== q.y > y && x < p.x + ((y - p.y) * (q.x - p.x)) / (q.y - p.y)) crossings++;
-  });
+  }
   return crossings % 2 === 1;
 }
 
-/** Which pixels of the working copy are searched: all of them, or those inside `within`. */
+/**
+ * Which pixels of the working copy are searched: all of them, or those inside `within`. Only the
+ * polygon's bounding box, one pixel wider on each side, is tested: a pixel beyond it crosses no
+ * edge, or all of them (an even count), so it is outside.
+ */
 function searchMask(image: GrayImage, within: Corners | undefined): Uint8Array {
-  const mask = new Uint8Array(image.width * image.height).fill(1);
-  if (!within) return mask;
-  const polygon = cornerList(within).map((p) => ({ x: p.x * image.width, y: p.y * image.height }));
-  for (let y = 0; y < image.height; y++) {
-    for (let x = 0; x < image.width; x++) {
-      if (!inside(polygon, x + 0.5, y + 0.5)) mask[y * image.width + x] = 0;
+  const { width, height } = image;
+  if (!within) return new Uint8Array(width * height).fill(1);
+  const mask = new Uint8Array(width * height);
+  const polygon = cornerList(within).map((p) => ({ x: p.x * width, y: p.y * height }));
+  const xs = polygon.map((p) => p.x);
+  const ys = polygon.map((p) => p.y);
+  const x0 = Math.max(0, Math.floor(Math.min(...xs)) - 1);
+  const x1 = Math.min(width, Math.ceil(Math.max(...xs)) + 1);
+  const y0 = Math.max(0, Math.floor(Math.min(...ys)) - 1);
+  const y1 = Math.min(height, Math.ceil(Math.max(...ys)) + 1);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (inside(polygon, x + 0.5, y + 0.5)) mask[y * width + x] = 1;
     }
   }
   return mask;
@@ -194,12 +219,14 @@ function otsuThreshold(image: GrayImage, mask: Uint8Array): number {
   const histogram = new Array<number>(256).fill(0);
   let total = 0;
   let sum = 0;
-  image.data.forEach((v, i) => {
-    if (!mask[i]) return;
+  const { data } = image;
+  for (let i = 0; i < data.length; i++) {
+    if (!mask[i]) continue;
+    const v = data[i];
     histogram[v]++;
     total++;
     sum += v;
-  });
+  }
   let best = 0;
   let bestVariance = -1;
   let below = 0;
@@ -219,52 +246,73 @@ function otsuThreshold(image: GrayImage, mask: Uint8Array): number {
   return best;
 }
 
+/** Buffers of the flood fills over the light searched pixels of the working copy. */
+type FloodFill = {
+  image: GrayImage;
+  mask: Uint8Array;
+  threshold: number;
+  seen: Uint8Array;
+  stack: Int32Array;
+  pixels: Int32Array;
+};
+
+/** A light searched pixel that no fill has reached yet. */
+function isLight(flood: FloodFill, i: number): boolean {
+  return !flood.seen[i] && flood.mask[i] === 1 && flood.image.data[i] > flood.threshold;
+}
+
+/**
+ * Flood fill from `start` on an explicit stack, neighbours left, right, above, below. Writes the
+ * component's pixels, in visit order, at the start of `flood.pixels`, and says whether one of
+ * them is on the photo border.
+ */
+function fill(flood: FloodFill, start: number): { count: number; onBorder: boolean } {
+  const { seen, stack, pixels } = flood;
+  const { width } = flood.image;
+  const size = seen.length;
+  let top = 0;
+  let count = 0;
+  let onBorder = false;
+  const push = (n: number) => {
+    if (!isLight(flood, n)) return;
+    seen[n] = 1;
+    stack[top++] = n;
+  };
+  push(start);
+  while (top > 0) {
+    const i = stack[--top];
+    pixels[count++] = i;
+    const x = i % width;
+    if (x === 0 || x === width - 1 || i < width || i >= size - width) onBorder = true;
+    if (x > 0) push(i - 1);
+    if (x < width - 1) push(i + 1);
+    if (i >= width) push(i - width);
+    if (i < size - width) push(i + width);
+  }
+  return { count, onBorder };
+}
+
 /**
  * 4-connected components of the light searched pixels, largest first, each as pixel indices.
  * A component that reaches the photo border is left out: the table's sides are the panel's, so
  * the frame cuts the panel and its corners are not on the photo.
  */
 function lightComponents(image: GrayImage, mask: Uint8Array, threshold: number): Int32Array[] {
-  const { width, height, data } = image;
-  const seen = new Uint8Array(width * height);
-  const stack = new Int32Array(width * height);
+  const size = image.width * image.height;
+  const flood: FloodFill = {
+    image,
+    mask,
+    threshold,
+    seen: new Uint8Array(size),
+    stack: new Int32Array(size),
+    pixels: new Int32Array(size),
+  };
   const components: Int32Array[] = [];
-  const minSize = MIN_COMPONENT_SHARE * width * height;
-  const isLight = (i: number) => mask[i] === 1 && data[i] > threshold && !seen[i];
-  const onBorder = (i: number) => {
-    const x = i % width;
-    const y = (i - x) / width;
-    return x === 0 || y === 0 || x === width - 1 || y === height - 1;
-  };
-  const neighbours = (i: number) => {
-    const x = i % width;
-    return [x > 0 ? i - 1 : -1, x < width - 1 ? i + 1 : -1, i - width, i + width].filter(
-      (n) => n >= 0 && n < data.length,
-    );
-  };
-  /** The component of `start`, by flood fill on an explicit stack. */
-  const fill = (start: number): number[] => {
-    const pixels: number[] = [];
-    let top = 0;
-    seen[start] = 1;
-    stack[top++] = start;
-    while (top > 0) {
-      const i = stack[--top];
-      pixels.push(i);
-      for (const n of neighbours(i)) {
-        if (!isLight(n)) continue;
-        seen[n] = 1;
-        stack[top++] = n;
-      }
-    }
-    return pixels;
-  };
-  for (let start = 0; start < data.length; start++) {
-    if (!isLight(start)) continue;
-    const pixels = fill(start);
-    if (pixels.length >= minSize && !pixels.some(onBorder)) {
-      components.push(Int32Array.from(pixels));
-    }
+  const minSize = MIN_COMPONENT_SHARE * size;
+  for (let start = 0; start < size; start++) {
+    if (!isLight(flood, start)) continue;
+    const { count, onBorder } = fill(flood, start);
+    if (count >= minSize && !onBorder) components.push(flood.pixels.slice(0, count));
   }
   return components.sort((a, b) => b.length - a.length);
 }
@@ -381,13 +429,17 @@ export async function detectPanel(
   photo: Buffer,
   options: { within?: Corners } = {},
 ): Promise<DetectedPanel | null> {
-  const [work, source] = await Promise.all([workingCopy(photo), decodeGray(photo)]);
+  const work = await workingCopy(photo);
   const mask = searchMask(work, options.within);
   const otsu = otsuThreshold(work, mask);
+  // The full-size decode is for the check only: done once, and only if a candidate gets there.
+  let source: GrayImage | undefined;
   for (const threshold of [otsu, otsu + DARK_SCREEN_SHIFT]) {
     for (const component of lightComponents(work, mask, threshold)) {
       const table = tableQuad(component, work.width, work.height);
       const corners = snapToPhoto(panelCorners(table, work));
+      if (!isPlausibleQuad(corners)) continue;
+      source ??= await decodeGray(photo);
       const panel = acceptOnGray(source, corners);
       if (panel) return { corners, panel, table: normalised(table, work) };
     }
