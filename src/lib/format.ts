@@ -10,6 +10,13 @@ export function formatPlayedOn(playedOn: string): string {
   return playedOnFormat.format(new Date(`${playedOn}T00:00:00Z`));
 }
 
+const timeFormat = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+/** Instant vers « 17 octobre 2026, 19:32 », en heure locale : la date comme une date de jeu. */
+export function formatDateTime(date: Date): string {
+  return `${formatPlayedOn(localDateToIso(date))}, ${timeFormat.format(date)}`;
+}
+
 /** Date ISO « 2026-10-17 » vers le 17 octobre à minuit, heure locale. */
 export function isoToLocalDate(iso: string): Date {
   const [year, month, day] = iso.split("-").map(Number);

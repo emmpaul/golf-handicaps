@@ -14,10 +14,11 @@ export default async function PlayersPage() {
   return (
     <>
       <PageTitle>Joueurs</PageTitle>
-      <div className="flex flex-col gap-4 lg:flex-row-reverse lg:items-start">
+      {/* « Ajouter un joueur » en tête, sur téléphone comme sur ordinateur. */}
+      <div className="flex flex-col gap-4">
         <section
           aria-labelledby="add-player-title"
-          className="flex flex-col gap-2 lg:w-80 lg:shrink-0 lg:rounded-lg lg:border lg:p-3"
+          className="flex flex-col gap-2 lg:w-80 lg:rounded-lg lg:border lg:p-3"
         >
           <h2 id="add-player-title" className="font-heading font-semibold">
             Ajouter un joueur
@@ -31,7 +32,7 @@ export default async function PlayersPage() {
         </section>
         <ul
           aria-label="Joueurs"
-          className="grid min-w-0 flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+          className="grid min-w-0 grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3"
         >
           {players.map((player) => (
             <li key={player.id} className="flex flex-col gap-3 rounded-lg border p-3">

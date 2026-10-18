@@ -330,7 +330,9 @@ export function RoundEditor({
           <AlertTitle>{notice.message}</AlertTitle>
         </Alert>
       ) : null}
-      <div className="sticky bottom-0 z-20 -mx-4 flex flex-col gap-2 border-t bg-background/95 px-4 py-3 sm:flex-row sm:items-center">
+      {/* Collée juste au-dessus des onglets sous `md`, au-dessus de la barre d'accueil au-delà ;
+          déborde de `main` jusqu'au bord de l'écran sous `lg` seulement. */}
+      <div className="sticky bottom-(--bottom-chrome) z-20 flex flex-col gap-2 border-t bg-background/95 px-4 py-2 sm:flex-row sm:items-center max-lg:-mx-4 md:pt-3 md:pb-[calc(--spacing(3)+var(--safe-bottom))]">
         <Button
           size="lg"
           className="w-full sm:w-auto"

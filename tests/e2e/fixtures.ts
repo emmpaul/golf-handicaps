@@ -1,4 +1,4 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
 import { resetData } from "./data";
 import { authenticate } from "./session";
 
@@ -20,3 +20,12 @@ export const test = base.extend<{ players: PlayerIds }>({
 });
 
 export { expect };
+
+/** La page ne défile pas de côté : sa largeur reste celle de l'écran. `label` nomme l'état mesuré. */
+export async function expectNoHorizontalScroll(page: Page, label?: string) {
+  const widths = await page.evaluate(() => ({
+    scroll: document.documentElement.scrollWidth,
+    viewport: window.innerWidth,
+  }));
+  expect(widths.scroll, label).toBeLessThanOrEqual(widths.viewport);
+}

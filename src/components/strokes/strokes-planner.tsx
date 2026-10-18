@@ -68,7 +68,7 @@ export function StrokesPlanner({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
       <div className="flex flex-col gap-4">
         <FieldSet>
-          <FieldLegend>Joueurs (2 à 4)</FieldLegend>
+          <FieldLegend variant="label">Joueurs (2 à 4)</FieldLegend>
           <div className="flex flex-col gap-2">
             {players.map((player) => {
               const disabled =
@@ -120,7 +120,7 @@ export function StrokesPlanner({
           </NativeSelect>
         </Field>
         <FieldSet>
-          <FieldLegend>Mode</FieldLegend>
+          <FieldLegend variant="label">Mode</FieldLegend>
           <div className="flex gap-2">
             {MODES.map((option) => (
               <label

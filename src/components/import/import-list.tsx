@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { orbForImport, PendingOrb } from "@/components/ui/pending";
+import { formatDateTime } from "@/lib/format";
+import { ACTION_LINK } from "@/lib/utils";
 import type { ImportListItem } from "@/server/imports/list";
 
 /** L'UI interroge l'état des imports toutes les 2 s tant que l'un d'eux attend (décision 4). */
@@ -32,16 +34,30 @@ function ImportOrb({ item }: { item: ImportListItem }) {
   return state && <PendingOrb state={state} />;
 }
 
-const time = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
-
 function ImportAction({ item }: { item: ImportListItem }) {
-  if (item.roundId !== null) return <Link href={`/rounds/${item.roundId}`}>Voir le round</Link>;
-  if (item.status === "ready") return <Link href={`/imports/${item.id}`}>Vérifier</Link>;
+  if (item.roundId !== null) {
+    return (
+      <Link href={`/rounds/${item.roundId}`} className={ACTION_LINK}>
+        Voir le round
+      </Link>
+    );
+  }
+  if (item.status === "ready") {
+    return (
+      <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
+        Vérifier
+      </Link>
+    );
+  }
   if (item.status === "failed") {
     return (
       <span className="flex flex-wrap gap-x-3">
-        <Link href={`/imports/${item.id}/recadrer`}>Recadrer la photo</Link>
-        <Link href={`/imports/${item.id}`}>Ouvrir l'écran de correction vide</Link>
+        <Link href={`/imports/${item.id}/recadrer`} className={ACTION_LINK}>
+          Recadrer la photo
+        </Link>
+        <Link href={`/imports/${item.id}`} className={ACTION_LINK}>
+          Ouvrir l'écran de correction vide
+        </Link>
       </span>
     );
   }
@@ -90,18 +106,21 @@ export function ImportList({
               className="text-muted-foreground"
               suppressHydrationWarning
             >
-              {time.format(new Date(item.createdAt))}
+              {formatDateTime(new Date(item.createdAt))}
             </time>
             {/* Orbe seule, sans `role="status"` : le badge change déjà à chaque rafraîchissement. */}
             <ImportOrb item={item} />
-            <Badge
-              data-testid="import-status"
-              variant={item.status === "failed" ? "destructive" : "secondary"}
-            >
-              {item.label}
-            </Badge>
-            <span className="ml-auto underline underline-offset-3">
-              <ImportAction item={item} />
+            {/* Badge et action vont à la ligne ensemble, l'action toujours à droite. */}
+            <span className="flex flex-auto flex-nowrap items-center gap-x-3">
+              <Badge
+                data-testid="import-status"
+                variant={item.status === "failed" ? "destructive" : "secondary"}
+              >
+                {item.label}
+              </Badge>
+              <span className="ml-auto min-w-0">
+                <ImportAction item={item} />
+              </span>
             </span>
           </li>
         ))}
