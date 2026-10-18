@@ -1,7 +1,7 @@
 import type { Locator } from "@playwright/test";
-import { seedReadyImport } from "./data";
+import { seedFailedImport, seedReadyImport } from "./data";
 import { expect, expectNoHorizontalScroll, test } from "./fixtures";
-import { choosePhoto, HANDLE_NAMES } from "./import";
+import { HANDLE_NAMES } from "./import";
 
 /** Tâche 8.9 : projet WebKit iPhone uniquement (voir playwright.config.ts). */
 
@@ -30,12 +30,12 @@ async function touchDrag(handle: Locator, dx: number, dy: number) {
   await handle.dispatchEvent("pointerup", event(start.x + dx, start.y + dy));
 }
 
-test("import sur iPhone : pas de défilement horizontal, poignées de 44 px déplaçables au doigt", async ({
+test("recadrage sur iPhone : pas de défilement horizontal, poignées de 44 px déplaçables au doigt", async ({
   page,
 }) => {
   await page.goto("/import");
   await expectNoHorizontalScroll(page);
-  await choosePhoto(page);
+  await page.goto(`/imports/${seedFailedImport()}/recadrer`);
   await expect(page.getByRole("img", { name: "Carte à cadrer" })).toBeVisible();
   await expectNoHorizontalScroll(page);
 

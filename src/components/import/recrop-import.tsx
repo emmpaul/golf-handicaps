@@ -8,9 +8,9 @@ import { INITIAL_CORNERS } from "./corner-editor";
 import { CropSteps } from "./crop-steps";
 
 /**
- * Recadrage d'un import en échec sur sa photo enregistrée, à partir de ses anciens coins,
- * puis retour à la liste des imports. Avec une correction enregistrée (`hasCorrection`),
- * prévient que la nouvelle lecture la remplacera.
+ * Recadrage manuel d'un import sur sa photo enregistrée, à partir de ses coins (détectés ou
+ * placés à la main), puis retour à la liste des imports. Avec une correction enregistrée
+ * (`hasCorrection`), prévient que la nouvelle lecture la remplacera.
  */
 export function RecropImport({
   id,

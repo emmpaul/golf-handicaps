@@ -27,7 +27,11 @@ export async function decodeGray(photo: Buffer): Promise<GrayImage> {
 
 /** Warps the panel delimited by `corners` onto a GSPro-sized rectangle (bilinear sampling). */
 export async function rectifyPanel(photo: Buffer, corners: Corners): Promise<GrayImage> {
-  const source = await decodeGray(photo);
+  return rectifyGray(await decodeGray(photo), corners);
+}
+
+/** `rectifyPanel` on a photo already decoded by `decodeGray`. */
+export function rectifyGray(source: GrayImage, corners: Corners): GrayImage {
   const { width, height } = GSPRO_PANEL;
   const toPhoto = panelToPhoto(corners, source, { width, height });
   const data = new Uint8Array(width * height);

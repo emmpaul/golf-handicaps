@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AiBudget } from "@/ai/budget";
+import { MAX_CALL_COST } from "@/ai/pricing";
 import { freshTestDb } from "../jobs/helpers";
 
 const testDb = freshTestDb();
@@ -18,22 +19,35 @@ const OCTOBER = new Date("2026-10-17T20:00:00.000Z");
 describe("AiBudget.canSpend", () => {
   it("refuse un appel quand 950 000 µ$ sont dépensés en 2026-10 sur un plafond de 1 $", () => {
     spentBefore("2026-10", 950_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER)).toBe(false);
+    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(false);
   });
 
   it("autorise un appel en 2026-10 quand les 950 000 µ$ datent de 2026-09", () => {
     spentBefore("2026-09", 950_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER)).toBe(true);
+    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(true);
   });
 
   it("autorise un appel dont le pire cas atteint pile le plafond (906 000 + 94 000 µ$)", () => {
     spentBefore("2026-10", 906_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER)).toBe(true);
+    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(true);
   });
 
   it("refuse un appel dont le pire cas dépasse le plafond d'un µ$ (906 001 + 94 000 µ$)", () => {
     spentBefore("2026-10", 906_001);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER)).toBe(false);
+    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(false);
+  });
+});
+
+describe("AiBudget.canSpend, pire coût de l'appel prévu", () => {
+  it("refuse un appel de pire coût 52 800 µ$ quand 950 000 µ$ sont dépensés sur 1 $", () => {
+    spentBefore("2026-10", 950_000);
+    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, 52_800)).toBe(false);
+  });
+
+  // Mutation : ignorer `maxCost` et réserver toujours MAX_CALL_COST (94 000 µ$).
+  it("autorise un appel de pire coût 40 000 µ$ quand 950 000 µ$ sont dépensés sur 1 $", () => {
+    spentBefore("2026-10", 950_000);
+    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, 40_000)).toBe(true);
   });
 });
 

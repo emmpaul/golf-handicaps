@@ -1,33 +1,21 @@
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
 import { beforeAll, describe, expect, it } from "vitest";
-import { AiCompletionError, ClaudeDraftCompleter, type MessagesClient } from "@/ai/completer";
+import type { MessagesClient } from "@/ai/claude-call";
+import { ClaudeDraftCompleter } from "@/ai/completer";
 import type { GrayImage } from "@/ocr/image";
 import { rectifyPanel } from "@/ocr/rectify";
 import { referencePhoto } from "../ocr/reference";
-
-type Response = Awaited<ReturnType<MessagesClient["messages"]["create"]>>;
-type Call = { body: Anthropic.MessageCreateParamsNonStreaming; options: Anthropic.RequestOptions };
-
-/** Faux client : enregistre chaque requête et rend la réponse donnée. */
-function fakeClient(response: Partial<Response> = {}): { client: MessagesClient; calls: Call[] } {
-  const calls: Call[] = [];
-  const client: MessagesClient = {
-    messages: {
-      async create(body, options) {
-        calls.push({ body, options });
-        return {
-          model: "claude-opus-5-5",
-          stop_reason: "end_turn",
-          content: [],
-          usage: { input_tokens: 1700, output_tokens: 900 },
-          ...response,
-        };
-      },
-    },
-  };
-  return { client, calls };
-}
+import {
+  type FakeResponse,
+  failureOf,
+  fakeClient,
+  itRejectsStopReasons,
+  requestShape,
+  sentImages,
+  text,
+  USAGE,
+} from "./fake-client";
 
 let panel: GrayImage;
 
@@ -47,39 +35,22 @@ describe("ClaudeDraftCompleter, requête", () => {
     await new ClaudeDraftCompleter(client).complete(panel).catch(() => undefined);
 
     expect(calls).toHaveLength(1);
-    const { body, options } = calls[0];
-    expect(options).toEqual({ timeout: 60000, maxRetries: 1 });
     // Ni `fallbacks`, ni `betas`, ni `thinking` : seules ces clés partent.
-    expect(Object.keys(body).sort()).toEqual([
-      "max_tokens",
-      "messages",
-      "model",
-      "output_config",
-      "system",
-    ]);
-    expect(body.system).toContain("GSPro");
-    expect(body.system).toContain("null");
-    expect(body.model).toBe("claude-opus-5-5");
-    expect(body.max_tokens).toBe(4000);
-    expect(body.output_config?.effort).toBe("low");
-    expect(body.output_config?.format?.type).toBe("json_schema");
-    expect(Object.keys(body.output_config?.format?.schema.properties as object)).toEqual([
-      "courseName",
-      "tees",
-      "par",
-      "strokeIndex",
-      "distance",
-      "players",
-    ]);
-
-    expect(body.messages).toHaveLength(1);
-    const blocks = body.messages[0].content as Anthropic.ContentBlockParam[];
-    const images = blocks.filter((b): b is Anthropic.ImageBlockParam => b.type === "image");
+    expect(requestShape(calls[0])).toEqual({
+      options: { timeout: 60000, maxRetries: 1 },
+      keys: ["max_tokens", "messages", "model", "output_config", "system"],
+      model: "claude-opus-5-5",
+      maxTokens: 4000,
+      effort: "low",
+      format: "json_schema",
+      properties: ["courseName", "tees", "par", "strokeIndex", "distance", "players"],
+      messages: 1,
+    });
+    expect(calls[0].body.system).toContain("GSPro");
+    expect(calls[0].body.system).toContain("null");
+    const images = sentImages(calls[0]);
     expect(images).toHaveLength(1);
-    const source = images[0].source as Anthropic.Base64ImageSource;
-    expect(source.type).toBe("base64");
-    expect(source.media_type).toBe("image/jpeg");
-    const meta = await sharp(Buffer.from(source.data, "base64")).metadata();
+    const meta = await sharp(images[0]).metadata();
     expect([meta.format, meta.width, meta.height]).toEqual(["jpeg", 1568, 800]);
   });
 });
@@ -106,20 +77,9 @@ const CARD = {
   ],
 };
 
-const text = (json: string): Anthropic.TextBlock => ({ type: "text", text: json, citations: null });
+const completeOn = (client: MessagesClient) => new ClaudeDraftCompleter(client).complete(panel);
 
-const USAGE = { model: "claude-opus-5-5", inputTokens: 1700, outputTokens: 900 };
-
-/** Raison et usage portés par l'erreur typée que lève `complete`. */
-async function failure(response: Partial<Response>): Promise<unknown> {
-  const error = await new ClaudeDraftCompleter(fakeClient(response).client).complete(panel).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  expect(error).toBeInstanceOf(AiCompletionError);
-  const { reason, usage } = error as AiCompletionError;
-  return { reason, usage };
-}
+const failure = (response: Partial<FakeResponse>) => failureOf(completeOn, response);
 
 describe("ClaudeDraftCompleter, réponse", () => {
   it("rend la carte parsée et l'usage facturé d'une réponse valide", async () => {
@@ -140,20 +100,7 @@ describe("ClaudeDraftCompleter, réponse", () => {
     expect(usage.model).toBe("claude-opus-5-5-20261015");
   });
 
-  it("lève une erreur « refusal » qui porte l'usage, sur un refus au contenu vide", async () => {
-    expect(await failure({ stop_reason: "refusal", content: [] })).toEqual({
-      reason: "refusal",
-      usage: USAGE,
-    });
-  });
-
-  it("lève une erreur « max_tokens » qui porte l'usage, sur une sortie tronquée", async () => {
-    const truncated = JSON.stringify(CARD).slice(0, 40);
-    expect(await failure({ stop_reason: "max_tokens", content: [text(truncated)] })).toEqual({
-      reason: "max_tokens",
-      usage: USAGE,
-    });
-  });
+  itRejectsStopReasons(completeOn, JSON.stringify(CARD));
 
   it("lève une erreur « invalid » qui porte l'usage, sur un JSON hors schéma (17 pars)", async () => {
     const card = { ...CARD, par: { ...CARD.par, holes: CARD.par.holes.slice(0, 17) } };

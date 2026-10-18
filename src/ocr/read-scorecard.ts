@@ -53,10 +53,13 @@ function holeRow(valueAt: ValueAt, row: GridRow): DraftHoleRow {
   };
 }
 
-/** Reads every cell and text zone of a rectified GSPro panel into a draft. */
+/**
+ * Reads every cell and text zone of a rectified GSPro panel into a draft. Entry point of the
+ * reading once the panel is framed: the panel accepted by the detection is read as is.
+ */
 export async function readScorecardPanel(
   panel: GrayImage,
-  reader: CellReader,
+  reader: CellReader = createDefaultCellReader(),
 ): Promise<ScorecardDraft> {
   const present = detectPlayerRows(panel);
   const cells: GridCell[] = gridCells(panel, present);
@@ -90,7 +93,7 @@ export async function readScorecardPanel(
 /** A draft and the rectified panel it was read from (sent to the AI fallback as is). */
 export type ScorecardReading = { draft: ScorecardDraft; panel: GrayImage };
 
-/** Full OCR of a scorecard photo, given the 4 panel corners (normalised 0–1). */
+/** Full OCR of a scorecard photo, given the 4 panel corners (normalised 0–1), e.g. hand-placed. */
 export async function readScorecard(
   photo: Buffer,
   corners: Corners,

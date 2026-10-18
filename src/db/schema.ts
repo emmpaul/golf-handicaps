@@ -122,12 +122,17 @@ export const playerRoundStats = sqliteTable(
 
 export const importStatuses = ["queued", "reading", "ready", "failed"] as const;
 
+export const cornersSources = ["auto", "ai", "manual"] as const;
+
 export const imports = sqliteTable("imports", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   status: text("status", { enum: importStatuses }).notNull().default("queued"),
   photoPath: text("photo_path").notNull(),
-  /** Coins du panneau, coordonnées normalisées entre 0 et 1 (JSON). */
-  corners: text("corners", { mode: "json" }).notNull(),
+  /**
+   * Coins du panneau, coordonnées normalisées entre 0 et 1 (JSON) ; `null` tant que le cadrage
+   * n'est pas trouvé (« Panneau introuvable » quand l'import est en échec).
+   */
+  corners: text("corners", { mode: "json" }),
   /** Brouillon lu par l'OCR (JSON), `null` tant que la lecture n'est pas finie. */
   draft: text("draft", { mode: "json" }),
   roundId: integer("round_id").references(() => rounds.id, { onDelete: "set null" }),
@@ -138,6 +143,8 @@ export const imports = sqliteTable("imports", {
   aiNote: text("ai_note"),
   /** État de l'écran de correction enregistré automatiquement (JSON), `null` sans correction. */
   correction: text("correction", { mode: "json" }),
+  /** Provenance des coins : détection locale, IA ou main ; `null` inconnue (traitée comme main). */
+  cornersSource: text("corners_source", { enum: cornersSources }),
 });
 
 /** Un appel à l'IA par ligne ; coûts en micro-dollars (design, décision 6). */

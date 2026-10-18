@@ -1,19 +1,14 @@
 "use client";
 
 import { CameraIcon, ImageIcon } from "lucide-react";
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
 import { Pending } from "@/components/ui/pending";
 import { cn } from "@/lib/utils";
-import type { Corners } from "@/ocr/corners";
-import { INITIAL_CORNERS } from "./corner-editor";
-import { CropSteps } from "./crop-steps";
 import { decodePhoto } from "./decode-photo";
 import { UnreadablePhoto } from "./unreadable-photo";
-
-type Photo = { blob: Blob; url: string };
 
 /**
  * Libellé stylé en bouton autour d'un champ fichier masqué (`sr-only`) : le champ garde le
@@ -22,45 +17,51 @@ type Photo = { blob: Blob; url: string };
 const PICK_BUTTON =
   "cursor-pointer focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50";
 
-type Step =
-  | { kind: "pick" }
-  | { kind: "preparing" }
-  | { kind: "unreadable" }
-  | { kind: "crop"; photo: Photo };
+type Step = "pick" | "preparing" | "sending" | "unreadable";
 
-async function enqueue(photo: Blob, corners: Corners): Promise<boolean> {
+/** Attentes affichées dans la région `Pending`, rien aux autres étapes. */
+const PENDING_LABEL: Partial<Record<Step, string>> = {
+  preparing: "Préparation de la photo…",
+  sending: "Envoi de la photo…",
+};
+
+/** Envoie la seule photo : le worker cherche le cadrage. */
+async function enqueue(photo: Blob): Promise<boolean> {
   const form = new FormData();
   form.set("photo", photo, "carte.jpg");
-  form.set("corners", JSON.stringify(corners));
   const response = await fetch("/api/imports", { method: "POST", body: form });
   return response.ok;
 }
 
 /**
- * Envoi d'une photo : décodage et réencodage JPEG dans le navigateur, cadrage des 4 coins,
- * aperçu redressé, puis mise en file de la lecture. Rend la main tout de suite pour la
- * photo suivante.
+ * Envoi d'une photo : décodage et réencodage JPEG dans le navigateur, puis mise en file du
+ * cadrage et de la lecture, sans étape de cadrage. Rend la main tout de suite pour la photo
+ * suivante.
  */
 export function ImportFlow({ onQueued }: { onQueued: () => void }) {
-  const [step, setStep] = useState<Step>({ kind: "pick" });
+  const [step, setStep] = useState<Step>("pick");
   const [message, setMessage] = useState<string | null>(null);
-  const photoUrl = step.kind === "crop" ? step.photo.url : null;
-
-  useEffect(() => {
-    if (!photoUrl) return;
-    return () => URL.revokeObjectURL(photoUrl);
-  }, [photoUrl]);
 
   async function choose(file: File | undefined) {
     if (!file) return;
     setMessage(null);
     // Décodage et réduction à 3000 px : une à deux secondes sur téléphone.
-    setStep({ kind: "preparing" });
+    setStep("preparing");
+    let blob: Blob;
     try {
-      const blob = await decodePhoto(file);
-      setStep({ kind: "crop", photo: { blob, url: URL.createObjectURL(blob) } });
+      blob = await decodePhoto(file);
     } catch {
-      setStep({ kind: "unreadable" });
+      setStep("unreadable");
+      return;
+    }
+    setStep("sending");
+    const queued = await enqueue(blob).catch(() => false);
+    setStep("pick");
+    if (queued) {
+      setMessage("Lecture en file d'attente. Tu peux envoyer la photo suivante.");
+      onQueued();
+    } else {
+      setMessage("L'envoi a échoué, réessaie.");
     }
   }
 
@@ -68,16 +69,6 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
   function pickFrom(event: ChangeEvent<HTMLInputElement>) {
     void choose(event.currentTarget.files?.[0]);
     event.currentTarget.value = "";
-  }
-
-  async function launch(photo: Photo, corners: Corners) {
-    if (await enqueue(photo.blob, corners)) {
-      setStep({ kind: "pick" });
-      setMessage("Lecture en file d'attente. Tu peux envoyer la photo suivante.");
-      onQueued();
-    } else {
-      setMessage("L'envoi a échoué, réessaie.");
-    }
   }
 
   return (
@@ -119,24 +110,13 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
           Photo de l'écran de fin de round, prise au téléphone.
         </FieldDescription>
       </Field>
-      <Pending
-        label={step.kind === "preparing" ? "Préparation de la photo…" : null}
-        orb="prepare"
-      />
+      <Pending label={PENDING_LABEL[step] ?? null} orb={step === "sending" ? "send" : "prepare"} />
       {message ? (
         <Alert>
           <AlertTitle>{message}</AlertTitle>
         </Alert>
       ) : null}
-      {step.kind === "unreadable" ? <UnreadablePhoto /> : null}
-      {step.kind === "crop" ? (
-        <CropSteps
-          key={step.photo.url}
-          photoUrl={step.photo.url}
-          initialCorners={INITIAL_CORNERS}
-          onLaunch={(corners) => launch(step.photo, corners)}
-        />
-      ) : null}
+      {step === "unreadable" ? <UnreadablePhoto /> : null}
     </div>
   );
 }

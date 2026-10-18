@@ -29,8 +29,8 @@ const BUSY_LABEL = {
 
 /**
  * Cadrage des 4 coins sur `photoUrl`, aperçu redressé, puis « Lancer la lecture » qui
- * appelle `onLaunch` avec les coins validés. Sert à l'envoi d'une photo et au recadrage
- * d'un import en échec.
+ * appelle `onLaunch` avec les coins validés. Sert au seul recadrage manuel d'un import
+ * (`RecropImport`) : l'envoi d'une photo se fait sans cadrage.
  */
 export function CropSteps({
   photoUrl,

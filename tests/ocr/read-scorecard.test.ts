@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { toStoredWebp } from "@/jobs/imports";
-import { readScorecard } from "@/ocr/read-scorecard";
+import { detectPanel } from "@/ocr/detect-panel";
+import { readScorecard, readScorecardPanel } from "@/ocr/read-scorecard";
 import type { ScorecardDraft } from "@/scorecard/draft";
 import { referencePhoto } from "./reference";
 
@@ -35,5 +36,19 @@ describe("readScorecard sur la photo stockée en WebP", () => {
     const { photo, corners } = referencePhoto();
     const { draft } = await readScorecard(await toStoredWebp(photo), corners);
     expect(draft).toEqual(EXPECTED);
+  }, 60_000);
+});
+
+// Même fichier, lancée à la suite, pour la même raison que ci-dessus.
+describe("detectPanel puis readScorecardPanel", () => {
+  // Le parcours du job sans coins (design §3 et §5) : le panneau redressé à la vérification sert
+  // tel quel à la lecture. Mutation : `TABLE_RECT` qui commence 40 px plus bas (y = 260) → les
+  // coins déduits du tableau décalent le panneau et la lecture change.
+  // 60 s : même lecture complète que les tests ci-dessus.
+  it("lit la carte de référence IMG_3064 trouvée sans coins comme avec les coins mesurés", async () => {
+    const { photo } = referencePhoto();
+    const found = await detectPanel(photo);
+    if (!found) throw new Error("Panneau de la référence introuvable");
+    expect(await readScorecardPanel(found.panel)).toEqual(EXPECTED);
   }, 60_000);
 });
