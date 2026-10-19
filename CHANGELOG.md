@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/emmpaul/golf-handicaps/compare/v0.6.0...v0.7.0) (2026-10-19)
+
+
+### Features
+
+* **version:** expose the running version and present the repo publicly ([#37](https://github.com/emmpaul/golf-handicaps/issues/37)) ([0e373df](https://github.com/emmpaul/golf-handicaps/commit/0e373df9c28e5bf9ae5d0bae8f7512e0bc5428cc))
+
 ## [0.6.0](https://github.com/emmpaul/golf-handicaps/compare/v0.5.0...v0.6.0) (2026-10-18)
 
 
