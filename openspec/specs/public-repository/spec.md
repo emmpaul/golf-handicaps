@@ -53,7 +53,7 @@ Les informations d'exploitation du README actuel (repli IA et données envoyées
 
 #### Scenario: Variables d'environnement
 - **WHEN** un visiteur lit la section « Configuration »
-- **THEN** il trouve chaque variable de `.env.example` et de l'image (`APP_PASSCODE`, `SESSION_SECRET`, `DATA_DIR`, `ANTHROPIC_API_KEY`, `AI_MONTHLY_BUDGET_USD`), obligatoire ou non, avec son rôle
+- **THEN** il trouve chaque variable de `.env.example` et de l'image (`APP_PASSCODE`, `SESSION_SECRET`, `DATA_DIR`, `ANTHROPIC_API_KEY`, `AI_MONTHLY_BUDGET_USD`, `AI_BUDGET_TIME_ZONE`, `INITIAL_PLAYERS`), obligatoire ou non, avec son rôle
 
 ### Requirement: Guides de contribution et de conduite
 Le dépôt SHALL contenir `CONTRIBUTING.md` (prérequis, branche depuis `origin/main`, Conventional Commits, TDD, contrôles locaux, OpenSpec pour les changements de comportement, textes d'interface en français), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) et `SUPPORT.md`.
