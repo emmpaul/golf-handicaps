@@ -66,6 +66,9 @@ Le README actuel mêle présentation et exploitation du groupe. Le nouveau READM
 | `docs/deployment.md` | Dokploy, GHCR, variables, sauvegarde, retour arrière |
 | `docs/ci.md` | contrôles, scope documentation, e2e en tranches, release-please, publication multi-arch |
 | `docs/development.md` | prérequis, `pnpm` scripts, `ocr:debug`, compose local, photos DNG |
+| `docs/roadmap.md` | contenu nouveau, rien de repris : Next, Later, Ideas, New feature ideas, Out of scope |
+
+En tête du README, trois rangées de badges shields.io cliquables : état et release (dynamiques), pile technique avec versions majeures, les 8 topics ; le démarrage rapide finit par « Releases and image tags » (tags `vX.Y.Z`, tags GHCR, label `revision`, `GET /api/version`).
 
 Une capture d'écran (accueil et classement, à 390 px et 1440 px) sous `docs/images/`, prise avec Playwright sur la base de `pnpm db:reset`, sans donnée réelle du groupe. Les noms seedés (Gab, Manu, Sean) sont déjà publics dans le dépôt.
 

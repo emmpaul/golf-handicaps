@@ -11,8 +11,8 @@ Après un déploiement Dokploy, rien ne dit quelle version tourne : il faut ouvr
 - **Commit connu dans l'image** : le build Docker reçoit le sha du commit (`GIT_COMMIT`) en CI, dans le job `docker` des contrôles et dans `publish-image`. L'image publiée porte aussi le label OCI `org.opencontainers.image.revision`.
 - **Accès** : la route de version rejoint `/login` et les fichiers d'installation dans la liste exacte des chemins ouverts sans session. Elle ne donne aucune donnée du groupe ; la version et le commit sont déjà publics sur GitHub.
 - **Dépôt prêt pour le public** (documentation seulement, l'interface reste en français) :
-  - `README.md` réécrit en anglais : présentation, captures d'écran, badges (CI, release, licence, image), fonctionnalités, démarrage rapide, architecture, liens vers la doc détaillée.
-  - Sections longues du README actuel (repli IA, déploiement Dokploy, CI et releases) déplacées et traduites dans `docs/` (`docs/architecture.md`, `docs/ai-fallback.md`, `docs/deployment.md`, `docs/ci.md`, `docs/development.md`), sans perte d'information.
+  - `README.md` réécrit en anglais : présentation, captures d'écran, trois rangées de badges shields.io cliquables (état et release, dynamiques ; pile technique avec versions majeures ; les 8 topics), fonctionnalités, démarrage rapide, architecture, liens vers la doc détaillée. Le démarrage rapide finit par une sous-section « Releases and image tags » : release-please, tags `vX.Y.Z`, tags GHCR `vX.Y.Z`, `latest` et sha, multi-arch, label OCI `revision`, `GET /api/version`.
+  - Sections longues du README actuel (repli IA, déploiement Dokploy, CI et releases) déplacées et traduites dans `docs/` (`docs/architecture.md`, `docs/ai-fallback.md`, `docs/deployment.md`, `docs/ci.md`, `docs/development.md`), sans perte d'information. Nouvelle page `docs/roadmap.md` (Next, Later, Ideas, New feature ideas, Out of scope), liée depuis le README.
   - `LICENSE` MIT, champs `license`, `repository`, `homepage` et `bugs` dans `package.json`.
   - Fichiers communautaires : `CONTRIBUTING.md`, `SECURITY.md` (signalement privé via GitHub), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `SUPPORT.md`.
   - Modèles GitHub : formulaires d'issue (bug, idée) et `config.yml`, `CODEOWNERS`. Le modèle de PR existant reste.
@@ -39,5 +39,5 @@ Après un déploiement Dokploy, rien ne dit quelle version tourne : il faut ouvr
   - Nouveau composant de pied de page, rendu par `src/app/(app)/layout.tsx` et `src/app/login/page.tsx`.
 - **Build et CI** : `Dockerfile` (`ARG GIT_COMMIT` dans l'étape build), `.github/workflows/checks.yml` (job `docker`) et `main.yml` (`publish-image`, label `revision`).
 - **Tests** : unitaires (`decideAccess`, module de version), e2e (route sans session, pied de page sur `/login` et une page de l'app), test de fumée compose (commit renseigné dans l'image).
-- **Docs** : `README.md`, `docs/*.md`, `LICENSE`, fichiers communautaires, `.github/ISSUE_TEMPLATE/`, `.github/CODEOWNERS`, `package.json` (champs de métadonnées : la CI lance donc la suite complète).
+- **Docs** : `README.md`, `docs/*.md` (dont `docs/roadmap.md`), `LICENSE`, fichiers communautaires, `.github/ISSUE_TEMPLATE/`, `.github/CODEOWNERS`, `package.json` (champs de métadonnées : la CI lance donc la suite complète), commentaire d'`ANTHROPIC_API_KEY` dans `.env.example` et `src/lib/env.ts` (il cite le cadrage en plus de la complétion).
 - **Dépendances** : aucune.

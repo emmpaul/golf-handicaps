@@ -14,11 +14,32 @@ Le dépôt SHALL contenir à sa racine un fichier `LICENSE` au texte MIT, au nom
 - **THEN** GitHub affiche la licence « MIT License »
 
 ### Requirement: README en anglais
-Le `README.md` SHALL être rédigé en anglais et contenir, dans cet ordre : titre et résumé en une phrase, badges (CI de `main`, dernière release, licence, image GHCR), capture d'écran, sections « Features », « Quick start », « Architecture », « Configuration », « Documentation », « Contributing », « Security », « License ». Il SHALL dire que l'interface est en français.
+Le `README.md` SHALL être rédigé en anglais et contenir, dans cet ordre : titre et résumé en une phrase, badges, capture d'écran, sections « Features », « Quick start », « Architecture », « Configuration », « Documentation », « Contributing », « Security », « License ». Il SHALL dire que l'interface est en français.
+
+Les badges SHALL être des images shields.io, chacune liée à une page, en trois rangées :
+- statut et release, dynamiques : CI de `main`, dernière release, date de la release, commits depuis la dernière release, dernier commit, issues ouvertes, licence, image GHCR ;
+- stack technique : Next.js, React, TypeScript, SQLite, Tesseract, Node, pnpm, Docker, avec la version majeure utilisée, chacun lié au site du projet ;
+- topics : `golf`, `handicap`, `gspro`, `ocr`, `tesseract`, `nextjs`, `sqlite`, `self-hosted`, chacun lié à `https://github.com/topics/<topic>`.
+
+La section « Quick start » SHALL finir par une sous-section de niveau 3 « Releases and image tags » : PR de release ouverte par release-please à partir des Conventional Commits (`feat` → mineure, `fix` → patch), tag git `vX.Y.Z` et release GitHub, tags de l'image GHCR (`vX.Y.Z`, `latest`, sha du commit), image multi-arch, label OCI `org.opencontainers.image.revision`, vérification d'une instance par `GET /api/version`, avec des liens vers la page des releases, le paquet GHCR, `CHANGELOG.md`, `docs/ci.md` et `docs/deployment.md`.
+
+La section « Documentation » SHALL lier `docs/roadmap.md`.
 
 #### Scenario: Sections du README
 - **WHEN** un visiteur lit `README.md`
-- **THEN** il trouve les titres de niveau 2 « Features », « Quick start », « Architecture », « Configuration », « Documentation », « Contributing », « Security » et « License », dans cet ordre
+- **THEN** il trouve les titres de niveau 2 « Features », « Quick start », « Architecture », « Configuration », « Documentation », « Contributing », « Security » et « License », dans cet ordre, et aucun autre
+
+#### Scenario: Badges cliquables
+- **WHEN** un visiteur lit le haut de `README.md`, sous le titre et le résumé
+- **THEN** il voit, au-dessus des captures d'écran, les trois rangées de badges (statut et release, stack technique, topics), chaque image servie par `img.shields.io` et chaque badge lié à une page
+
+#### Scenario: Releases et tags d'image
+- **WHEN** un visiteur cherche quel tag d'image déployer
+- **THEN** la sous-section « Releases and image tags », à la fin de « Quick start », explique d'où viennent les versions, donne les tags `vX.Y.Z`, `latest` et sha de l'image GHCR, et dit comment vérifier la version d'une instance avec `GET /api/version`
+
+#### Scenario: Lien vers la feuille de route
+- **WHEN** un visiteur lit la section « Documentation »
+- **THEN** il trouve un lien vers `docs/roadmap.md`
 
 #### Scenario: Démarrage rapide
 - **WHEN** un visiteur suit les commandes de « Quick start » sur une machine avec Node, pnpm et Tesseract
