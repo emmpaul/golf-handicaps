@@ -94,10 +94,12 @@ jobs:
             org.opencontainers.image.title=${{ env.IMAGE_TITLE }}
             org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             org.opencontainers.image.version=${{ needs.release-please.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
           annotations: |
             org.opencontainers.image.title=${{ env.IMAGE_TITLE }}
             org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             org.opencontainers.image.version=${{ needs.release-please.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
       - name: Build ${{ matrix.platform }} et push par digest
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -110,6 +112,8 @@ jobs:
           tags: ${{ env.IMAGE_NAME }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
+          # Sha de la release, servi par /api/version.
+          build-args: GIT_COMMIT=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           # Le cache golf-handicaps vient du job docker de checks (amd64) ; chaque architecture garde le sien.
           cache-from: |
@@ -166,6 +170,7 @@ jobs:
             org.opencontainers.image.title=${{ env.IMAGE_TITLE }}
             org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             org.opencontainers.image.version=${{ needs.release-please.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
       # Tableau bash : la description contient des espaces, chaque tag et annotation reste un seul argument.
       - name: Index multi-arch et push
         working-directory: ${{ runner.temp }}/digests

@@ -5,7 +5,11 @@
 name: golf-handicaps
 
 x-app: &app
-  build: .
+  build:
+    context: .
+    args:
+      # Sha inscrit dans l'image (route /api/version) : GIT_COMMIT=$(git rev-parse HEAD) docker compose up --build
+      GIT_COMMIT: ${GIT_COMMIT:-}
   image: ${GOLF_IMAGE:-golf-handicaps:local}
   env_file: ${GOLF_ENV_FILE:-.env}
   environment:

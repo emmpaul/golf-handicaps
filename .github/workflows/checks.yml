@@ -299,6 +299,9 @@ jobs:
           load: true
           push: false
           tags: ${{ env.IMAGE }}
+          # Sha inscrit dans l'image, relu par le test de fumée (tests/compose/version.spec.ts). Sur une PR,
+          # github.sha est le commit de fusion : EXPECTED_COMMIT ci-dessous porte la même valeur.
+          build-args: GIT_COMMIT=${{ github.sha }}
           # Un cache gha écrit par une PR n'est lisible que par elle et sa branche de base : golf-handicaps-amd64,
           # écrit sur main par publish-image à chaque release, fait démarrer chaud une nouvelle PR.
           cache-from: |
@@ -318,6 +321,7 @@ jobs:
           GOLF_ENV_FILE: ${{ runner.temp }}/smoke.env
           APP_PASSCODE: ci-code-du-groupe
           SESSION_SECRET: ci-secret-de-session-de-32-caracteres-min
+          EXPECTED_COMMIT: ${{ github.sha }}
         run: |
           printf 'APP_PASSCODE=%s\nSESSION_SECRET=%s\n' "$APP_PASSCODE" "$SESSION_SECRET" > "$GOLF_ENV_FILE"
           docker compose up --no-build --wait
