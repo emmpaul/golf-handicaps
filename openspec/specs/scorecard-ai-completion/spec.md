@@ -6,7 +6,7 @@ Compléter par un modèle de vision d'Anthropic une carte que la lecture locale 
 ## Requirements
 
 ### Requirement: Déclenchement uniquement en repli
-Après la lecture locale d'une carte, le système SHALL demander une complétion par IA seulement si le brouillon a au moins un problème : une case obligatoire vide, ou un contrôle de cohérence de `scorecard-import` en échec. Une date ou une distance absente n'est pas un problème. Le système MUST NOT faire plus d'un appel à l'IA par lecture.
+Après la lecture locale d'une carte, le système SHALL demander une complétion par IA seulement si le brouillon a au moins un problème : une case obligatoire vide, ou un contrôle de cohérence de `scorecard-import` en échec. Une date ou une distance absente n'est pas un problème. Le système MUST NOT faire plus d'un appel de complétion par lecture. Un éventuel appel de cadrage selon `scorecard-panel-detection` est distinct : une lecture compte donc au plus deux appels, un de cadrage puis un de complétion.
 
 #### Scenario: Carte lue sans problème
 - **WHEN** la lecture locale de la photo de référence `IMG_3064` donne un brouillon complet et cohérent
@@ -14,11 +14,15 @@ Après la lecture locale d'une carte, le système SHALL demander une complétion
 
 #### Scenario: Cases vides
 - **WHEN** la lecture locale laisse vide le score de Gab au trou 9
-- **THEN** le système fait exactement un appel à l'IA pour cette carte
+- **THEN** le système fait exactement un appel de complétion pour cette carte
 
 #### Scenario: Total incohérent
 - **WHEN** la lecture locale donne pour Gab les trous 1 à 9 = 5,5,3,5,4,4,4,3,3 avec OUT = 38
-- **THEN** le système fait exactement un appel à l'IA pour cette carte
+- **THEN** le système fait exactement un appel de complétion pour cette carte
+
+#### Scenario: Cadrage et complétion par l'IA
+- **WHEN** la détection locale échoue, que l'IA trouve le panneau, puis que la lecture locale laisse vide le score de Gab au trou 9
+- **THEN** le système fait exactement deux appels pour cet import : un de cadrage, puis un de complétion
 
 ### Requirement: Données envoyées
 Pour une complétion, le système SHALL envoyer à Anthropic une seule image : le panneau de la carte redressé selon les 4 coins. Il MUST NOT envoyer la photo d'origine, ni aucune autre donnée de l'app (index, historique, autres rounds).
@@ -54,7 +58,7 @@ L'écran de correction SHALL marquer de façon visible chaque case dont la valeu
 - **THEN** la case de Gab au trou 9 vaut 4 et ne porte pas la marque « complété par l'IA », et aucune autre case ne la porte
 
 ### Requirement: Plafond de dépense mensuel
-Le système SHALL calculer le coût de chaque appel à l'IA à partir de l'usage en tokens renvoyé par l'API et des tarifs du modèle, et le cumuler par mois civil. Avant un appel, si le cumul du mois plus le coût maximal d'un appel dépasse le plafond configuré (1 $ par défaut), le système MUST NOT appeler l'IA. L'import passe alors à « Prêt à vérifier » avec le brouillon local et le message « Budget IA du mois atteint ».
+Le système SHALL calculer le coût de chaque appel à l'IA, de cadrage ou de complétion, à partir de l'usage en tokens renvoyé par l'API et des tarifs du modèle, et le cumuler par mois civil. Avant un appel, si le cumul du mois plus le coût maximal de cet appel dépasse le plafond configuré (1 $ par défaut), le système MUST NOT appeler l'IA. Pour une complétion, l'import passe alors à « Prêt à vérifier » avec le brouillon local et le message « Budget IA du mois atteint ».
 
 #### Scenario: Plafond atteint
 - **WHEN** le cumul du mois atteint le plafond et qu'une carte lue localement a des cases vides
@@ -63,6 +67,10 @@ Le système SHALL calculer le coût de chaque appel à l'IA à partir de l'usage
 #### Scenario: Nouveau mois
 - **WHEN** le plafond a été atteint en octobre et qu'une carte incomplète est importée en novembre
 - **THEN** l'appel à l'IA est fait
+
+#### Scenario: Cadrage compté dans le cumul
+- **WHEN** un appel de cadrage a coûté 12 000 micro-dollars en octobre
+- **THEN** le cumul d'octobre augmente d'exactement 12 000 micro-dollars, comme pour un appel de complétion
 
 ### Requirement: Fonction optionnelle et sans blocage
 Sans clé d'API Anthropic configurée, le système SHALL se comporter comme sans cette capacité : aucun appel, aucun message. Si l'appel échoue (erreur réseau, erreur de l'API, refus, réponse illisible), le système SHALL tout de même passer l'import à « Prêt à vérifier » avec le brouillon local et le message « Complétion IA indisponible ». Il MUST NOT passer l'import en « Échec » à cause de l'IA.
