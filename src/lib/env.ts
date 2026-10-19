@@ -17,7 +17,7 @@ export type Env = {
   APP_PASSCODE: string;
   SESSION_SECRET: string;
   DATA_DIR: string;
-  /** Clé de l'API Anthropic, lue par le worker seul ; `null` désactive la complétion par IA. */
+  /** Clé de l'API Anthropic, lue par le worker seul (cadrage et complétion par IA) ; `null` : aucun appel à l'IA. */
   ANTHROPIC_API_KEY: string | null;
   /** Plafond de dépense IA par mois calendaire, en dollars US. */
   AI_MONTHLY_BUDGET_USD: number;

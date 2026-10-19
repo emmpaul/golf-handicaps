@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/emmpaul/golf-handicaps/security/advisories/new
+    about: Report it privately. Never in a public issue. See SECURITY.md.

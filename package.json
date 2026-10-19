@@ -2,6 +2,15 @@
   "name": "golf-handicaps",
   "version": "0.6.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emmpaul/golf-handicaps"
+  },
+  "homepage": "https://github.com/emmpaul/golf-handicaps#readme",
+  "bugs": {
+    "url": "https://github.com/emmpaul/golf-handicaps/issues"
+  },
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --names web,worker --prefix-colors blue,magenta \"next dev\" \"pnpm dev:worker\"",
     "dev:worker": "tsx watch --env-file-if-exists=.env --env-file-if-exists=.env.local src/worker.ts",

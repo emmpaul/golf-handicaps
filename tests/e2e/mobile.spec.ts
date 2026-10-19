@@ -1,5 +1,5 @@
 import type { Locator } from "@playwright/test";
-import { seedFailedImport, seedReadyImport } from "./data";
+import { referenceRound, seedFailedImport, seedReadyImport, seedRound } from "./data";
 import { expect, expectNoHorizontalScroll, test } from "./fixtures";
 import { HANDLE_NAMES } from "./import";
 
@@ -82,5 +82,23 @@ test("liste des imports à 375 px : « Supprimer » ne fait pas déborder la lig
     .getByRole("listitem")
     .filter({ has: page.getByRole("heading", { name: `Import n°${id}` }) });
   await expect(row.getByRole("button", { name: "Supprimer", exact: true })).toBeVisible();
+  await expectNoHorizontalScroll(page);
+});
+
+test("rounds à 390 px, en bas de page : la ligne de version finit au-dessus de la barre « Sections »", async ({
+  page,
+  players,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  // Six rounds : la liste dépasse l'écran, la page défile.
+  for (const day of [1, 2, 3, 4, 5, 6]) {
+    seedRound(referenceRound(players, { playedOn: `2026-10-0${day}` }));
+  }
+  await page.goto("/rounds");
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const version = await page.getByRole("link", { name: /^v\d+\.\d+\.\d+/ }).boundingBox();
+  const bar = await page.getByRole("navigation", { name: "Sections" }).boundingBox();
+  if (!version || !bar) throw new Error("Ligne de version ou barre « Sections » absente");
+  expect(version.y + version.height).toBeLessThanOrEqual(bar.y);
   await expectNoHorizontalScroll(page);
 });

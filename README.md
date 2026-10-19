@@ -1,108 +1,128 @@
 # Golf handicaps
 
-Mini web app privée pour le groupe : import des photos de carte GSPro (cadrage et OCR Tesseract en local, IA facultative pour les photos mal cadrées et les cartes mal lues), historique des rounds, index « simulateur » de chaque joueur et coups à donner avant une partie.
+Self-hosted web app that reads photos of GSPro simulator scorecards, keeps a group's round history and computes each player's handicap index and the strokes to give before a match.
 
-Next.js (standalone) + SQLite. Une seule image Docker, deux processus : le web (`node server.js`) et le worker de lecture OCR (`node worker.js`).
+[![CI](https://img.shields.io/github/actions/workflow/status/emmpaul/golf-handicaps/main.yml?branch=main&label=CI)](https://github.com/emmpaul/golf-handicaps/actions/workflows/main.yml)
+[![Latest release](https://img.shields.io/github/v/release/emmpaul/golf-handicaps)](https://github.com/emmpaul/golf-handicaps/releases/latest)
+[![Release date](https://img.shields.io/github/release-date/emmpaul/golf-handicaps)](https://github.com/emmpaul/golf-handicaps/releases)
+[![Commits since latest release](https://img.shields.io/github/commits-since/emmpaul/golf-handicaps/latest)](https://github.com/emmpaul/golf-handicaps/commits/main)
+[![Last commit](https://img.shields.io/github/last-commit/emmpaul/golf-handicaps/main)](https://github.com/emmpaul/golf-handicaps/commits/main)
+[![Open issues](https://img.shields.io/github/issues/emmpaul/golf-handicaps)](https://github.com/emmpaul/golf-handicaps/issues)
+[![License: MIT](https://img.shields.io/github/license/emmpaul/golf-handicaps)](LICENSE)
+[![Docker image](https://img.shields.io/badge/image-ghcr.io%2Femmpaul%2Fgolf--handicaps-blue?logo=docker)](https://github.com/emmpaul/golf-handicaps/pkgs/container/golf-handicaps)
 
-**Import sans cadrage** : choisir ou prendre une photo la met en file tout de suite, sans placer de coins. Le worker cherche lui-même le panneau GSPro sur la photo (le grand tableau clair, le bandeau sombre au-dessus), en tenant compte de son orientation EXIF, puis lit la carte. S'il ne trouve aucun cadrage, même après un essai de l'IA quand elle est configurée (voir [Repli IA](#repli-ia)), l'import passe en « Échec » avec « Panneau introuvable sur la photo », sans nouvelle tentative, et propose « Recadrer la photo » ou l'écran de correction vide. « Recadrer la photo » sert aussi sur un import « Prêt à vérifier » pas encore enregistré, quand le cadrage trouvé coupe le tableau : on place les 4 coins à la main, et la nouvelle lecture utilise ces coins sans relancer la détection.
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript 7](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![SQLite 3](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Tesseract 5](https://img.shields.io/badge/Tesseract-5-5A9BD5)](https://github.com/tesseract-ocr/tesseract)
+[![Node.js 24](https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![pnpm 12](https://img.shields.io/badge/pnpm-12-F69220?logo=pnpm&logoColor=white)](https://pnpm.io)
+[![Docker multi-arch](https://img.shields.io/badge/Docker-multi--arch-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 
-**Photos DNG** : Safari iOS et Safari macOS ne décodent pas les photos DNG (ProRAW, par exemple `IMG_3064.DNG`). L'app affiche alors « Format de photo non lisible, exporte-la en JPEG ». Exporter la photo en JPEG avant l'import, ou la prendre en HEIC ou en JPEG.
+[![golf](https://img.shields.io/badge/topic-golf-informational)](https://github.com/topics/golf)
+[![handicap](https://img.shields.io/badge/topic-handicap-informational)](https://github.com/topics/handicap)
+[![gspro](https://img.shields.io/badge/topic-gspro-informational)](https://github.com/topics/gspro)
+[![ocr](https://img.shields.io/badge/topic-ocr-informational)](https://github.com/topics/ocr)
+[![tesseract](https://img.shields.io/badge/topic-tesseract-informational)](https://github.com/topics/tesseract)
+[![nextjs](https://img.shields.io/badge/topic-nextjs-informational)](https://github.com/topics/nextjs)
+[![sqlite](https://img.shields.io/badge/topic-sqlite-informational)](https://github.com/topics/sqlite)
+[![self-hosted](https://img.shields.io/badge/topic-self--hosted-informational)](https://github.com/topics/self-hosted)
 
-## Développement local
+![Home page on a phone](docs/images/home-mobile.webp)
+![Net leaderboard of a round on desktop](docs/images/round-desktop.webp)
 
-Prérequis : Node (version de `.nvmrc`), pnpm via corepack, `tesseract` dans le `PATH` (`brew install tesseract`).
+## Features
+
+The user interface is in French. The code, the docs and this README are in English; the specifications under `openspec/` are in French.
+
+- **Scorecard import from a photo.** Take or pick a photo of the GSPro scorecard on your phone. The worker finds the panel on the photo by itself, then reads it with Tesseract on your server. No external service is needed.
+- **Review before saving.** Every reading lands on a correction screen with consistency checks (OUT/IN/TOT sums, pars, hole indexes). Saving stays blocked until the card adds up. You can re-frame the photo by placing 4 corners, or enter a card by hand.
+- **Optional AI fallback.** With an Anthropic API key, Claude frames photos local detection missed and fills in cells the OCR misread, under a monthly budget. Off by default. See [what it sends](docs/ai-fallback.md).
+- **Round history.** Each round keeps its course, tees, date, pars, hole indexes, scores and photo, with a net leaderboard. Rounds can be corrected or deleted.
+- **Handicap index.** A WHS-style index adapted to a simulator (no course rating, slope fixed at 113), with provisional indexes for new players and full history.
+- **Strokes to give.** Pick 2 to 4 players and a known course: the app tells each player how many strokes they get and on which holes.
+- **Players and aliases.** Names read on a card are matched to players through aliases the app learns as you correct.
+- **Built for phones.** Installable on the home screen, with a bottom tab bar and large touch targets under 768 px.
+- **Shared passcode.** One code for the whole group, no accounts.
+
+## Quick start
+
+You need Node (version in [`.nvmrc`](.nvmrc)), pnpm through corepack, and `tesseract` in your `PATH` (`brew install tesseract` on macOS).
 
 ```sh
+git clone https://github.com/emmpaul/golf-handicaps.git
+cd golf-handicaps
 corepack enable
 pnpm install
-cp .env.example .env.local   # puis renseigner APP_PASSCODE et SESSION_SECRET
-pnpm db:reset                # recrée data/app.db : Gab, Manu, Sean et le round de référence
-pnpm dev                     # web sur http://localhost:3000 + worker, en parallèle
+cp .env.example .env.local   # then set APP_PASSCODE and SESSION_SECRET
+pnpm db:reset                # creates data/app.db with 3 players and a reference round
+pnpm dev                     # web on http://localhost:3000 and the worker
 ```
 
-Outils :
+Open <http://localhost:3000> and enter the `APP_PASSCODE` you set.
 
-- `pnpm ocr:debug <photo.jpg> [coins.json]` : redresse la photo selon les coins donnés, ou ceux de la détection locale sans fichier de coins, prépare et lit chaque case, puis écrit le panneau, la planche des cases et le brouillon dans un dossier temporaire (chemin affiché). Il y ajoute la photo réduite avec le cadrage dessiné et les valeurs des contrôles du panneau, qui servent à régler la détection. Exemple : `pnpm ocr:debug tests/fixtures/scorecards/gspro-img3064.jpg tests/fixtures/scorecards/gspro-img3064.corners.json`.
-- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e`, `pnpm jscpd`, `pnpm check:pins` : les contrôles de la CI.
-- `pnpm db:migrate` : applique les migrations sur la base locale sans la vider.
+To run the published image instead, see [Deployment](docs/deployment.md). To run it locally with Docker Compose, see [Development](docs/development.md#production-like-run-with-docker).
 
-Reproduire la prod en local avec Docker :
+### Releases and image tags
 
-```sh
-cp .env.example .env         # puis renseigner APP_PASSCODE et SESSION_SECRET
-docker compose up --build --wait
-APP_PASSCODE=<le code du .env> pnpm e2e:compose   # test de fumée : connexion + import de la photo de référence
-docker compose down -v       # -v supprime aussi le volume de données
-```
+[release-please](https://github.com/googleapis/release-please) reads the Conventional Commits merged into `main` and keeps a release PR open with the next version and its [CHANGELOG.md](CHANGELOG.md) entry. A `feat` bumps the minor version, a `fix` the patch. Merging that PR creates the git tag `vX.Y.Z` and a [GitHub release](https://github.com/emmpaul/golf-handicaps/releases).
 
-## Variables d'environnement
+Only a release publishes an image. The CI builds `linux/amd64` and `linux/arm64` on native runners, then pushes one multi-arch index to [GHCR](https://github.com/emmpaul/golf-handicaps/pkgs/container/golf-handicaps) under three tags:
 
-| Variable                | Obligatoire | Rôle                                                                                                            |
-| ----------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
-| `APP_PASSCODE`          | oui         | Code d'accès partagé, saisi sur `/login`.                                                                       |
-| `SESSION_SECRET`        | oui         | Secret HMAC du cookie de session, 32 caractères minimum (`openssl rand -hex 32`).                               |
-| `DATA_DIR`              | non         | Base `app.db` et photos `uploads/`. `./data` en local, `/data` dans l'image.                                    |
-| `ANTHROPIC_API_KEY`     | non         | Clé de l'API Anthropic, lue par le worker seul. Absente ou vide : aucun appel à l'IA, ni cadrage ni complétion. |
-| `AI_MONTHLY_BUDGET_USD` | non         | Plafond de dépense IA par mois civil, en dollars US (nombre > 0). Défaut : 1.                                   |
+| Tag | Points to |
+| --- | --- |
+| `vX.Y.Z` | That release. Pin it to deploy or roll back to a known version. |
+| `latest` | The most recent release. |
+| `<sha>` | The full sha of the release commit. |
 
-Le web et le worker refusent de démarrer si une variable obligatoire manque. Aucun secret n'est dans l'image : tout passe par l'environnement au démarrage.
+The image carries the OCI label `org.opencontainers.image.revision`, set to that sha, and the release notes give the index digest and the `docker pull` command.
 
-## Repli IA
+To see which release a running instance serves, call `GET /api/version`. It needs no session and returns `{"version":"0.6.0","commit":"<sha>"}`. The same version shows at the bottom of every page.
 
-Facultatif. Sans `ANTHROPIC_API_KEY`, le worker cadre et lit les cartes en local seulement, et l'app n'affiche aucun message sur l'IA. Avec la clé, le worker peut appeler Claude Opus 5.5 à deux moments d'un import, au plus une fois chacun : pour trouver le panneau quand la détection locale échoue, puis pour compléter une carte mal lue. Chaque appel occupe le worker 2 min au pire (60 s par tentative, une reprise).
+More in [CI and releases](docs/ci.md#releases) and [Deployment](docs/deployment.md#check-what-is-running).
 
-### Cadrage par l'IA
+## Architecture
 
-**Quand** : seulement si la détection locale ne trouve aucun cadrage valable. Le worker demande alors à Claude les 4 coins du panneau, en un seul appel. Il relance la détection locale dans la zone indiquée par l'IA, puis vérifie le résultat comme un cadrage local : bandeau sombre en haut, tableau clair dessous, au moins une ligne de joueur. Des coins refusés, une erreur de l'API, un refus ou une réponse illisible donnent « Panneau introuvable sur la photo ». Un import cadré par l'IA affiche « Cadrage trouvé par l'IA, vérifie la photo » sur son écran de correction.
+Next.js (standalone output) and SQLite. One Docker image runs as two processes that share the database on one volume:
 
-**Ce qui part chez Anthropic** : une seule image, la photo entière, remise droite selon son orientation EXIF et réduite à 1568 px sur son grand côté (1568×1176 pour une photo de 3000×2250), en JPEG sans EXIF ni autre métadonnée, donc sans position GPS. L'image montre tout ce que montre la photo : la carte avec les prénoms et les scores, mais aussi la salle autour de l'écran et les reflets. La photo à sa taille d'origine reste sur le volume, et rien d'autre de l'app n'est envoyé. Quand la détection locale trouve le panneau, aucune image ne part pour le cadrage. Ne configurer la clé que si le groupe est d'accord.
+- **web** (`node server.js`) serves the pages and the API, applies migrations at startup and queues each uploaded photo as a job;
+- **worker** (`node worker.js`) polls the job queue, finds the panel on the photo, reads it with Tesseract and, if configured, asks Claude for help.
 
-**Coût** : environ 1,5 ¢ par photo que la détection locale ne cadre pas, rien quand elle réussit.
+Both must run on the same host. Details, with a diagram, in [Architecture](docs/architecture.md).
 
-### Complétion IA
+## Configuration
 
-**Quand** : après la lecture locale, le worker contrôle le brouillon (cases vides, sommes OUT/IN/TOT, pars, index, scores). Si tout passe, il n'appelle pas l'IA. Sinon, il fait un seul appel à Claude pour cette carte et remplace seulement les cases en problème par la valeur de l'IA. Une date ou une distance absente ne déclenche pas d'appel. Sur l'écran de correction, ces cases portent la marque « complété par l'IA », et la correction reste obligatoire avant d'enregistrer.
+All configuration comes from environment variables. The image holds no secret. In development, copy [`.env.example`](.env.example) to `.env.local`. The web and the worker both refuse to start when a required variable is missing or invalid.
 
-**Ce qui part chez Anthropic** : une seule image, le panneau redressé (JPEG 1568×800 px). Il contient les prénoms des joueurs, leurs scores et le parcours. La photo d'origine reste sur le volume, et rien d'autre de l'app (index, historique, autres rounds) n'est envoyé.
+| Variable | Required | Role |
+| --- | --- | --- |
+| `APP_PASSCODE` | yes | Shared passcode, entered on `/login`. |
+| `SESSION_SECRET` | yes | HMAC secret that signs the session cookie (valid 90 days). At least 32 characters, for example `openssl rand -hex 32`. |
+| `DATA_DIR` | no | Folder for the `app.db` database and the `uploads/` photos. Defaults to `./data` in development and `/data` in the image. |
+| `ANTHROPIC_API_KEY` | no | Anthropic API key, read by the worker only. Missing or empty: no AI call at all, neither framing nor completion. |
+| `AI_MONTHLY_BUDGET_USD` | no | AI spend cap per calendar month, in US dollars (number > 0). Defaults to 1. An empty value counts as unset. |
+| `TESSERACT_BIN` | no | Path to the Tesseract binary. Defaults to `tesseract` from the `PATH`. |
 
-**Coût** : environ 2 ¢ par carte difficile, donc moins de 0,20 $ par mois pour une dizaine de cartes.
+Build argument: `GIT_COMMIT`, the full sha of the commit being built. The CI sets it, and the app shows it in the footer and in `GET /api/version`. Without it, the commit is `null`.
 
-### Suivi, plafond et activation
+## Documentation
 
-**Suivi** : le worker calcule le coût de chaque appel, de cadrage ou de complétion, à partir de l'usage renvoyé par l'API (tarifs Opus 5.5 : 4 $ et 20 $ par million de tokens en entrée et en sortie) et l'enregistre dans la table `ai_usage`, y compris après un refus ou une réponse illisible, que l'API facture aussi.
+- [Architecture](docs/architecture.md): processes, job queue, panel detection, OCR, handicap calculation.
+- [AI fallback](docs/ai-fallback.md): when Claude is called, what is sent to Anthropic, costs, budget, activation.
+- [Deployment](docs/deployment.md): Dokploy setup, checking the running version, backup, rollback.
+- [CI and releases](docs/ci.md): checks, documentation-only scope, e2e shards, release-please, multi-arch image.
+- [Development](docs/development.md): prerequisites, commands, OCR debugging, Docker Compose, DNG photos.
+- [Roadmap](docs/roadmap.md): what comes next, ideas, and what was turned down and why.
 
-**Plafond** : `AI_MONTHLY_BUDGET_USD`, 1 $ par défaut, par mois civil à l'heure de Montréal. Les appels de cadrage et de complétion entrent dans le même cumul. Le worker n'appelle l'IA que si le cumul du mois plus le pire cas de l'appel prévu reste sous le plafond : 0,094 $ pour une complétion, 0,056 $ pour un cadrage. Sinon, un import à cadrer passe en « Échec » avec « Panneau introuvable sur la photo », et un import à compléter arrive à « Prêt à vérifier » avec la lecture locale et le message « Budget IA du mois atteint ». Pour la complétion, une erreur de l'API, un refus ou une réponse illisible donnent « Complétion IA indisponible ». Une complétion ne fait jamais passer l'import en « Échec ».
+## Contributing
 
-**Limite côté Anthropic** : fixer aussi une limite de dépense mensuelle dans la console Anthropic. Elle protège si les tarifs changent avant `src/ai/pricing.ts`.
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: branches from `origin/main`, Conventional Commits, tests first, and an OpenSpec change for any behavior change. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). For questions, see [SUPPORT.md](SUPPORT.md).
 
-**Activer en prod** : dans Dokploy, ajouter `ANTHROPIC_API_KEY` aux variables de `golf-worker`, et `AI_MONTHLY_BUDGET_USD` pour changer le plafond, puis redéployer `golf-worker`. `golf-web` n'en a pas besoin. Retirer la clé et redéployer le worker désactive la fonction.
+## Security
 
-## Déploiement Dokploy
+Do not open a public issue for a vulnerability. Report it privately through [GitHub](https://github.com/emmpaul/golf-handicaps/security/advisories/new), as described in [SECURITY.md](SECURITY.md).
 
-**CI** : `pr.yml` (chaque PR) et `main.yml` (chaque push sur `main`) appellent `.github/workflows/checks.yml`. Son premier job, `scope`, passe la liste des fichiers modifiés à `scripts/ci-scope.ts`. Si tous sont de la documentation (`openspec/`, `docs/`, `*.md`, `.release-please-manifest.json`, ou `package.json` quand seule sa `version` change), `checks / quality` ne lance que `check:pins`, commitlint et le lint, et les e2e sont sautés. La PR de release entre dans ce cas. Un autre fichier, ou un `scope` en échec, lance la suite complète.
+## License
 
-Sur `main`, un push de documentation saute aussi le build Docker et le test de fumée compose, à une condition : l'exécution `main` du commit parent a réussi. Sinon tout tourne. La fusion de la PR de release va donc directement à release-please puis à la publication.
-
-Les e2e tournent en trois tranches sur trois machines, `checks / e2e-shard (1)`, `(2)` et `(3)`. Le job `checks / e2e` réunit leurs résultats et échoue si une tranche échoue. La protection de `main` exige `checks / quality` et `checks / e2e`. Un job sauté compte comme réussi, donc une PR de documentation reste fusionnable.
-
-**Releases** : à chaque push sur `main`, la CI (`.github/workflows/main.yml`) lance les contrôles puis release-please, qui tient à jour une PR de release (version, `CHANGELOG.md`). Avant 1.0, un `feat` donne une version mineure et un `fix` un patch. Fusionner cette PR crée le tag `vX.Y.Z` et publie l'image `ghcr.io/<owner>/golf-handicaps` avec les tags `vX.Y.Z`, `latest` et `<sha>`. Chaque architecture se construit sur un runner natif (`linux/amd64` sur `ubuntu-24.04`, `linux/arm64` sur `ubuntu-24.04-arm`), puis un index multi-arch réunit les deux images sous ces tags. Un simple push sur `main` ne publie aucune image.
-
-`main` est protégée : tout changement passe par une PR, avec les contrôles CI au vert.
-
-1. Une seule fois, avant le premier push : Settings → Actions → General → cocher **Allow GitHub Actions to create and approve pull requests**. Sans ça, release-please ne peut pas ouvrir sa PR.
-2. Une seule fois : créer un PAT fine-grained limité à ce repo (Contents et Pull requests en lecture/écriture), puis l'enregistrer comme secret de repo `RELEASE_PLEASE_TOKEN`. release-please ouvre sa PR avec ce jeton, ce qui déclenche les contrôles requis (une PR ouverte avec `GITHUB_TOKEN` n'en déclenche aucun).
-3. Après la première release, une seule fois : GitHub → profil → Packages → `golf-handicaps` → Package settings → Change visibility → **Public**. Dokploy tire alors l'image sans identifiants (vérifier : `docker logout ghcr.io && docker pull ghcr.io/<owner>/golf-handicaps:latest`).
-4. Dans Dokploy, créer l'application `golf-web` de type Docker :
-   - image `ghcr.io/<owner>/golf-handicaps:<tag>` (`vX.Y.Z` ou `latest`) ;
-   - port 3000, domaine en HTTPS (le cookie de session est `Secure`) ;
-   - volume nommé `golf-data` monté sur `/data` ;
-   - variables `APP_PASSCODE` et `SESSION_SECRET`.
-5. Créer l'application `golf-worker` : même image, **même hôte**, **même volume** `golf-data:/data`, mêmes variables, plus `ANTHROPIC_API_KEY` et `AI_MONTHLY_BUDGET_USD` si le repli IA est voulu (voir [Repli IA](#repli-ia)), commande `node worker.js`, aucun port ni domaine. Les deux processus écrivent dans le même fichier SQLite : ils doivent tourner sur le même hôte.
-
-**Déployer une release** : à la main dans Dokploy. Choisir le tag (`vX.Y.Z`, ou garder `latest`) puis redéployer **les deux** applications, `golf-web` et `golf-worker`.
-
-Le web applique les migrations au démarrage et crée Gab, Manu et Sean sur une base vide. Le worker attend que les migrations soient en base.
-
-**Sauvegarde** : copier tout `/data` (base `app.db` avec ses fichiers `-wal` et `-shm`, et `uploads/`), de préférence services arrêtés. Par exemple, sur l'hôte : `docker run --rm -v golf-data:/data -v "$PWD":/backup debian:trixie-slim tar czf /backup/golf-data-$(date +%F).tgz -C /data .`
-
-**Retour arrière** : sauvegarder le volume avant chaque déploiement. Pour revenir en arrière, mettre dans Dokploy le tag `vX.Y.Z` de la release précédente sur les deux applications, puis les redéployer. La migration `0003` reconstruit la table `imports` : `corners` y devient facultatif. Un import envoyé sans coins depuis le déploiement et encore en file reste alors bloqué, car l'ancien worker ne sait pas le lire. Il faut écrire une migration inverse qui remet `corners` en NOT NULL, puis recadrer ces imports à la main.
+[MIT](LICENSE) © 2026 Emmanuel Paul
