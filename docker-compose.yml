@@ -37,6 +37,18 @@ services:
   worker:
     <<: *app
     command: ["node", "worker.js"]
+    # Sain tant que le battement (src/jobs/heartbeat.ts) a moins de 5 min, le seuil
+    # STALE_AFTER_MS de src/jobs/queue.ts : les deux valeurs changent ensemble.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "try { const t = Number(require('fs').readFileSync('/tmp/golf-worker-heartbeat', 'utf8')); process.exit(Date.now() - t < 300000 ? 0 : 1) } catch { process.exit(1) }"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   golf-data:

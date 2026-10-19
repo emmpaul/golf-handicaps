@@ -8,6 +8,7 @@ import { AiBudget } from "@/ai/budget";
 import { ClaudeDraftCompleter } from "@/ai/completer";
 import { ClaudeCornerLocator } from "@/ai/corner-locator";
 import { openDatabase } from "@/db/client";
+import { HEARTBEAT_FILE, writeHeartbeat } from "@/jobs/heartbeat";
 import { type AiFallback, createJobHandlers } from "@/jobs/ocr-scorecard";
 import { runNextJob } from "@/jobs/runner";
 import { EXPECTED_SCHEMA_VERSION, isSchemaReady } from "@/jobs/schema-version";
@@ -18,7 +19,7 @@ import { assertEnvOrExit } from "@/lib/env-startup";
 const POLL_INTERVAL_MS = 1000;
 
 assertEnvOrExit();
-const { DATA_DIR, ANTHROPIC_API_KEY, AI_MONTHLY_BUDGET_USD } = getEnv();
+const { DATA_DIR, ANTHROPIC_API_KEY, AI_MONTHLY_BUDGET_USD, AI_BUDGET_TIME_ZONE } = getEnv();
 const { db, sqlite } = openDatabase(join(DATA_DIR, "app.db"));
 /**
  * IA du worker : complétion et cadrage sur le même client, sous le même budget. Sans clé, ni
@@ -30,7 +31,7 @@ function createAiFallback(apiKey: string | null): AiFallback | null {
   return {
     completer: new ClaudeDraftCompleter(client),
     locator: new ClaudeCornerLocator(client),
-    budget: new AiBudget(db, AI_MONTHLY_BUDGET_USD),
+    budget: new AiBudget(db, AI_MONTHLY_BUDGET_USD, AI_BUDGET_TIME_ZONE),
   };
 }
 
@@ -50,10 +51,28 @@ function checkSchema(): boolean {
   return schemaReady;
 }
 
+const logError = (error: unknown) => console.error("[worker]", error);
+
+/**
+ * Battement au début de chaque tour, avant l'attente des migrations : file vide, attente ou job
+ * fini, le healthcheck voit le worker vivant. Un échec d'écriture est journalisé sans bloquer la
+ * file ; le battement vieillit et le healthcheck vire au rouge.
+ */
+function beat() {
+  try {
+    writeHeartbeat(HEARTBEAT_FILE, new Date());
+  } catch (error) {
+    logError(error);
+  }
+}
+
 const loop = startWorkerLoop({
   intervalMs: POLL_INTERVAL_MS,
-  runOnce: async () => checkSchema() && runNextJob(db, handlers, new Date()),
-  onError: (error) => console.error("[worker]", error),
+  runOnce: async () => {
+    beat();
+    return checkSchema() && runNextJob(db, handlers, new Date());
+  },
+  onError: logError,
 });
 console.info(`[worker] Démarré, base ${join(DATA_DIR, "app.db")}`);
 

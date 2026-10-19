@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { openDatabase } from "@/db/client";
 import { prepareDatabase } from "@/db/prepare";
 import { listPlayers } from "@/server/players/players";
+import { DEV_PLAYERS } from "@/server/players/seed";
 
 let dir: string | undefined;
 
@@ -16,8 +17,8 @@ describe("prepareDatabase (démarrage du web)", () => {
   it("migre une base vide puis crée Gab, Manu et Sean, une seule fois", () => {
     dir = mkdtempSync(join(tmpdir(), "golf-prepare-"));
     const { db, sqlite } = openDatabase(join(dir, "app.db"));
-    prepareDatabase(db);
-    prepareDatabase(db);
+    prepareDatabase(db, DEV_PLAYERS);
+    prepareDatabase(db, DEV_PLAYERS);
     expect(listPlayers(db).map(({ name }) => name)).toEqual(["Gab", "Manu", "Sean"]);
     sqlite.close();
   });

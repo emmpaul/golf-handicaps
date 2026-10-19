@@ -10,8 +10,8 @@ export async function register() {
     assertEnvOrExit();
     const { getDb } = await import("./db/instance");
     const { prepareDatabase } = await import("./db/prepare");
-    prepareDatabase(getDb());
     const { getEnv } = await import("./lib/env");
+    prepareDatabase(getDb(), getEnv().INITIAL_PLAYERS);
     const { convertStoredPhotos } = await import("./jobs/convert-photos");
     convertStoredPhotos(getDb(), getEnv().DATA_DIR).then(
       ({ converted, failed }) =>

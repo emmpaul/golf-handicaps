@@ -15,46 +15,55 @@ function spentBefore(month: string, costMicroUsd: number) {
 }
 
 const OCTOBER = new Date("2026-10-17T20:00:00.000Z");
+const MONTREAL = "America/Montreal";
+/** 1er novembre 2026 à 02:30 UTC : 22:30 le 31 octobre à Montréal, 03:30 le 1er novembre à Paris. */
+const NOV_1_0230_UTC = new Date("2026-11-01T02:30:00.000Z");
+const CALL = {
+  model: "claude-opus-5-5",
+  inputTokens: 1700,
+  outputTokens: 900,
+  costMicroUsd: 24_800,
+};
 
 describe("AiBudget.canSpend", () => {
   it("refuse un appel quand 950 000 µ$ sont dépensés en 2026-10 sur un plafond de 1 $", () => {
     spentBefore("2026-10", 950_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(false);
+    expect(new AiBudget(testDb().db, 1, MONTREAL).canSpend(OCTOBER, MAX_CALL_COST)).toBe(false);
   });
 
   it("autorise un appel en 2026-10 quand les 950 000 µ$ datent de 2026-09", () => {
     spentBefore("2026-09", 950_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(true);
+    expect(new AiBudget(testDb().db, 1, MONTREAL).canSpend(OCTOBER, MAX_CALL_COST)).toBe(true);
   });
 
   it("autorise un appel dont le pire cas atteint pile le plafond (906 000 + 94 000 µ$)", () => {
     spentBefore("2026-10", 906_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(true);
+    expect(new AiBudget(testDb().db, 1, MONTREAL).canSpend(OCTOBER, MAX_CALL_COST)).toBe(true);
   });
 
   it("refuse un appel dont le pire cas dépasse le plafond d'un µ$ (906 001 + 94 000 µ$)", () => {
     spentBefore("2026-10", 906_001);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, MAX_CALL_COST)).toBe(false);
+    expect(new AiBudget(testDb().db, 1, MONTREAL).canSpend(OCTOBER, MAX_CALL_COST)).toBe(false);
   });
 });
 
 describe("AiBudget.canSpend, pire coût de l'appel prévu", () => {
   it("refuse un appel de pire coût 52 800 µ$ quand 950 000 µ$ sont dépensés sur 1 $", () => {
     spentBefore("2026-10", 950_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, 52_800)).toBe(false);
+    expect(new AiBudget(testDb().db, 1, MONTREAL).canSpend(OCTOBER, 52_800)).toBe(false);
   });
 
   // Mutation : ignorer `maxCost` et réserver toujours MAX_CALL_COST (94 000 µ$).
   it("autorise un appel de pire coût 40 000 µ$ quand 950 000 µ$ sont dépensés sur 1 $", () => {
     spentBefore("2026-10", 950_000);
-    expect(new AiBudget(testDb().db, 1).canSpend(OCTOBER, 40_000)).toBe(true);
+    expect(new AiBudget(testDb().db, 1, MONTREAL).canSpend(OCTOBER, 40_000)).toBe(true);
   });
 });
 
 describe("AiBudget.record", () => {
   it("augmente le cumul du mois d'exactement le coût de l'appel", () => {
     spentBefore("2026-10", 950_000);
-    const budget = new AiBudget(testDb().db, 1);
+    const budget = new AiBudget(testDb().db, 1, MONTREAL);
     budget.record(
       { model: "claude-opus-5-5", inputTokens: 1700, outputTokens: 900, costMicroUsd: 24_800 },
       OCTOBER,
@@ -63,11 +72,26 @@ describe("AiBudget.record", () => {
   });
 
   it("compte le 2026-10-31 à 23 h 30 HAE (03 h 30 UTC le 1er novembre) en 2026-10", () => {
-    const budget = new AiBudget(testDb().db, 1);
+    const budget = new AiBudget(testDb().db, 1, MONTREAL);
     budget.record(
       { model: "claude-opus-5-5", inputTokens: 1700, outputTokens: 900, costMicroUsd: 24_800 },
       new Date("2026-11-01T03:30:00.000Z"),
     );
     expect([budget.spent("2026-10"), budget.spent("2026-11")]).toEqual([24_800, 0]);
+  });
+});
+
+describe("AiBudget, fuseau du mois civil", () => {
+  it("avec America/Montreal, compte le 1er novembre à 02:30 UTC en 2026-10", () => {
+    const budget = new AiBudget(testDb().db, 1, "America/Montreal");
+    budget.record(CALL, NOV_1_0230_UTC);
+    expect(budget.spent("2026-10")).toBe(24_800);
+  });
+
+  // Mutation : garder America/Montreal en dur au lieu du fuseau reçu.
+  it("avec Europe/Paris, compte le 1er novembre à 02:30 UTC en 2026-11", () => {
+    const budget = new AiBudget(testDb().db, 1, "Europe/Paris");
+    budget.record(CALL, NOV_1_0230_UTC);
+    expect([budget.spent("2026-10"), budget.spent("2026-11")]).toEqual([0, 24_800]);
   });
 });

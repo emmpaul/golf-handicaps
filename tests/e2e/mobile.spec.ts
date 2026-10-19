@@ -102,3 +102,20 @@ test("rounds à 390 px, en bas de page : la ligne de version finit au-dessus de 
   expect(version.y + version.height).toBeLessThanOrEqual(bar.y);
   await expectNoHorizontalScroll(page);
 });
+
+test("accueil à 390 px, en bas de page : « Se déconnecter » fait 44 px et finit au-dessus de la barre « Sections »", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  // Mutation : `size="sm"` (28 px) fait rougir la hauteur ; un bouton `fixed bottom-0`, la position.
+  const logout = await page
+    .getByRole("button", { name: "Se déconnecter", exact: true })
+    .boundingBox();
+  const bar = await page.getByRole("navigation", { name: "Sections" }).boundingBox();
+  if (!logout || !bar) throw new Error("Bouton « Se déconnecter » ou barre « Sections » absent");
+  expect(logout.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+  expect(logout.y + logout.height).toBeLessThanOrEqual(bar.y);
+  await expectNoHorizontalScroll(page);
+});

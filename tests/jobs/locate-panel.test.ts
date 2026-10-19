@@ -40,7 +40,10 @@ function fakeLocator(answer: () => Promise<{ corners: Corners | null; usage: AiU
 
 const answers = (corners: Corners | null) => fakeLocator(async () => ({ corners, usage: USAGE }));
 
-function fallback(locator: CornerLocator, budget = new AiBudget(testDb().db, 1)) {
+function fallback(
+  locator: CornerLocator,
+  budget = new AiBudget(testDb().db, 1, "America/Montreal"),
+) {
   return { completer: unusedCompleter, locator, budget };
 }
 
@@ -111,7 +114,7 @@ describe("locatePanel", () => {
 
   // 950 000 + 56 000 > 1 000 000. Mutation : retirer le contrôle du budget → 1 appel.
   it("n'appelle pas l'IA quand le plafond ne permet pas un cadrage", async () => {
-    const budget = new AiBudget(testDb().db, 1);
+    const budget = new AiBudget(testDb().db, 1, "America/Montreal");
     budget.record({ ...USAGE, costMicroUsd: 950_000 }, NOW);
     const fake = answers(insetReferenceCorners());
     const found = await locatePanel(
@@ -126,7 +129,7 @@ describe("locatePanel", () => {
   // 940 000 + 56 000 ≤ 1 000 000, mais pas avec le pire coût d'une complétion (94 000).
   // Mutation : réserver MAX_CALL_COST au lieu de MAX_LOCATE_COST → aucun appel.
   it("appelle l'IA quand le plafond permet encore un cadrage", async () => {
-    const budget = new AiBudget(testDb().db, 1);
+    const budget = new AiBudget(testDb().db, 1, "America/Montreal");
     budget.record({ ...USAGE, costMicroUsd: 940_000 }, NOW);
     const fake = answers(insetReferenceCorners());
     await locatePanel(await referenceWithTopBar(), fallback(fake.locator, budget), NOW);

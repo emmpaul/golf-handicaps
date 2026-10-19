@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+/** Fuseau IANA reconnu par `Intl` ; `supportedValuesOf` ignorerait les liens comme America/Montreal. */
+function isTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const schema = z.object({
   APP_PASSCODE: z.string().min(1),
   SESSION_SECRET: z.string().min(32),
@@ -11,6 +21,29 @@ const schema = z.object({
     (value) => (value === "" ? undefined : value),
     z.coerce.number().positive().default(1),
   ),
+  // Noms séparés par des virgules ; absente ou vide : aucun joueur créé (spec `players`).
+  INITIAL_PLAYERS: z
+    .string()
+    .optional()
+    .transform((value) =>
+      (value ?? "")
+        .split(",")
+        .map((name) => name.trim())
+        .filter((name) => name !== ""),
+    )
+    .superRefine((names, ctx) => {
+      const seen = new Set<string>();
+      for (const name of names) {
+        const key = name.toLowerCase();
+        if (seen.has(key)) ctx.addIssue({ code: "custom", message: `nom en double : ${name}` });
+        seen.add(key);
+      }
+    }),
+  // Fuseau du mois civil du plafond IA (spec `scorecard-ai-completion`) ; vide vaut absent.
+  AI_BUDGET_TIME_ZONE: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().default("America/Montreal").refine(isTimeZone, "fuseau IANA inconnu"),
+  ),
 });
 
 export type Env = {
@@ -21,6 +54,10 @@ export type Env = {
   ANTHROPIC_API_KEY: string | null;
   /** Plafond de dépense IA par mois calendaire, en dollars US. */
   AI_MONTHLY_BUDGET_USD: number;
+  /** Joueurs créés au démarrage du web sur une base sans joueur ; vide : aucun. */
+  INITIAL_PLAYERS: readonly string[];
+  /** Fuseau IANA dans lequel se compte le mois civil du plafond IA. */
+  AI_BUDGET_TIME_ZONE: string;
 };
 
 /**
@@ -42,6 +79,8 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     NODE_ENV,
     ANTHROPIC_API_KEY,
     AI_MONTHLY_BUDGET_USD,
+    INITIAL_PLAYERS,
+    AI_BUDGET_TIME_ZONE,
   } = result.data;
   return {
     APP_PASSCODE,
@@ -49,6 +88,8 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     DATA_DIR: DATA_DIR ?? (NODE_ENV === "production" ? "/data" : "./data"),
     ANTHROPIC_API_KEY: ANTHROPIC_API_KEY || null,
     AI_MONTHLY_BUDGET_USD,
+    INITIAL_PLAYERS,
+    AI_BUDGET_TIME_ZONE,
   };
 }
 

@@ -290,7 +290,7 @@ const usageRows = () =>
 async function runWithAi(
   read: typeof realRead,
   completer: DraftCompleter,
-  budget = new AiBudget(testDb().db, 1),
+  budget = new AiBudget(testDb().db, 1, "America/Montreal"),
 ) {
   const { id } = await importReferenceWithCorners();
   const handlers = createJobHandlers(testDb().db, testDb().dir, {
@@ -328,7 +328,7 @@ describe("gestionnaire ocr-scorecard, complétion IA", () => {
   });
 
   it("n'appelle pas l'IA quand le budget du mois est atteint", async () => {
-    const budget = new AiBudget(testDb().db, 1);
+    const budget = new AiBudget(testDb().db, 1, "America/Montreal");
     budget.record({ ...USAGE, costMicroUsd: 950_000 }, NOW);
     const fake = answersReferenceCard();
     const id = await runWithAi(readWithoutGab9, fake.completer, budget);
@@ -386,7 +386,7 @@ describe("gestionnaire ocr-scorecard, cadrage par l'IA", () => {
     const { id } = await importPhoto(photo);
     const handlers = createJobHandlers(testDb().db, testDb().dir, {
       readPanel,
-      ai: { completer, locator, budget: new AiBudget(testDb().db, 1) },
+      ai: { completer, locator, budget: new AiBudget(testDb().db, 1, "America/Montreal") },
       now: () => NOW,
     });
     await runNextJob(testDb().db, handlers, NOW);
