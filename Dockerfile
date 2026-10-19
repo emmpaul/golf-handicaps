@@ -25,6 +25,10 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Sha du commit construit, passé par la CI (`github.sha`) ; next.config.ts l'inscrit dans le bundle.
+# Vide hors CI : la route de version renvoie alors `commit: null`.
+ARG GIT_COMMIT=""
+ENV GIT_COMMIT=$GIT_COMMIT
 RUN pnpm build
 # Next ne relie better-sqlite3 que sous .next/node_modules : worker.js le cherche dans
 # node_modules/. On recrée le lien pnpm (relatif, donc valable dans le standalone).

@@ -1,0 +1,68 @@
+name: Bug report
+description: Something does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. For a security problem, do not use this form: follow [SECURITY.md](https://github.com/emmpaul/golf-handicaps/blob/main/SECURITY.md).
+
+        The interface is in French. Quote its messages as they appear, for example "Panneau introuvable sur la photo".
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including any message the app showed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: From a page you name, what you clicked or sent.
+      placeholder: |
+        1. Open /import
+        2. Pick the photo ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The line at the bottom of any page, or the output of `curl https://<your-domain>/api/version`.
+      placeholder: v0.6.0 · 4794e1b
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: How you run it
+      options:
+        - Published Docker image (Dokploy or another host)
+        - Docker Compose from the repository
+        - pnpm dev
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: iPhone 15, Safari, added to the home screen
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Web or worker logs around the problem. Remove passcodes, secrets and API keys first.
+      render: shell
+  - type: markdown
+    attributes:
+      value: |
+        If a scorecard photo is involved, attach it only if everyone on it agrees: it shows their names and scores.

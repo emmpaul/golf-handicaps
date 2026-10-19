@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest an idea or a missing feature.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Behavior changes go through an OpenSpec change (see [CONTRIBUTING.md](https://github.com/emmpaul/golf-handicaps/blob/main/CONTRIBUTING.md)). This issue is where we agree on the need first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you suggest
+      description: How the app could behave. Screens and French wording are welcome but not required.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to work on this myself.

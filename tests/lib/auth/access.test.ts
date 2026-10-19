@@ -27,6 +27,11 @@ describe("decideAccess", () => {
     ["GET", "/icon-admin", undefined, "redirect-login"],
     ["GET", "/icon/1024", undefined, "redirect-login"],
     ["POST", "/manifest.webmanifest", undefined, "unauthorized"],
+    ["GET", "/api/version", undefined, "allow"],
+    ["HEAD", "/api/version", undefined, "allow"],
+    ["POST", "/api/version", undefined, "unauthorized"],
+    ["GET", "/api/version/x", undefined, "unauthorized"],
+    ["GET", "/api/versions", undefined, "unauthorized"],
     ["GET", "/", VALID, "allow"],
     ["POST", "/api/rounds", VALID, "allow"],
   ])("%s %s avec le jeton %j : %s", (method, pathname, token, decision) => {
