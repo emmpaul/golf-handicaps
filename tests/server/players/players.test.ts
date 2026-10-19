@@ -5,14 +5,14 @@ import {
   listPlayers,
   renamePlayer,
 } from "@/server/players/players";
-import { seedInitialPlayers } from "@/server/players/seed";
+import { DEV_PLAYERS, seedInitialPlayers } from "@/server/players/seed";
 import { createTestDb, type TestDb } from "../../factories";
 
 let testDb: TestDb;
 
 beforeEach(() => {
   testDb = createTestDb();
-  seedInitialPlayers(testDb.db);
+  seedInitialPlayers(testDb.db, DEV_PLAYERS);
 });
 
 afterEach(() => {

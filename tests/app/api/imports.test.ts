@@ -5,7 +5,7 @@ import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readEditorState, toSavedCorrection } from "@/components/round-editor/form-state";
 import { listPlayers } from "@/server/players/players";
-import { seedInitialPlayers } from "@/server/players/seed";
+import { DEV_PLAYERS, seedInitialPlayers } from "@/server/players/seed";
 import { saveRound } from "@/server/rounds/save";
 import { createTestDb, referenceForm, type TestDb } from "../../factories";
 import { NEW_CORNERS, referenceCorners } from "../../jobs/helpers";
@@ -186,7 +186,7 @@ describe("DELETE /api/imports/[id]", () => {
   // Mutation : refus `already-saved` traduit en « Lecture en cours ».
   it("répond 409 « Cette carte est déjà enregistrée » pour un import lié à un round, photo gardée", async () => {
     const { id, photoPath } = await uploadedImport("ready");
-    seedInitialPlayers(testDb.db);
+    seedInitialPlayers(testDb.db, DEV_PLAYERS);
     const [gab, manu] = listPlayers(testDb.db).map((player) => player.id);
     saveRound(testDb.db, referenceForm([gab, manu]), { importId: Number(id) });
     const response = await remove(id);
@@ -281,7 +281,7 @@ describe("PUT /api/imports/[id]/correction", () => {
   // Mutation : renvoyer 400 au lieu de 409 pour un import lié à un round.
   it("répond 409 « Cette carte est déjà enregistrée » pour un import lié à un round", async () => {
     const id = seededImport("ready");
-    seedInitialPlayers(testDb.db);
+    seedInitialPlayers(testDb.db, DEV_PLAYERS);
     const [gab, manu] = listPlayers(testDb.db).map((player) => player.id);
     saveRound(testDb.db, referenceForm([gab, manu]), { importId: Number(id) });
     const response = await put(id, body());

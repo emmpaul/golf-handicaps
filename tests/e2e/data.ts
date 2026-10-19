@@ -8,6 +8,7 @@ import type { ImportStatus } from "../../src/jobs/imports";
 import type { RoundForm } from "../../src/scorecard/checks";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
 import { listPlayers } from "../../src/server/players/players";
+import { DEV_PLAYERS } from "../../src/server/players/seed";
 import { saveRound } from "../../src/server/rounds/save";
 import referenceCorners from "../fixtures/scorecards/gspro-img3064.corners.json";
 import referenceDraft from "../fixtures/scorecards/gspro-img3064.draft.json";
@@ -47,7 +48,7 @@ const RUNNING_JOB_POLL_MS = 100;
  * `IMMEDIATE` : le worker ne peut pas réserver un job entre la vérification et l'effacement.
  */
 function wipeUnlessJobRunning(db: Db, sqlite: Connection["sqlite"]): boolean {
-  prepareDatabase(db);
+  prepareDatabase(db, DEV_PLAYERS);
   return sqlite
     .transaction(() => {
       const running = sqlite.prepare("SELECT 1 FROM jobs WHERE status = 'running'").get();
@@ -76,7 +77,7 @@ export async function resetData(): Promise<Record<"Gab" | "Manu" | "Sean", numbe
     await new Promise((resolve) => setTimeout(resolve, RUNNING_JOB_POLL_MS));
   }
   return withDb((db) => {
-    prepareDatabase(db);
+    prepareDatabase(db, DEV_PLAYERS);
     return Object.fromEntries(listPlayers(db).map(({ id, name }) => [name, id])) as Record<
       "Gab" | "Manu" | "Sean",
       number

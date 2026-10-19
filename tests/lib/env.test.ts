@@ -38,6 +38,8 @@ describe("parseEnv", () => {
         DATA_DIR: dataDir,
         ANTHROPIC_API_KEY: null,
         AI_MONTHLY_BUDGET_USD: 1,
+        INITIAL_PLAYERS: [],
+        AI_BUDGET_TIME_ZONE: "America/Montreal",
       },
     );
   });
@@ -56,6 +58,8 @@ describe("parseEnv", () => {
       DATA_DIR: "/srv/golf",
       ANTHROPIC_API_KEY: null,
       AI_MONTHLY_BUDGET_USD: 1,
+      INITIAL_PLAYERS: [],
+      AI_BUDGET_TIME_ZONE: "America/Montreal",
     });
   });
 
@@ -102,4 +106,69 @@ describe("parseEnv", () => {
       ).toThrow(/AI_MONTHLY_BUDGET_USD/);
     },
   );
+
+  it("découpe INITIAL_PLAYERS sur les virgules et retire les espaces autour", () => {
+    expect(
+      parseEnv({
+        APP_PASSCODE: "birdie",
+        SESSION_SECRET: SECRET,
+        INITIAL_PLAYERS: "Manu, Gab,Sean",
+      }).INITIAL_PLAYERS,
+    ).toEqual(["Manu", "Gab", "Sean"]);
+  });
+
+  it("ignore les noms vides de INITIAL_PLAYERS", () => {
+    expect(
+      parseEnv({ APP_PASSCODE: "birdie", SESSION_SECRET: SECRET, INITIAL_PLAYERS: " , Gab ,, " })
+        .INITIAL_PLAYERS,
+    ).toEqual(["Gab"]);
+  });
+
+  it.each([
+    ["absente", undefined],
+    ["vide", ""],
+  ])("INITIAL_PLAYERS %s : aucun joueur", (_label, value) => {
+    expect(
+      parseEnv({ APP_PASSCODE: "birdie", SESSION_SECRET: SECRET, INITIAL_PLAYERS: value })
+        .INITIAL_PLAYERS,
+    ).toEqual([]);
+  });
+
+  // Mutation : comparer les doublons avec la casse laisse passer "Gab,gab".
+  it("refuse deux noms identiques sans la casse, avec un message qui nomme INITIAL_PLAYERS", () => {
+    expect(() =>
+      parseEnv({ APP_PASSCODE: "birdie", SESSION_SECRET: SECRET, INITIAL_PLAYERS: "Gab,gab" }),
+    ).toThrow(/INITIAL_PLAYERS/);
+  });
+
+  // Mutation : valider avec `Intl.supportedValuesOf("timeZone")`, qui ignore le lien America/Montreal.
+  it.each([
+    ["absente", undefined],
+    ["vide", ""],
+  ])("AI_BUDGET_TIME_ZONE %s : America/Montreal", (_label, value) => {
+    expect(
+      parseEnv({ APP_PASSCODE: "birdie", SESSION_SECRET: SECRET, AI_BUDGET_TIME_ZONE: value })
+        .AI_BUDGET_TIME_ZONE,
+    ).toBe("America/Montreal");
+  });
+
+  it("garde l'AI_BUDGET_TIME_ZONE fourni", () => {
+    expect(
+      parseEnv({
+        APP_PASSCODE: "birdie",
+        SESSION_SECRET: SECRET,
+        AI_BUDGET_TIME_ZONE: "Europe/Paris",
+      }).AI_BUDGET_TIME_ZONE,
+    ).toBe("Europe/Paris");
+  });
+
+  it("refuse un fuseau inconnu, avec un message qui nomme AI_BUDGET_TIME_ZONE", () => {
+    expect(() =>
+      parseEnv({
+        APP_PASSCODE: "birdie",
+        SESSION_SECRET: SECRET,
+        AI_BUDGET_TIME_ZONE: "Mars/Olympus",
+      }),
+    ).toThrow(/AI_BUDGET_TIME_ZONE/);
+  });
 });

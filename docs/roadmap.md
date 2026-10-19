@@ -2,18 +2,11 @@
 
 What is being built, what comes next, and what was turned down, drawn from the OpenSpec changes, the code and the open questions in past designs.
 
-Last updated: 2026-10-18.
+Last updated: 2026-10-19.
 
 Nothing here is a promise. The app serves one group of friends first, and the order below can change with what they need.
 
 ## Next
-
-### Ops and deployment
-
-- **Make the first players configurable.** On an empty database the web process creates Manu, Gab and Sean (`src/server/players/seed.ts`, spec `players`, "Joueurs initiaux"). Another group self-hosting the image gets three strangers. An environment variable, or no seed at all in production, would fix it.
-- **Make the AI budget month configurable.** `src/ai/budget.ts` counts the month in `America/Montreal`. A group in another time zone sees the budget reset a few hours off.
-- **Check the worker's health.** `docker-compose.yml` has a healthcheck on `web` only. A worker that hangs leaves imports queued and nothing turns red.
-- **Add a logout.** The session cookie lasts 90 days (`src/lib/auth/session.ts`) and the app has no way to end it. Revoking everyone means rotating `SESSION_SECRET`.
 
 ### Quality and CI
 

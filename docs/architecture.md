@@ -24,7 +24,7 @@ flowchart LR
 ## Web process
 
 - Refuses to start when a required environment variable is missing (see [Configuration](../README.md#configuration)).
-- Applies the database migrations at startup and creates the players Gab, Manu and Sean on an empty database.
+- Applies the database migrations at startup and, on a database with no player, creates the players listed in `INITIAL_PLAYERS` (none when it is unset).
 - Converts photos still stored in another format to WebP in the background after startup. A photo that fails to convert stays in place and keeps being served.
 - Protects every page and API route behind a shared passcode. Only `/login`, the install files (manifest and icons) and `GET /api/version` are open without a session.
 

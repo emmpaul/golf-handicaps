@@ -4,7 +4,10 @@ import { jobs } from "@/db/schema";
 
 export type Job = typeof jobs.$inferSelect;
 
-/** Un job resté en `running` plus longtemps est considéré comme abandonné (worker tué). */
+/**
+ * Un job resté en `running` plus longtemps est considéré comme abandonné (worker tué). Le
+ * healthcheck du worker dans `docker-compose.yml` reprend ce seuil (300000 ms) en dur.
+ */
 export const STALE_AFTER_MS = 5 * 60_000;
 
 /** Après ce nombre de tentatives en échec, le job passe en `failed` (design, décision 4). */

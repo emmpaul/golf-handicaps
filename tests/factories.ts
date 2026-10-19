@@ -6,7 +6,7 @@ import { migrateDatabase, openDatabase } from "@/db/client";
 import type { RoundForm } from "@/scorecard/checks";
 import type { ScorecardDraft } from "@/scorecard/draft";
 import { listPlayers } from "@/server/players/players";
-import { seedInitialPlayers } from "@/server/players/seed";
+import { DEV_PLAYERS, seedInitialPlayers } from "@/server/players/seed";
 import referenceDraft from "./fixtures/scorecards/gspro-img3064.draft.json";
 
 /** Carte de référence IMG_3064 : Bethpage Black, tees Red (par 71). */
@@ -72,7 +72,7 @@ export function roundForm(
 /** Base temporaire avec les 3 joueurs initiaux et leurs ids par nom. */
 export function createSeededTestDb() {
   const testDb = createTestDb();
-  seedInitialPlayers(testDb.db);
+  seedInitialPlayers(testDb.db, DEV_PLAYERS);
   const ids = Object.fromEntries(listPlayers(testDb.db).map((p) => [p.name, p.id])) as Record<
     "Gab" | "Manu" | "Sean",
     number

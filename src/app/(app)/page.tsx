@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LINKS } from "@/components/app-nav";
+import { LogoutButton } from "@/components/logout-button";
 import { PageTitle } from "@/components/page-title";
 
 export default function Home() {
@@ -16,6 +17,7 @@ export default function Home() {
           </li>
         ))}
       </ul>
+      <LogoutButton />
     </>
   );
 }
