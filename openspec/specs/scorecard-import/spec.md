@@ -6,28 +6,32 @@ Transformer une photo de carte de score du simulateur en round validé, avec une
 ## Requirements
 
 ### Requirement: Envoi d'une photo
-Le système SHALL accepter une photo de carte de score prise au téléphone ou choisie dans les fichiers, dans un format que le navigateur sait afficher (JPEG, PNG, WebP, HEIC sur appareil Apple). Si le navigateur ne peut pas lire le fichier, le système SHALL afficher « Format de photo non lisible, exporte-la en JPEG » et proposer la saisie manuelle.
+Le système SHALL accepter une photo de carte de score prise au téléphone ou choisie dans les fichiers, dans un format que le navigateur sait afficher (JPEG, PNG, WebP, HEIC sur appareil Apple), et la mettre en file de lecture dès qu'elle est choisie, sans étape de cadrage. Si le navigateur ne peut pas lire le fichier, le système SHALL afficher « Format de photo non lisible, exporte-la en JPEG » et proposer la saisie manuelle.
 
 #### Scenario: Photo JPEG
 - **WHEN** l'utilisateur choisit une photo JPEG de carte
-- **THEN** la photo s'affiche à l'écran de cadrage
+- **THEN** aucun écran de cadrage ne s'affiche, l'import apparaît « En attente » dans la liste des imports, et l'écran affiche « Lecture en file d'attente. Tu peux envoyer la photo suivante. »
 
 #### Scenario: Fichier illisible
 - **WHEN** l'utilisateur choisit un fichier que le navigateur ne sait pas décoder
 - **THEN** le système affiche « Format de photo non lisible, exporte-la en JPEG » et propose la saisie manuelle
 
 ### Requirement: Cadrage de la carte
-Avant l'OCR, le système SHALL demander à l'utilisateur de placer 4 poignées sur les coins du panneau de la carte : du coin haut gauche du bandeau sombre (avec le nom du parcours) au coin bas droit de la bande « ROUND SETTINGS ». Les poignées sont pré-placées et déplaçables au doigt et à la souris. Le système SHALL redresser la photo selon ces 4 coins.
+Le cadrage du panneau SHALL être trouvé automatiquement selon la capacité `scorecard-panel-detection`. Le système SHALL garder un recadrage manuel en repli : 4 poignées à placer sur les coins du panneau, du coin haut gauche du bandeau sombre (avec le nom du parcours) au coin bas droit de la bande « ROUND SETTINGS », déplaçables au doigt et à la souris, puis un aperçu redressé avant de relancer la lecture.
 
 #### Scenario: Photo prise de biais
-- **WHEN** l'utilisateur place les 4 coins sur une photo prise de biais et valide
-- **THEN** le système affiche un aperçu de la carte redressée, en rectangle, avant de mettre la lecture en file
+- **WHEN** l'utilisateur recadre un import en plaçant les 4 coins sur une photo prise de biais et valide
+- **THEN** le système affiche un aperçu de la carte redressée, en rectangle, avant de relancer la lecture
+
+#### Scenario: Envoi sans poignées
+- **WHEN** l'utilisateur envoie une photo depuis l'écran d'import
+- **THEN** aucune poignée ne s'affiche
 
 ### Requirement: Lecture en tâche de fond
-Une fois le cadrage validé, le système SHALL mettre la lecture en file d'attente et rendre la main tout de suite. Chaque import affiche son état (« En attente », « Lecture en cours », « Prêt à vérifier », « Échec »). L'utilisateur peut quitter la page et revenir plus tard. Plusieurs photos peuvent être en file en même temps.
+Une fois la photo envoyée, le système SHALL mettre le cadrage et la lecture en file d'attente et rendre la main tout de suite. Chaque import affiche son état (« En attente », « Lecture en cours », « Prêt à vérifier », « Échec »). L'utilisateur peut quitter la page et revenir plus tard. Plusieurs photos peuvent être en file en même temps.
 
 #### Scenario: Plusieurs photos d'un coup
-- **WHEN** l'utilisateur envoie et cadre 3 photos à la suite
+- **WHEN** l'utilisateur envoie 3 photos à la suite
 - **THEN** les 3 imports apparaissent dans la liste des imports avec leur état, et chacun passe à « Prêt à vérifier » quand sa lecture est terminée
 
 #### Scenario: Retour après fermeture
@@ -38,11 +42,15 @@ Une fois le cadrage validé, le système SHALL mettre la lecture en file d'atten
 - **WHEN** la lecture échoue deux fois de suite pour un import
 - **THEN** l'import passe à « Échec » et propose de recadrer la photo ou d'ouvrir l'écran de correction vide
 
+#### Scenario: Panneau introuvable
+- **WHEN** aucun cadrage n'est trouvé pour un import
+- **THEN** l'import passe à « Échec » avec « Panneau introuvable sur la photo » et propose de recadrer la photo ou d'ouvrir l'écran de correction vide
+
 ### Requirement: Lecture OCR sans service externe
-Le système SHALL lire la carte par OCR exécuté sur le serveur de l'app. La photo d'origine MUST NOT être envoyée à un service tiers. Seule exception : quand la lecture locale laisse des problèmes et qu'une clé d'API Anthropic est configurée, le panneau redressé peut être envoyé à l'API Claude selon la capacité `scorecard-ai-completion`. Pour la mise en page des cartes GSPro, le système SHALL lire : le nom du parcours, les tees, la date, puis pour chaque trou le par, l'index et la distance, et pour chaque ligne de joueur le nom, les 18 scores et les totaux OUT, IN et TOT.
+Le système SHALL lire la carte par OCR exécuté sur le serveur de l'app. La photo d'origine MUST NOT être envoyée à un service tiers. Deux exceptions, seulement si une clé d'API Anthropic est configurée : quand la détection locale ne trouve pas le panneau, une copie réduite de la photo peut être envoyée à l'API Claude selon `scorecard-panel-detection` ; quand la lecture locale laisse des problèmes, le panneau redressé peut l'être selon `scorecard-ai-completion`. Pour la mise en page des cartes GSPro, le système SHALL lire : le nom du parcours, les tees, la date, puis pour chaque trou le par, l'index et la distance, et pour chaque ligne de joueur le nom, les 18 scores et les totaux OUT, IN et TOT.
 
 #### Scenario: Carte de référence IMG_3064
-- **WHEN** l'utilisateur importe la photo de référence `IMG_3064` et cadre le tableau
+- **WHEN** l'utilisateur importe la photo de référence `IMG_3064`
 - **THEN** l'écran de correction est pré-rempli avec le parcours « BETHPAGE BLACK », les tees « Red », la date 2026-10-17, 2 lignes de joueur et les pars 4,4,3,5,4,4,5,3,4,4,4,4,5,3,4,4,3,4
 
 #### Scenario: Aucune lecture possible
@@ -50,8 +58,12 @@ Le système SHALL lire la carte par OCR exécuté sur le serveur de l'app. La ph
 - **THEN** le système ouvre l'écran de correction avec toutes les cases vides à remplir à la main, la photo restant visible
 
 #### Scenario: Photo d'origine jamais envoyée
-- **WHEN** une complétion par IA est demandée pour un import
-- **THEN** la photo d'origine n'est envoyée à aucun service tiers ; seul le panneau redressé est envoyé
+- **WHEN** une complétion ou un cadrage par IA est demandé pour un import
+- **THEN** la photo n'est envoyée à aucun service tiers à sa taille d'origine ; seuls le panneau redressé ou la copie réduite sont envoyés
+
+#### Scenario: Cadrage local réussi
+- **WHEN** la détection locale trouve le panneau et que la lecture locale ne laisse aucun problème
+- **THEN** aucune image de l'import n'est envoyée à un service tiers
 
 ### Requirement: Date au format du simulateur
 Le système SHALL lire la date de la carte au format mois/jour/année (« DATE: 10/17/2026 » donne le 17 octobre 2026). Si la date est absente ou illisible, le système SHALL proposer la date du jour, modifiable.
@@ -108,11 +120,19 @@ Avant d'enregistrer, le système SHALL avertir l'utilisateur si un round existe 
 - **THEN** le système affiche « Ce round semble déjà enregistré » avec un lien vers le round existant
 
 ### Requirement: Conservation de la photo
-Quand un round est importé depuis une photo, le système SHALL conserver la photo et l'afficher dans le détail du round.
+Quand un round est importé depuis une photo, le système SHALL conserver la photo et l'afficher dans le détail du round. La photo MUST être conservée au format WebP ; le fichier envoyé par le navigateur MUST NOT être écrit tel quel sur le serveur. La photo conservée sert aussi à la lecture OCR de l'import.
 
 #### Scenario: Consultation de la photo
 - **WHEN** l'utilisateur ouvre le détail d'un round importé depuis une photo
 - **THEN** la photo d'origine s'affiche
+
+#### Scenario: Photo stockée en WebP
+- **WHEN** l'utilisateur envoie la photo JPEG d'une carte et valide le cadrage
+- **THEN** le serveur ne garde de cette photo qu'un fichier WebP, et la photo de l'import est servie avec le type `image/webp`
+
+#### Scenario: Lecture inchangée après conversion
+- **WHEN** l'utilisateur importe la photo de référence `IMG_3064` et cadre le tableau
+- **THEN** l'écran de correction est pré-rempli avec la même lecture qu'avant la conversion en WebP : parcours « BETHPAGE BLACK », tees « Red », date 2026-10-17, 2 lignes de joueur et pars 4,4,3,5,4,4,5,3,4,4,4,4,5,3,4,4,3,4
 
 ### Requirement: Sauvegarde automatique de la correction d'un import
 Sur l'écran de correction d'un import, le système SHALL enregistrer sur le serveur chaque modification sans action de l'utilisateur : au plus tard 2 s après la dernière modification, et aussi quand la page passe en arrière-plan ou se ferme. L'état enregistré couvre le parcours, les tees, la date, toutes les cases, les lignes de joueur avec leur joueur associé, et les cases encore marquées IA. La lecture OCR d'origine MUST rester inchangée.
@@ -179,7 +199,7 @@ Le système SHALL accepter une correction enregistrée seulement pour un import 
 - **THEN** le système la refuse et l'import ne change pas
 
 ### Requirement: Nouvelle lecture après recadrage
-Quand l'utilisateur recadre un import, le système SHALL effacer la correction enregistrée : la nouvelle lecture OCR devient le point de départ de l'écran de correction. Si une correction est enregistrée, l'écran de recadrage SHALL afficher « Recadrer relance la lecture et remplace tes corrections » avant la validation.
+Le système SHALL permettre de recadrer un import en « Échec » ou « Prêt à vérifier » qui n'a pas encore de round, depuis la liste des imports et depuis l'écran de correction. Recadrer SHALL effacer la correction enregistrée : la nouvelle lecture OCR devient le point de départ de l'écran de correction. Si une correction est enregistrée, l'écran de recadrage SHALL afficher « Recadrer relance la lecture et remplace tes corrections » avant la validation. Un import en lecture ou déjà enregistré en round MUST NOT être recadré.
 
 #### Scenario: Recadrage d'un import corrigé
 - **WHEN** l'utilisateur a saisi la date 2026-10-13 sur l'écran de correction d'un import en « Échec », puis recadre la photo et que la nouvelle lecture donne la date 2026-10-17
@@ -193,12 +213,20 @@ Quand l'utilisateur recadre un import, le système SHALL effacer la correction e
 - **WHEN** l'utilisateur ouvre l'écran de recadrage d'un import sans correction enregistrée
 - **THEN** l'avertissement ne s'affiche pas
 
+#### Scenario: Cadrage automatique à côté
+- **WHEN** un import est « Prêt à vérifier » avec une lecture fausse parce que le cadrage trouvé coupe le tableau, et que l'utilisateur touche « Recadrer la photo » sur l'écran de correction, place les 4 coins et lance la lecture
+- **THEN** l'import repasse « En attente », puis la lecture utilise les coins placés à la main, sans nouvelle détection
+
+#### Scenario: Import déjà enregistré
+- **WHEN** un recadrage est demandé pour un import dont le round est enregistré
+- **THEN** le système le refuse et l'import ne change pas
+
 ### Requirement: Prise de photo depuis l'app
-Sur un appareil à écran tactile, l'écran d'import SHALL proposer « Prendre une photo », qui ouvre directement l'appareil photo arrière sans passer par la photothèque. La photo prise MUST suivre le même parcours qu'une photo choisie dans les fichiers : cadrage, aperçu redressé, mise en file, et même message si le format est illisible. Le choix d'un fichier SHALL rester disponible. Sur un appareil sans écran tactile, « Prendre une photo » MUST NOT s'afficher.
+Sur un appareil à écran tactile, l'écran d'import SHALL proposer « Prendre une photo », qui ouvre directement l'appareil photo arrière sans passer par la photothèque. La photo prise MUST suivre le même parcours qu'une photo choisie dans les fichiers : mise en file immédiate, cadrage automatique, et même message si le format est illisible. Le choix d'un fichier SHALL rester disponible. Sur un appareil sans écran tactile, « Prendre une photo » MUST NOT s'afficher.
 
 #### Scenario: Photo prise au téléphone
 - **WHEN** sur iPhone, l'utilisateur touche « Prendre une photo » et prend la photo de la carte de référence
-- **THEN** la photo s'affiche à l'écran de cadrage, comme une photo choisie dans les fichiers
+- **THEN** l'import apparaît « En attente » dans la liste des imports, comme une photo choisie dans les fichiers
 
 #### Scenario: Prise de vue annulée
 - **WHEN** l'utilisateur touche « Prendre une photo » puis annule dans l'appareil photo
@@ -283,3 +311,18 @@ Le système SHALL permettre de supprimer, après une confirmation, un import pas
 #### Scenario: Imports qui proposent la suppression
 - **WHEN** l'utilisateur regarde la liste des imports
 - **THEN** « Supprimer » est proposé sur les imports « En attente », « Prêt à vérifier » et « Échec » sans round, et sur aucun autre
+
+### Requirement: Conversion des photos déjà stockées
+Au démarrage, le système SHALL convertir en WebP chaque photo d'import ou de round encore stockée dans un autre format, faire pointer l'import et le round vers le WebP, puis supprimer l'ancien fichier. Une conversion déjà faite MUST NOT être refaite. Une photo qui ne peut pas être convertie MUST rester en place, toujours affichée, sans empêcher le démarrage.
+
+#### Scenario: Photo JPEG d'un round existant
+- **WHEN** le serveur démarre avec un round importé dont la photo est un fichier JPEG
+- **THEN** le détail du round affiche la photo servie en `image/webp`, et le fichier JPEG n'existe plus sur le serveur
+
+#### Scenario: Deuxième démarrage
+- **WHEN** le serveur redémarre après avoir converti toutes les photos
+- **THEN** aucune photo n'est reconvertie et chaque round et import affiche toujours sa photo
+
+#### Scenario: Fichier illisible
+- **WHEN** le serveur démarre et qu'une photo JPEG stockée est corrompue
+- **THEN** le serveur démarre, les autres photos sont converties, et l'import concerné garde son fichier JPEG d'origine
