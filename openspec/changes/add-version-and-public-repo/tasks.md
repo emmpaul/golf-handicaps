@@ -1,0 +1,47 @@
+# Tasks
+
+Règle pour tout le change : TDD pour le code. Chaque comportement de production commence par un test rouge, qui échoue pour la raison qu'il nomme, avec des valeurs attendues écrites à la main d'après les specs (`"0.6.0"`, `"4794e1b"`, URL complète). Chaque test nomme la mutation qui le fait rougir. `pnpm jscpd` reste à 0 %, chaque commit passe commitlint. Préalable : `polish-mobile-ui` archivé (design, Risques).
+
+## 1. Version et commit, côté serveur (spec `app-version`)
+
+- [ ] 1.1 TDD : `parseCommit(raw)` dans `src/lib/version.ts` (design §2), testé dans `tests/lib/version.test.ts`. `"4794e1b0c0ffee00000000000000000000000000"` → même chaîne ; `""`, `undefined`, `"4794e1b"` (court), `"4794E1B0C0FFEE00000000000000000000000000"` (majuscules) et `"zzzz…"` (40 caractères non hexadécimaux) → `null`. Mutation : accepter toute chaîne non vide fait rougir le cas court.
+- [ ] 1.2 TDD : `releaseUrl("0.6.0")` → `"https://github.com/emmpaul/golf-handicaps/releases/tag/v0.6.0"`, et `shortCommit("4794e1b0c0ffee00000000000000000000000000")` → `"4794e1b"`. Ajouter à `package.json` `repository` (`{ "type": "git", "url": "https://github.com/emmpaul/golf-handicaps" }`), `homepage`, `bugs` et `"license": "MIT"`. Mutation : oublier le préfixe `v` du tag fait rougir le test.
+- [ ] 1.3 `next.config.ts` : `env.GIT_COMMIT` (design §1). Vérifier : `GIT_COMMIT=4794e1b0c0ffee00000000000000000000000000 pnpm build && grep -rl 4794e1b0c0ffee .next/server` trouve au moins un fichier, et `pnpm typecheck` passe.
+- [ ] 1.4 TDD : `versionResponse(version, commit)` dans `src/lib/version.ts`, appelée par la route `GET /api/version` (design §3), testée dans `tests/lib/version.test.ts` avec des littéraux (la PR de release change `package.json` : le test ne doit pas dépendre de sa version). `versionResponse("0.6.0", "4794e1b0c0ffee00000000000000000000000000")` → statut 200, corps `{ version: "0.6.0", commit: "4794e1b0c0ffee00000000000000000000000000" }` (`toEqual`), en-tête `cache-control` = `"no-store"`. `versionResponse("0.6.0", null)` → `commit: null`. La route se contente de `versionResponse(APP_VERSION, APP_COMMIT)` ; son branchement est vérifié par l'e2e 2.2. Mutation : retirer l'en-tête `no-store` fait rougir le test.
+
+## 2. Accès sans session (spec `app-access`)
+
+- [ ] 2.1 TDD : `decideAccess` (design §4), lignes ajoutées à la table de `tests/lib/auth/access.test.ts` : `GET /api/version` → `allow`, `HEAD /api/version` → `allow`, `POST /api/version` → `unauthorized`, `GET /api/version/x` → `unauthorized`, `GET /api/versions` → `unauthorized`. Lignes existantes du manifest et des icônes inchangées. Mutation : `startsWith("/api/version")` fait rougir `/api/versions`.
+- [ ] 2.2 E2E dans `tests/e2e/access.spec.ts` : sans cookie, `request.get("/api/version")` → 200 et `commit` = `null` (build e2e sans `GIT_COMMIT`), `request.post("/api/version")` → 401. Vérifier : `pnpm e2e tests/e2e/access.spec.ts`.
+
+## 3. Pied de page de version (spec `app-version`)
+
+- [ ] 3.1 TDD : composant `AppVersion` (design §5), test de composant dans `tests/components/app-version.test.tsx` sur le modèle de `tests/components/ui`. `{ version: "0.6.0", commit: "4794e1b0c0ffee00000000000000000000000000" }` → lien de texte exact « v0.6.0 · 4794e1b », `href` `https://github.com/emmpaul/golf-handicaps/releases/tag/v0.6.0`. `commit: null` → texte exact « v0.6.0 », même `href`. Mutation : afficher le sha complet fait rougir le texte attendu.
+- [ ] 3.2 Brancher `AppVersion` dans `src/app/(app)/layout.tsx` (dernier enfant de `main`) et `src/app/login/page.tsx`. E2E dans `tests/e2e/home.spec.ts` et `tests/e2e/access.spec.ts` : la page d'accueil et `/login` montrent le lien « v<version de package.json> », sans « · » (build sans commit). Vérifier : `pnpm e2e tests/e2e/home.spec.ts tests/e2e/access.spec.ts`.
+- [ ] 3.3 Téléphone : dans `tests/e2e/mobile.spec.ts` (projet mobile, 390 px), sur `/rounds` défilée en bas, la boîte du lien de version finit au-dessus du haut de la barre « Sections » (`boundingBox`), et la page ne défile pas de côté. Vérifier aussi `tests/e2e/layout-width.spec.ts` vert.
+
+## 4. Commit dans l'image (spec `app-version`)
+
+- [ ] 4.1 `Dockerfile` : `ARG GIT_COMMIT=""` et `ENV GIT_COMMIT=$GIT_COMMIT` dans l'étape `build`, avant `RUN pnpm build` (design §6). `docker-compose.yml` : `build.args.GIT_COMMIT: ${GIT_COMMIT:-}`. Vérifier en local : `GIT_COMMIT=$(git rev-parse HEAD) docker compose up --build --wait`, puis `curl -s localhost:3000/api/version` renvoie ce sha ; `docker compose down -v`.
+- [ ] 4.2 Test de fumée `tests/compose/version.spec.ts` : sans session, `GET /api/version` → 200 et `commit` égal à `process.env.EXPECTED_COMMIT` ; variable absente → échec « EXPECTED_COMMIT manquant ». Mutation : retirer le `build-arg` de la CI fait rougir le test (commit `null`).
+- [ ] 4.3 `checks.yml` job `docker` : `build-args: GIT_COMMIT=${{ github.sha }}` et `EXPECTED_COMMIT: ${{ github.sha }}` sur l'étape « Test de fumée compose ». `main.yml` `publish-image` : même `build-args`, et `org.opencontainers.image.revision=${{ github.sha }}` dans les labels et annotations de `publish-image` et de `publish-manifest`. Vérifier : la CI de la PR passe `checks / docker` avec le nouveau test ; `pnpm check:pins` passe.
+
+## 5. Documentation publique (spec `public-repository`)
+
+- [ ] 5.1 `LICENSE` MIT (« Copyright (c) 2026 Emmanuel Paul »). Vérifier : `gh api repos/emmpaul/golf-handicaps/license --jq .license.spdx_id` renvoie `MIT` après fusion.
+- [ ] 5.2 `docs/architecture.md`, `docs/ai-fallback.md`, `docs/deployment.md`, `docs/ci.md`, `docs/development.md` en anglais (design §7), avec un schéma mermaid web/worker/SQLite/volume dans `architecture.md`. Mentionner `/api/version` dans `deployment.md` (vérifier un déploiement par `curl`) et `GIT_COMMIT` dans `development.md` (compose local). Vérifier par relecture, section par section, que chaque paragraphe de l'ancien README a sa place dans une de ces pages : liste de correspondance dans la description de la PR.
+- [ ] 5.3 Captures d'écran sous `docs/images/` (accueil à 390 px, classement d'un round à 1440 px), prises avec un script Playwright ponctuel sur `pnpm db:reset`, en WebP ou PNG de moins de 300 Ko chacune. Vérifier : `ls -l docs/images`.
+- [ ] 5.4 `README.md` en anglais, sections dans l'ordre de la spec, badges (`main.yml`, release, licence, GHCR), table des variables d'environnement reprise de `.env.example`, mention de l'interface en français, liens vers chaque page de `docs/`. Vérifier : `grep '^## ' README.md` donne exactement « Features, Quick start, Architecture, Configuration, Documentation, Contributing, Security, License » ; suivre « Quick start » dans un clone neuf jusqu'à la page de saisie du code ; aucun lien relatif cassé (`grep -o '](docs/[^)]*)' README.md` → chaque fichier existe).
+- [ ] 5.5 `CONTRIBUTING.md` (prérequis, branche `<type>/<sujet>` depuis `origin/main`, Conventional Commits, TDD et règle « un test doit rougir », contrôles locaux et lefthook, OpenSpec pour les changements de comportement, textes d'interface en français), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1, contact par signalement privé GitHub), `SUPPORT.md`. Vérifier : liens du README vers ces fichiers.
+- [ ] 5.6 `SECURITY.md` : versions supportées (dernière release), signalement privé GitHub, pas d'issue publique, délai de première réponse. Vérifier par relecture.
+- [ ] 5.7 `.github/ISSUE_TEMPLATE/bug_report.yml`, `feature_request.yml`, `config.yml` (`blank_issues_enabled: false`, lien « Report a security vulnerability » vers `/security/advisories/new`), `.github/CODEOWNERS` (`* @emmpaul`). Vérifier : `pnpm lint` passe, et après fusion, « New issue » montre les deux formulaires et le lien, sans issue vierge.
+
+## 6. Intégration
+
+- [ ] 6.1 `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e`, `pnpm jscpd`, `pnpm check:pins` passent en local ; CI verte sur la PR (`checks / quality`, `checks / e2e`, `checks / docker`).
+- [ ] 6.2 Après fusion, proposer puis lancer avec accord explicite (design §8) : `gh repo edit emmpaul/golf-handicaps --description "<description en anglais>" --add-topic golf,handicap,gspro,ocr,tesseract,nextjs,sqlite,self-hosted` et `gh api -X PUT repos/emmpaul/golf-handicaps/private-vulnerability-reporting`. Vérifier : `gh repo view --json description,repositoryTopics` et l'onglet Security montre « Report a vulnerability » ; Insights → Community standards tout coché.
+- [ ] 6.3 Après la release suivante et le redéploiement Dokploy : `curl https://<domaine>/api/version` renvoie la version et le sha du tag, `docker buildx imagetools inspect ghcr.io/emmpaul/golf-handicaps:vX.Y.Z --format '{{json .Manifest.Annotations}}'` montre `org.opencontainers.image.revision`, et le pied de page s'affiche sur l'iPhone.
+
+## Workflow follow-up
+
+- Archiver `polish-mobile-ui` avant ce change, puis archiver celui-ci une fois la release vérifiée (6.3).
