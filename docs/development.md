@@ -55,11 +55,13 @@ pnpm ocr:debug tests/fixtures/scorecards/gspro-img3064.jpg tests/fixtures/scorec
 `docker-compose.yml` reproduces production: one image, two services (web and worker), one volume.
 
 ```sh
-cp .env.example .env         # then set APP_PASSCODE and SESSION_SECRET
+cp .env.example .env         # then set APP_PASSCODE, SESSION_SECRET and INITIAL_PLAYERS=Manu,Gab,Sean
 docker compose up --build --wait
 APP_PASSCODE=<the code from .env> pnpm e2e:compose   # smoke test: log in, then import the reference photo
 docker compose down -v       # -v also deletes the data volume
 ```
+
+The smoke test reads the reference card and expects "Gab 72" and "Manu 88", so the database needs those players. `docker compose up --wait` returns once both `web` and `worker` are healthy (see [Worker health](deployment.md#worker-health)).
 
 To get the commit into the build, as the CI does, pass `GIT_COMMIT`. Compose forwards it to the `GIT_COMMIT` build argument of the `Dockerfile`, which writes it into the build:
 

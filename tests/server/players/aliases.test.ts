@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { playerAliases } from "@/db/schema";
 import { findPlayerForName, learnAlias, removeAlias } from "@/server/players/aliases";
 import { listPlayers } from "@/server/players/players";
-import { seedInitialPlayers } from "@/server/players/seed";
+import { DEV_PLAYERS, seedInitialPlayers } from "@/server/players/seed";
 import { createTestDb, type TestDb } from "../../factories";
 
 let testDb: TestDb;
@@ -10,7 +10,7 @@ let ids: Record<string, number>;
 
 beforeEach(() => {
   testDb = createTestDb();
-  seedInitialPlayers(testDb.db);
+  seedInitialPlayers(testDb.db, DEV_PLAYERS);
   ids = Object.fromEntries(listPlayers(testDb.db).map((p) => [p.name, p.id]));
 });
 

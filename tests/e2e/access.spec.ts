@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import packageJson from "../../package.json";
-import { E2E_PASSCODE } from "./session";
+import { authenticate, E2E_PASSCODE } from "./session";
 
 test("sans session, la page d'accueil redirige vers /login", async ({ page }) => {
   await page.goto("/");
@@ -72,4 +72,33 @@ test("avec le bon code, ouvre une session et affiche l'accueil", async ({ page }
   ]);
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Handicaps golf");
+});
+
+test("« Se déconnecter » ferme la session de ce navigateur, pas celle d'un autre appareil", async ({
+  page,
+  context,
+  browser,
+  baseURL,
+}) => {
+  await authenticate(context, baseURL);
+  const otherDevice = await browser.newContext({ baseURL });
+  await authenticate(otherDevice, baseURL);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Se déconnecter", exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  // Mutation : une action qui redirige sans supprimer le cookie fait rougir cette ligne, et sans
+  // elle le `goto("/")` suivant, qui reste sur l'accueil.
+  expect((await context.cookies()).map((cookie) => cookie.name)).not.toContain("golf_session");
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login$/);
+  const response = await page.request.post("/api/rounds", { data: { course: "Bethpage Black" } });
+  expect(response.status()).toBe(401);
+
+  const otherPage = await otherDevice.newPage();
+  await otherPage.goto("/");
+  await expect(otherPage).toHaveURL(/\/$/);
+  await expect(otherPage.getByRole("heading", { level: 1 })).toHaveText("Handicaps golf");
+  await otherDevice.close();
 });

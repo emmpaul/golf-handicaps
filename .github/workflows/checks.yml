@@ -321,9 +321,11 @@ jobs:
           GOLF_ENV_FILE: ${{ runner.temp }}/smoke.env
           APP_PASSCODE: ci-code-du-groupe
           SESSION_SECRET: ci-secret-de-session-de-32-caracteres-min
+          # Joueurs de la carte de référence, attendus par tests/compose/compose.spec.ts (Gab 72, Manu 88).
+          INITIAL_PLAYERS: Manu,Gab,Sean
           EXPECTED_COMMIT: ${{ github.sha }}
         run: |
-          printf 'APP_PASSCODE=%s\nSESSION_SECRET=%s\n' "$APP_PASSCODE" "$SESSION_SECRET" > "$GOLF_ENV_FILE"
+          printf 'APP_PASSCODE=%s\nSESSION_SECRET=%s\nINITIAL_PLAYERS=%s\n' "$APP_PASSCODE" "$SESSION_SECRET" "$INITIAL_PLAYERS" > "$GOLF_ENV_FILE"
           docker compose up --no-build --wait
           pnpm e2e:compose
       - name: Logs compose

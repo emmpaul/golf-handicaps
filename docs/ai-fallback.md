@@ -33,7 +33,7 @@ On the correction screen those cells carry the mark "complété par l'IA" (compl
 
 **Tracking.** The worker computes the cost of every call, framing or completion, from the usage the API returns (Opus 5.5 pricing: $4 and $20 per million input and output tokens). It records that cost in the `ai_usage` table, including after a refusal or an unreadable answer, since the API bills those too.
 
-**Budget.** `AI_MONTHLY_BUDGET_USD`, $1 by default, per calendar month in Montreal time. Framing and completion calls add up to the same total. The worker calls the AI only if the month's total plus the worst case of the planned call stays under the budget: $0.094 for a completion, $0.056 for a framing.
+**Budget.** `AI_MONTHLY_BUDGET_USD`, $1 by default, per calendar month. The month is counted in the IANA time zone of `AI_BUDGET_TIME_ZONE`, `America/Montreal` by default, so it resets at midnight local time on the 1st. Framing and completion calls add up to the same total. The worker calls the AI only if the month's total plus the worst case of the planned call stays under the budget: $0.094 for a completion, $0.056 for a framing.
 
 When the budget would be exceeded:
 
@@ -42,6 +42,8 @@ When the budget would be exceeded:
 
 For completion, an API error, a refusal or an unreadable answer give "Complétion IA indisponible" (AI completion unavailable). A completion never moves an import to "Échec".
 
+**Changing the time zone.** Each call is stored with the month it was counted in, and the worker never recomputes those rows. Changing `AI_BUDGET_TIME_ZONE` mid-month moves the start and end of the current month by a few hours. A call made between the old and the new midnight counts toward one month or the other.
+
 **Limit on the Anthropic side.** Also set a monthly spend limit in the Anthropic console. It protects you if prices change before `src/ai/pricing.ts` does.
 
-**Turn it on in production.** In Dokploy, add `ANTHROPIC_API_KEY` to the `golf-worker` variables, and `AI_MONTHLY_BUDGET_USD` to change the budget, then redeploy `golf-worker`. `golf-web` does not need them. Removing the key and redeploying the worker turns the feature off. See [Deployment](deployment.md).
+**Turn it on in production.** In Dokploy, add `ANTHROPIC_API_KEY` to the `golf-worker` variables, `AI_MONTHLY_BUDGET_USD` to change the budget and `AI_BUDGET_TIME_ZONE` to count the month in another time zone, then redeploy `golf-worker`. `golf-web` does not need them. Removing the key and redeploying the worker turns the feature off. See [Deployment](deployment.md).

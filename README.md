@@ -98,10 +98,12 @@ All configuration comes from environment variables. The image holds no secret. I
 | Variable | Required | Role |
 | --- | --- | --- |
 | `APP_PASSCODE` | yes | Shared passcode, entered on `/login`. |
-| `SESSION_SECRET` | yes | HMAC secret that signs the session cookie (valid 90 days). At least 32 characters, for example `openssl rand -hex 32`. |
+| `SESSION_SECRET` | yes | HMAC secret that signs the session cookie (valid 90 days). At least 32 characters, for example `openssl rand -hex 32`. Changing it closes every session on every device. |
 | `DATA_DIR` | no | Folder for the `app.db` database and the `uploads/` photos. Defaults to `./data` in development and `/data` in the image. |
+| `INITIAL_PLAYERS` | no | Players the web process creates on first start, on a database with no player. Comma-separated, for example `Manu,Gab,Sean`; each gets its name in capitals as alias. Missing or empty: no player, add them on `/players`. Ignored once the database has players. Two names equal apart from case stop the startup. |
 | `ANTHROPIC_API_KEY` | no | Anthropic API key, read by the worker only. Missing or empty: no AI call at all, neither framing nor completion. |
 | `AI_MONTHLY_BUDGET_USD` | no | AI spend cap per calendar month, in US dollars (number > 0). Defaults to 1. An empty value counts as unset. |
+| `AI_BUDGET_TIME_ZONE` | no | IANA time zone in which the AI budget month is counted, for example `Europe/Paris`. Defaults to `America/Montreal`. An empty value counts as unset. An unknown zone stops both the web and the worker at startup. |
 | `TESSERACT_BIN` | no | Path to the Tesseract binary. Defaults to `tesseract` from the `PATH`. |
 
 Build argument: `GIT_COMMIT`, the full sha of the commit being built. The CI sets it, and the app shows it in the footer and in `GET /api/version`. Without it, the commit is `null`.
@@ -110,7 +112,7 @@ Build argument: `GIT_COMMIT`, the full sha of the commit being built. The CI set
 
 - [Architecture](docs/architecture.md): processes, job queue, panel detection, OCR, handicap calculation.
 - [AI fallback](docs/ai-fallback.md): when Claude is called, what is sent to Anthropic, costs, budget, activation.
-- [Deployment](docs/deployment.md): Dokploy setup, checking the running version, backup, rollback.
+- [Deployment](docs/deployment.md): Dokploy setup, worker health check, checking the running version, closing every session, backup, rollback.
 - [CI and releases](docs/ci.md): checks, documentation-only scope, e2e shards, release-please, multi-arch image.
 - [Development](docs/development.md): prerequisites, commands, OCR debugging, Docker Compose, DNG photos.
 - [Roadmap](docs/roadmap.md): what comes next, ideas, and what was turned down and why.
