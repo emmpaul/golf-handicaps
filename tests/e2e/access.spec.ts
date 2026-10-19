@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import packageJson from "../../package.json";
 import { E2E_PASSCODE } from "./session";
 
 test("sans session, la page d'accueil redirige vers /login", async ({ page }) => {
@@ -16,6 +17,30 @@ for (const [label, path] of [
     expect(response.status()).toBe(401);
   });
 }
+
+test("sans session, GET /api/version répond 200 sans commit (build e2e sans GIT_COMMIT)", async ({
+  request,
+}) => {
+  const response = await request.get("/api/version");
+  expect(response.status()).toBe(200);
+  expect((await response.json()).commit).toBeNull();
+});
+
+test("sans session, POST /api/version renvoie 401", async ({ request }) => {
+  const response = await request.post("/api/version");
+  expect(response.status()).toBe(401);
+});
+
+test("/login montre la version seule en pied de page (build e2e sans commit)", async ({ page }) => {
+  await page.goto("/login");
+  // La release change la version de `package.json` : le texte attendu la suit. Nom exact :
+  // un « · <commit> » ne correspondrait pas.
+  const version = page.getByRole("link", { name: `v${packageJson.version}`, exact: true });
+  await expect(version).toHaveAttribute(
+    "href",
+    `https://github.com/emmpaul/golf-handicaps/releases/tag/v${packageJson.version}`,
+  );
+});
 
 test("avec un code faux, affiche « Code incorrect » et reste sur /login", async ({ page }) => {
   await page.goto("/login");
