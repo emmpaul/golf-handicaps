@@ -40,7 +40,7 @@ The user interface is in French. The code, the docs and this README are in Engli
 - **Review before saving.** Every reading lands on a correction screen with consistency checks (OUT/IN/TOT sums, pars, hole indexes). Saving stays blocked until the card adds up. You can re-frame the photo by placing 4 corners, or enter a card by hand.
 - **Optional AI fallback.** With an Anthropic API key, Claude frames photos local detection missed and fills in cells the OCR misread, under a monthly budget. Off by default. See [what it sends](docs/ai-fallback.md).
 - **Round history.** Each round keeps its course, tees, date, pars, hole indexes, scores and photo, with a net leaderboard. Rounds can be corrected or deleted.
-- **Handicap index.** A WHS-style index adapted to a simulator (no course rating, slope fixed at 113), with provisional indexes for new players and full history.
+- **Handicap index.** A WHS-style index with each course's rating and slope, looked up on Simulator Golf Tour and confirmed by a user. A course without a confirmed rating counts at its par and a slope of 113. Provisional indexes for new players and full history.
 - **Strokes to give.** Pick 2 to 4 players and a known course: the app tells each player how many strokes they get and on which holes.
 - **Players and aliases.** Names read on a card are matched to players through aliases the app learns as you correct.
 - **Built for phones.** Installable on the home screen, with a bottom tab bar and large touch targets under 768 px.
@@ -87,7 +87,7 @@ More in [CI and releases](docs/ci.md#releases) and [Deployment](docs/deployment.
 Next.js (standalone output) and SQLite. One Docker image runs as two processes that share the database on one volume:
 
 - **web** (`node server.js`) serves the pages and the API, applies migrations at startup and queues each uploaded photo as a job;
-- **worker** (`node worker.js`) polls the job queue, finds the panel on the photo, reads it with Tesseract and, if configured, asks Claude for help.
+- **worker** (`node worker.js`) polls the job queue, finds the panel on the photo, reads it with Tesseract and, if configured, asks Claude for help. It also looks up each new course's rating and slope on Simulator Golf Tour.
 
 Both must run on the same host. Details, with a diagram, in [Architecture](docs/architecture.md).
 
@@ -104,15 +104,16 @@ All configuration comes from environment variables. The image holds no secret. I
 | `ANTHROPIC_API_KEY` | no | Anthropic API key, read by the worker only. Missing or empty: no AI call at all, neither framing nor completion. |
 | `AI_MONTHLY_BUDGET_USD` | no | AI spend cap per calendar month, in US dollars (number > 0). Defaults to 1. An empty value counts as unset. |
 | `AI_BUDGET_TIME_ZONE` | no | IANA time zone in which the AI budget month is counted, for example `Europe/Paris`. Defaults to `America/Montreal`. An empty value counts as unset. An unknown zone stops both the web and the worker at startup. |
+| `SGT_LOOKUP` | no | `on` (default) or `off`, read by the worker. `on`: the worker searches each new course's rating and slope on Simulator Golf Tour, with requests to `simulatorgolftour.com` (see [Outgoing requests](docs/deployment.md#outgoing-requests)). `off`: no request to SGT, ratings are entered by hand on `/courses`. An empty value counts as unset. Any other value stops both the web and the worker at startup. |
 | `TESSERACT_BIN` | no | Path to the Tesseract binary. Defaults to `tesseract` from the `PATH`. |
 
 Build argument: `GIT_COMMIT`, the full sha of the commit being built. The CI sets it, and the app shows it in the footer and in `GET /api/version`. Without it, the commit is `null`.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md): processes, job queue, panel detection, OCR, handicap calculation.
+- [Architecture](docs/architecture.md): processes, job queue, panel detection, OCR, handicap calculation, course ratings.
 - [AI fallback](docs/ai-fallback.md): when Claude is called, what is sent to Anthropic, costs, budget, activation.
-- [Deployment](docs/deployment.md): Dokploy setup, worker health check, checking the running version, closing every session, backup, rollback.
+- [Deployment](docs/deployment.md): Dokploy setup, outgoing requests, course ratings update, worker health check, checking the running version, closing every session, backup, rollback.
 - [CI and releases](docs/ci.md): checks, documentation-only scope, e2e shards, release-please, multi-arch image.
 - [Development](docs/development.md): prerequisites, commands, OCR debugging, Docker Compose, DNG photos.
 - [Roadmap](docs/roadmap.md): what comes next, ideas, and what was turned down and why.

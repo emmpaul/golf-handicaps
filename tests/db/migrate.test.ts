@@ -24,6 +24,7 @@ describe("migrations", () => {
     expect(tables).toEqual([
       "__drizzle_migrations",
       "ai_usage",
+      "course_ratings",
       "imports",
       "jobs",
       "player_aliases",
@@ -117,6 +118,44 @@ describe("migrations", () => {
       { name: "corners", type: "TEXT", notnull: 0, dflt: null },
       { name: "corners_source", type: "TEXT", notnull: 0, dflt: null },
     ]);
+  });
+
+  // Mutation : colonne oubliée (dont `sgt_course_name` / `sgt_course_location`), `rating_t` en REAL, ou `status` nullable sans défaut `pending`.
+  it("crée course_ratings avec les colonnes du design (décision 2)", () => {
+    testDb = createTestDb();
+    const columns = testDb.sqlite
+      .prepare(
+        "SELECT name, type, \"notnull\", dflt_value AS dflt FROM pragma_table_info('course_ratings') ORDER BY cid",
+      )
+      .all();
+    expect(columns).toEqual([
+      { name: "id", type: "INTEGER", notnull: 1, dflt: null },
+      { name: "course_name", type: "TEXT", notnull: 1, dflt: null },
+      { name: "tees", type: "TEXT", notnull: 1, dflt: null },
+      { name: "rating_t", type: "INTEGER", notnull: 0, dflt: null },
+      { name: "slope", type: "INTEGER", notnull: 0, dflt: null },
+      { name: "source", type: "TEXT", notnull: 0, dflt: null },
+      { name: "status", type: "TEXT", notnull: 1, dflt: "'pending'" },
+      { name: "sgt_course_id", type: "INTEGER", notnull: 0, dflt: null },
+      { name: "sgt_course_name", type: "TEXT", notnull: 0, dflt: null },
+      { name: "sgt_course_location", type: "TEXT", notnull: 0, dflt: null },
+      { name: "candidates", type: "TEXT", notnull: 0, dflt: null },
+      { name: "tees_read", type: "TEXT", notnull: 0, dflt: null },
+      { name: "proposed_tee", type: "TEXT", notnull: 0, dflt: null },
+      { name: "note", type: "TEXT", notnull: 0, dflt: null },
+      { name: "updated_at", type: "INTEGER", notnull: 1, dflt: null },
+    ]);
+  });
+
+  // Mutation : unicité sur le texte brut, sans `lower(trim(...))`.
+  it("refuse dans course_ratings une paire déjà présente en autre casse ou avec des espaces", () => {
+    testDb = createTestDb();
+    const insert = testDb.sqlite.prepare(
+      "INSERT INTO course_ratings (course_name, tees, updated_at) VALUES (?, ?, 0)",
+    );
+    insert.run("BETHPAGE BLACK", "Red");
+    insert.run("BETHPAGE BLACK", "White");
+    expect(() => insert.run(" Bethpage Black", "red ")).toThrow(/UNIQUE constraint failed/);
   });
 
   it("crée ai_usage avec les colonnes du design (décision 6)", () => {

@@ -40,6 +40,7 @@ describe("parseEnv", () => {
         AI_MONTHLY_BUDGET_USD: 1,
         INITIAL_PLAYERS: [],
         AI_BUDGET_TIME_ZONE: "America/Montreal",
+        SGT_LOOKUP: "on",
       },
     );
   });
@@ -60,6 +61,7 @@ describe("parseEnv", () => {
       AI_MONTHLY_BUDGET_USD: 1,
       INITIAL_PLAYERS: [],
       AI_BUDGET_TIME_ZONE: "America/Montreal",
+      SGT_LOOKUP: "on",
     });
   });
 
@@ -170,5 +172,28 @@ describe("parseEnv", () => {
         AI_BUDGET_TIME_ZONE: "Mars/Olympus",
       }),
     ).toThrow(/AI_BUDGET_TIME_ZONE/);
+  });
+
+  // Mutation : `z.enum(["on", "off"])` sans préprocesseur, qui refuse une variable vide.
+  it.each([
+    ["absente", undefined],
+    ["vide", ""],
+  ])("SGT_LOOKUP %s : on", (_label, value) => {
+    expect(
+      parseEnv({ APP_PASSCODE: "birdie", SESSION_SECRET: SECRET, SGT_LOOKUP: value }).SGT_LOOKUP,
+    ).toBe("on");
+  });
+
+  it("garde SGT_LOOKUP=off", () => {
+    expect(
+      parseEnv({ APP_PASSCODE: "birdie", SESSION_SECRET: SECRET, SGT_LOOKUP: "off" }).SGT_LOOKUP,
+    ).toBe("off");
+  });
+
+  // Mutation : `z.string()` au lieu de l'énumération accepte « non ».
+  it("refuse SGT_LOOKUP=non, avec un message qui nomme la variable", () => {
+    expect(() =>
+      parseEnv({ APP_PASSCODE: "birdie", SESSION_SECRET: SECRET, SGT_LOOKUP: "non" }),
+    ).toThrow(/SGT_LOOKUP/);
   });
 });

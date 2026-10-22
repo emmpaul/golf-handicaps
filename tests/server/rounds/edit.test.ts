@@ -148,3 +148,44 @@ describe("round introuvable", () => {
     expect(operation).toThrow(/^Round introuvable$/);
   });
 });
+
+const ratingPairs = () =>
+  testDb.sqlite.prepare("SELECT course_name, tees, status FROM course_ratings ORDER BY id").all();
+const courseRatingJobs = () =>
+  testDb.sqlite
+    .prepare(
+      `SELECT c.course_name FROM jobs j
+       JOIN course_ratings c ON c.id = json_extract(j.payload, '$.courseRatingId')
+       WHERE j.type = 'course-rating' ORDER BY j.id`,
+    )
+    .all();
+
+/** Round de référence (Gab, Manu) enregistré, puis corrigé avec `changes`. */
+function correctReferenceRound(changes: Partial<ReturnType<typeof getRoundForm>>) {
+  const { Gab, Manu } = testDb.ids;
+  const id = saveRound(testDb.db, referenceForm([Gab, Manu]));
+  updateRound(testDb.db, id, { ...getRoundForm(testDb.db, id), ...changes });
+}
+
+describe("updateRound — recherche de rating", () => {
+  // Mutation : mise en file absente de `updateRound`, ou faite avec l'ancien nom du round.
+  it("met en file la nouvelle paire quand la correction change le nom du parcours", () => {
+    correctReferenceRound({ courseName: "CALANOVA GOLF CLUB", tees: "Yellow" });
+    expect(ratingPairs()).toEqual([
+      { course_name: "BETHPAGE BLACK", tees: "Red", status: "pending" },
+      { course_name: "CALANOVA GOLF CLUB", tees: "Yellow", status: "pending" },
+    ]);
+    expect(courseRatingJobs()).toEqual([
+      { course_name: "BETHPAGE BLACK" },
+      { course_name: "CALANOVA GOLF CLUB" },
+    ]);
+  });
+
+  // Mutation : job mis en file à chaque correction, même sans nouvelle paire.
+  it("ne met rien de plus en file quand la correction garde le parcours", () => {
+    correctReferenceRound({ playedOn: "2026-10-16" });
+    expect(testDb.sqlite.prepare("SELECT type, payload FROM jobs").all()).toEqual([
+      { type: "course-rating", payload: '{"courseRatingId":1}' },
+    ]);
+  });
+});

@@ -44,6 +44,11 @@ const schema = z.object({
     (value) => (value === "" ? undefined : value),
     z.string().default("America/Montreal").refine(isTimeZone, "fuseau IANA inconnu"),
   ),
+  // Recherche de rating sur Simulator Golf Tour par le worker ; vide vaut absent.
+  SGT_LOOKUP: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.enum(["on", "off"]).default("on"),
+  ),
 });
 
 export type Env = {
@@ -58,6 +63,8 @@ export type Env = {
   INITIAL_PLAYERS: readonly string[];
   /** Fuseau IANA dans lequel se compte le mois civil du plafond IA. */
   AI_BUDGET_TIME_ZONE: string;
+  /** `off` : le worker ne fait aucune requête vers Simulator Golf Tour (e2e, CI, sans sortie réseau). */
+  SGT_LOOKUP: "on" | "off";
 };
 
 /**
@@ -81,6 +88,7 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     AI_MONTHLY_BUDGET_USD,
     INITIAL_PLAYERS,
     AI_BUDGET_TIME_ZONE,
+    SGT_LOOKUP,
   } = result.data;
   return {
     APP_PASSCODE,
@@ -90,6 +98,7 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     AI_MONTHLY_BUDGET_USD,
     INITIAL_PLAYERS,
     AI_BUDGET_TIME_ZONE,
+    SGT_LOOKUP,
   };
 }
 

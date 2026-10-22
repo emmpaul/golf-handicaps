@@ -8,10 +8,22 @@ export function adjustedScore(strokes: readonly number[], pars: readonly number[
   return strokes.reduce((sum, s, hole) => sum + adjustedHoleScore(s, pars[hole]), 0);
 }
 
-/** Différentiel en dixièmes entiers : (score ajusté − par total) × 10, slope fixé à 113. */
-export function differentialTenths(strokes: readonly number[], pars: readonly number[]): number {
-  const totalPar = pars.reduce((sum, par) => sum + par, 0);
-  return (adjustedScore(strokes, pars) - totalPar) * 10;
+/** Course rating en dixièmes et slope d'un parcours. Sans rating confirmée : par total × 10 et 113. */
+export interface CourseRating {
+  ratingT: number;
+  slope: number;
+}
+
+/**
+ * Différentiel en dixièmes entiers : 113 / slope × (score ajusté − course rating),
+ * arrondi au plus proche, 0,05 vers le haut (design, décision 1).
+ */
+export function differentialTenths(
+  strokes: readonly number[],
+  pars: readonly number[],
+  { ratingT, slope }: CourseRating,
+): number {
+  return Math.floor((113 * (adjustedScore(strokes, pars) * 10 - ratingT)) / slope + 0.5);
 }
 
 export interface RoundDifferential {

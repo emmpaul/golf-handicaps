@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callCost, MAX_CALL_COST, MAX_LOCATE_COST } from "@/ai/pricing";
+import { callCost, MAX_CALL_COST, MAX_LOCATE_COST, MAX_RATING_COST } from "@/ai/pricing";
 
 describe("callCost", () => {
   it("compte 4 µ$ par token d'entrée et 20 µ$ par token de sortie sur claude-opus-5-5", () => {
@@ -16,5 +16,11 @@ describe("MAX_CALL_COST", () => {
 describe("MAX_LOCATE_COST", () => {
   it("vaut le pire cadrage : 4 000 tokens d'entrée et 2 000 de sortie, soit 0,056 $", () => {
     expect(MAX_LOCATE_COST).toBe(56_000);
+  });
+});
+
+describe("MAX_RATING_COST", () => {
+  it("vaut la pire lecture de carte SGT : 2 000 tokens d'entrée et 1 500 de sortie, soit 0,038 $", () => {
+    expect(MAX_RATING_COST).toBe(38_000);
   });
 });

@@ -2,7 +2,7 @@
 
 What is being built, what comes next, and what was turned down, drawn from the OpenSpec changes, the code and the open questions in past designs.
 
-Last updated: 2026-10-19.
+Last updated: 2026-10-21.
 
 Nothing here is a promise. The app serves one group of friends first, and the order below can change with what they need.
 
@@ -53,7 +53,7 @@ Prettier is not needed. Biome already formats and lints (`biome.json`, `pnpm lin
 Deferred in a design with no plan yet. Each would need its own proposal.
 
 - **Other simulators and layouts** (E6 Connect, Trackman, other GSPro screens). The layout lives in `src/ocr/layouts/gspro.ts`, so a second one has a place to go.
-- **Closer WHS rules.** 9-hole rounds, real course rating and slope, soft and hard caps, PCC. All left out of the first version. The index is a "simulator index" on purpose.
+- **Closer WHS rules.** 9-hole rounds, soft and hard caps, PCC, net double bogey as the hole maximum instead of quadruple bogey, and the 95 % allowance in individual stroke play. Course rating and slope came with `add-course-rating`, which left these out.
 - **Live camera viewfinder** with a frame around the panel, through `getUserMedia`. Worth it only if photos from the camera button frame badly (`2026-10-17-add-camera-capture/design.md`).
 - **A loading screen between pages** (`loading.tsx`) if navigation turns slow on mobile networks.
 - **Dark mode, offline mode and a service worker.** Left out of the mobile polish and the loaders. shadcn's `.dark` tokens are already in `src/app/globals.css`, unused.

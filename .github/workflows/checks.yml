@@ -325,7 +325,8 @@ jobs:
           INITIAL_PLAYERS: Manu,Gab,Sean
           EXPECTED_COMMIT: ${{ github.sha }}
         run: |
-          printf 'APP_PASSCODE=%s\nSESSION_SECRET=%s\nINITIAL_PLAYERS=%s\n' "$APP_PASSCODE" "$SESSION_SECRET" "$INITIAL_PLAYERS" > "$GOLF_ENV_FILE"
+          # SGT_LOOKUP=off : le worker de la CI n'appelle jamais Simulator Golf Tour.
+          printf 'APP_PASSCODE=%s\nSESSION_SECRET=%s\nINITIAL_PLAYERS=%s\nSGT_LOOKUP=off\n' "$APP_PASSCODE" "$SESSION_SECRET" "$INITIAL_PLAYERS" > "$GOLF_ENV_FILE"
           docker compose up --no-build --wait
           pnpm e2e:compose
       - name: Logs compose

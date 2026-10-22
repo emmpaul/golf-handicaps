@@ -19,3 +19,13 @@ export const LOCATE_MAX_TOKENS = 2000;
  * sur la photo de référence.
  */
 export const LOCATE_MAX_INPUT_TOKENS = 4000;
+
+/** Borne des tokens de sortie d'une lecture de carte SGT (rating et slope par tee). */
+export const RATING_MAX_TOKENS = 1500;
+
+/**
+ * Tokens d'entrée de la pire lecture de carte SGT : image de 905×527 envoyée telle
+ * quelle, prompt système et schéma des tees. Mesuré à 1 352 tokens (128 en sortie)
+ * sur la carte de Bethpage Black (`tests/fixtures/sgt/scorecard_30.jpg`), le 2026-10-21.
+ */
+export const RATING_MAX_INPUT_TOKENS = 2000;

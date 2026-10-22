@@ -8,6 +8,7 @@ import {
   type RoundForm,
 } from "@/scorecard/checks";
 import type { DraftValue } from "@/scorecard/draft";
+import { enqueueCourseRating } from "@/server/courses/enqueue";
 import { recomputeStats, type Tx } from "./stats";
 
 /** Refus d'enregistrer une carte qui ne passe pas les contrôles de cohérence (tâche 5.1). */
@@ -33,6 +34,12 @@ export function roundColumns(form: RoundForm) {
     tees: filledText(form.tees),
     playedOn: filledText(form.playedOn),
   };
+}
+
+/** Met en file la recherche de rating du parcours et des tees du round s'ils sont nouveaux. */
+export function enqueueRoundCourse(tx: Tx, form: RoundForm) {
+  const { courseName, tees } = roundColumns(form);
+  enqueueCourseRating(tx, courseName, tees);
 }
 
 export const formPlayerIds = (form: RoundForm) => form.players.map((row) => filled(row.playerId));
@@ -86,7 +93,9 @@ function importPhoto(tx: Tx, importId: number) {
 /**
  * Enregistre un round après avoir rejoué les contrôles de cohérence, puis recalcule les
  * stats des joueurs du round, le tout dans une seule transaction (design, décision 3).
- * Depuis un import, le round garde sa photo et l'import est relié au round créé.
+ * Depuis un import, le round garde sa photo et l'import est relié au round créé. Une paire
+ * (nom, tees) encore sans ligne de rating reçoit sa ligne `pending` et son job de recherche
+ * dans la même transaction (add-course-rating, décision 3).
  */
 export function saveRound(db: Db, form: RoundForm, options: { importId?: number } = {}): number {
   assertCoherent(form);
@@ -102,6 +111,7 @@ export function saveRound(db: Db, form: RoundForm, options: { importId?: number 
     }
     writeRoundCard(tx, id, form);
     recomputeStats(tx, formPlayerIds(form));
+    enqueueRoundCourse(tx, form);
     return id;
   });
 }

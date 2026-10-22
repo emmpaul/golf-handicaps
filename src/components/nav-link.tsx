@@ -4,8 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-/** Préfixes d'URL rattachés à une section en plus du sien : un import ouvert relève d'« Importer ». */
-const SECTION_PREFIXES: Record<string, readonly string[]> = { "/import": ["/imports"] };
+/**
+ * Préfixes d'URL rattachés à une section en plus du sien : un import ouvert relève d'« Importer »,
+ * la page Parcours, hors de la navigation, de « Rounds ».
+ */
+const SECTION_PREFIXES: Record<string, readonly string[]> = {
+  "/import": ["/imports"],
+  "/rounds": ["/courses"],
+};
 
 /** Vrai si `pathname` est la page de la section `href` ou l'une de ses sous-pages. */
 function inSection(pathname: string, href: string) {

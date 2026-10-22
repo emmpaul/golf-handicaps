@@ -7,6 +7,7 @@ import {
   differentialTenths,
   type RoundDifferential,
 } from "@/domain/handicap";
+import { ratingFor } from "@/server/courses/ratings";
 
 /** Transaction Drizzle ouverte par `db.transaction`. */
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -16,7 +17,13 @@ const total = (values: readonly number[]) => values.reduce((sum, value) => sum +
 /** Rounds du joueur dans l'ordre du calcul d'index : date de jeu, enregistrement, puis id. */
 function playerHistory(tx: Tx, playerId: number) {
   return tx
-    .select({ roundId: rounds.id, playedOn: rounds.playedOn, createdAt: rounds.createdAt })
+    .select({
+      roundId: rounds.id,
+      courseName: rounds.courseName,
+      tees: rounds.tees,
+      playedOn: rounds.playedOn,
+      createdAt: rounds.createdAt,
+    })
     .from(roundPlayers)
     .innerJoin(rounds, eq(rounds.id, roundPlayers.roundId))
     .where(eq(roundPlayers.playerId, playerId))
@@ -45,27 +52,34 @@ function roundCard(tx: Tx, roundId: number, playerId: number) {
 /**
  * Rejoue tout l'historique d'un joueur et réécrit ses lignes de `player_round_stats`
  * (design, décision 3) : différentiel, index juste avant et juste après chaque round,
- * et différentiels retenus dans l'index actuel.
+ * et différentiels retenus dans l'index actuel. Le différentiel prend la rating confirmée
+ * du parcours et des tees du round, ou le repli par / 113 (`ratingFor`).
  */
 export function recomputePlayerStats(tx: Tx, playerId: number) {
   tx.delete(playerRoundStats).where(eq(playerRoundStats.playerId, playerId)).run();
   const played: RoundDifferential[] = [];
-  const rows = playerHistory(tx, playerId).map(({ roundId, playedOn, createdAt }) => {
-    const { pars, strokes } = roundCard(tx, roundId, playerId);
-    const differentialT = differentialTenths(strokes, pars);
-    const indexBeforeT = computeIndex(played).indexT;
-    played.push({ playedOn, createdAt: createdAt.toISOString(), differentialT });
-    return {
-      roundId,
-      playerId,
-      gross: total(strokes),
-      adjusted: adjustedScore(strokes, pars),
-      differentialT,
-      indexBeforeT,
-      // Au moins un round joué : l'index existe toujours.
-      indexAfterT: computeIndex(played).indexT as number,
-    };
-  });
+  const rows = playerHistory(tx, playerId).map(
+    ({ roundId, courseName, tees, playedOn, createdAt }) => {
+      const { pars, strokes } = roundCard(tx, roundId, playerId);
+      const differentialT = differentialTenths(
+        strokes,
+        pars,
+        ratingFor(tx, courseName, tees, total(pars)),
+      );
+      const indexBeforeT = computeIndex(played).indexT;
+      played.push({ playedOn, createdAt: createdAt.toISOString(), differentialT });
+      return {
+        roundId,
+        playerId,
+        gross: total(strokes),
+        adjusted: adjustedScore(strokes, pars),
+        differentialT,
+        indexBeforeT,
+        // Au moins un round joué : l'index existe toujours.
+        indexAfterT: computeIndex(played).indexT as number,
+      };
+    },
+  );
   const { counts } = computeIndex(played);
   rows.forEach((row, i) => {
     tx.insert(playerRoundStats)
