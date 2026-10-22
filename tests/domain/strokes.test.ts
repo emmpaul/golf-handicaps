@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocateStrokes, matchStrokes, playingHandicap } from "@/domain/strokes";
+import { allocateStrokes, courseHandicap, matchStrokes, playingHandicap } from "@/domain/strokes";
 import { referenceCard } from "../factories";
 
 describe("playingHandicap", () => {
@@ -13,6 +13,28 @@ describe("playingHandicap", () => {
     { indexT: -16, expected: -2 },
   ])("index $indexT dixièmes donne $expected", ({ indexT, expected }) => {
     expect(playingHandicap(indexT)).toBe(expected);
+  });
+});
+
+/** Bethpage Black / Red confirmé : rating 71,4, slope 144, par 71. */
+const bethpageRed = { ratingT: 714, slope: 144, par: 71 };
+
+describe("courseHandicap", () => {
+  // Mutations : (ratingT − par × 10) retiré (1, 22, −3 au lieu de 2, 23, −2), slope ignoré.
+  it.each([
+    { indexT: 10, expected: 2 },
+    { indexT: 174, expected: 23 },
+    { indexT: -20, expected: -2 },
+  ])("index $indexT dixièmes donne $expected sur Bethpage Black / Red", ({ indexT, expected }) => {
+    expect(courseHandicap(indexT, bethpageRed)).toBe(expected);
+  });
+
+  // Mutation : sans rating, index rendu tel quel (10 et 174) au lieu de l’index arrondi.
+  it.each([
+    { indexT: 10, expected: 1 },
+    { indexT: 174, expected: 17 },
+  ])("index $indexT dixièmes donne $expected sans rating", ({ indexT, expected }) => {
+    expect(courseHandicap(indexT)).toBe(expected);
   });
 });
 
@@ -58,6 +80,17 @@ describe("matchStrokes", () => {
   ] as const)("$name : $expected", ({ indexesT, mode, expected }) => {
     expect(matchStrokes(indexesT, mode)).toEqual(expected);
   });
+
+  // Mutation : rating ignorée par matchStrokes ([0, 16] et [1, 17]).
+  it.each([
+    { mode: "ecart", expected: [0, 21] },
+    { mode: "complet", expected: [2, 23] },
+  ] as const)(
+    "Gab 1,0 et Manu 17,4 sur Bethpage Black / Red en $mode : $expected",
+    ({ mode, expected }) => {
+      expect(matchStrokes([10, 174], mode, bethpageRed)).toEqual(expected);
+    },
+  );
 
   // Mutation : mode par défaut Complet.
   it("utilise le mode Écart par défaut", () => {

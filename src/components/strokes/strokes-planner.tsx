@@ -1,14 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { courseLabel, type KnownCourse } from "@/components/round-editor/form-state";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { allocateStrokes, matchStrokes, type StrokeMode } from "@/domain/strokes";
 import { formatTenths, NO_INDEX } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { ACTION_LINK, cn } from "@/lib/utils";
+import type { RoundRating } from "@/server/courses/ratings";
 
 export type PlannerPlayer = { id: number; name: string; indexT: number | null };
+
+/** Parcours connu avec son par total et sa rating (confirmée ou repli par / 113). */
+export type PlannerCourse = KnownCourse & { par: number; rating: RoundRating };
 
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
@@ -45,7 +50,7 @@ export function StrokesPlanner({
   courses,
 }: {
   players: PlannerPlayer[];
-  courses: KnownCourse[];
+  courses: PlannerCourse[];
 }) {
   const [selected, setSelected] = useState<number[]>([]);
   const [courseIndex, setCourseIndex] = useState<number | null>(null);
@@ -57,6 +62,10 @@ export function StrokesPlanner({
     ? matchStrokes(
         chosen.map((player) => player.indexT ?? 0),
         mode,
+        // Sans rating confirmée : l'index arrondi (courseHandicap sans parcours).
+        course.rating.rated
+          ? { ratingT: course.rating.ratingT, slope: course.rating.slope, par: course.par }
+          : undefined,
       )
     : [];
 
@@ -119,6 +128,18 @@ export function StrokesPlanner({
             ))}
           </NativeSelect>
         </Field>
+        {/* Rating du parcours choisi, lien vers la page Parcours (spec `match-strokes`). */}
+        {course ? (
+          <Link
+            href="/courses"
+            data-testid="course-rating"
+            className={cn(ACTION_LINK, "-mt-2 w-fit text-sm")}
+          >
+            {course.rating.rated
+              ? `Rating ${formatTenths(course.rating.ratingT)} · slope ${course.rating.slope}`
+              : "sans rating"}
+          </Link>
+        ) : null}
         <FieldSet>
           <FieldLegend variant="label">Mode</FieldLegend>
           <div className="flex gap-2">

@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { referenceRound, seedRound } from "./data";
 import { expect, test } from "./fixtures";
+import { planGabAndManuOnBethpage } from "./strokes";
 
 const ALL_BUT_3 = "Trous : 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18";
 const ALL_BUT_3_AND_14 = "Trous : 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18";
@@ -22,10 +23,10 @@ test("Gab et Manu sur Bethpage Black / Red : Écart 0 et 16, Complet 1 et 17, tr
   players,
 }) => {
   seedRound(referenceRound(players));
-  await page.goto("/strokes");
-  await page.getByRole("checkbox", { name: /^Gab/ }).check();
-  await page.getByRole("checkbox", { name: /^Manu/ }).check();
-  await page.getByLabel("Parcours").selectOption({ label: "Bethpage Black / Red" });
+  await planGabAndManuOnBethpage(page);
+  // Spec `match-strokes`, « Parcours sans rating ». Mutation : mention absente ou lien ailleurs.
+  await expect(page.getByTestId("course-rating")).toHaveText("sans rating");
+  await expect(page.getByTestId("course-rating")).toHaveAttribute("href", "/courses");
 
   await expect(page.getByRole("radio", { name: "Écart" })).toBeChecked();
   await expect(result(page, "Gab").getByTestId("strokes-total")).toHaveText("Gab reçoit 0 coup");

@@ -5,9 +5,9 @@ import { PageTitle } from "@/components/page-title";
 import { DeleteRound } from "@/components/rounds/delete-round";
 import { NetLeaderboard } from "@/components/rounds/net-leaderboard";
 import { buttonVariants } from "@/components/ui/button";
-import { formatPlayedOn } from "@/lib/format";
+import { formatPlayedOn, formatTenths } from "@/lib/format";
 import { requestDb } from "@/lib/request-db";
-import { cn } from "@/lib/utils";
+import { ACTION_LINK, cn } from "@/lib/utils";
 import { roundDetail } from "@/server/rounds/detail";
 
 export const metadata: Metadata = { title: "Round · Handicaps golf" };
@@ -23,6 +23,16 @@ export default async function RoundPage({ params }: PageProps<"/rounds/[id]">) {
         <p data-testid="round-summary" className="text-muted-foreground">
           Tees {round.tees} · {formatPlayedOn(round.playedOn)} · Par {round.par}
         </p>
+        {/* Rating des différentiels et du classement net, lien vers la page Parcours (spec `rounds`). */}
+        <Link
+          href="/courses"
+          data-testid="round-rating"
+          className={cn(ACTION_LINK, "w-fit text-sm")}
+        >
+          {round.rating.rated
+            ? `Rating ${formatTenths(round.rating.ratingT)} · slope ${round.rating.slope}`
+            : `Sans rating (par ${round.par}, slope 113)`}
+        </Link>
       </div>
       <div
         className={cn("grid grid-cols-1 gap-4 lg:items-start", round.photoPath && "lg:grid-cols-2")}

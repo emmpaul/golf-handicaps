@@ -51,6 +51,7 @@ Migration `0004` :
 | `source` | `sgt` ou `manual`, `null` sans valeur confirmée |
 | `status` | `pending`, `proposed`, `choose_course`, `choose_tee`, `manual`, `not_found`, `failed`, `confirmed` |
 | `sgt_course_id` | parcours SGT retenu, `null` sinon |
+| `sgt_course_name`, `sgt_course_location` | nom et lieu SGT du parcours retenu (slug The Course View, affichage de la confirmation), `null` sans parcours retenu |
 | `candidates` | JSON : parcours SGT possibles `{id, name, location, par}[]` (`choose_course`) |
 | `tees_read` | JSON : tees lus sur la carte SGT `{name, ratingT, slope}[]` |
 | `proposed_tee` | tee de `tees_read` qui correspond aux tees du round |
@@ -59,14 +60,14 @@ Migration `0004` :
 
 Les valeurs proposées vivent dans `tees_read` : seule la confirmation écrit `rating_t` et `slope`, donc aucun calcul n'utilise une valeur non vérifiée. Une ligne `confirmed` corrigée à la main reste `confirmed` avec `source = manual`.
 
-`ratingFor(tx, courseName, tees)` (`src/server/courses/ratings.ts`) renvoie `{ ratingT, slope, rated }` pour la paire, avec le repli de la décision 1. `recomputePlayerStats` et le classement net l'appellent pour chaque round.
+`ratingFor(tx, courseName, tees, par)` (`src/server/courses/ratings.ts`) renvoie `{ ratingT, slope, rated }` pour la paire, avec le repli de la décision 1 sur le `par` total du round (`ratingT = par × 10`, `slope = 113`). `recomputePlayerStats` et le classement net l'appellent pour chaque round.
 
 ### 3. Job `course-rating` dans le worker
 
 Payload `{ courseRatingId }`. Étapes :
 
-1. Charger la liste SGT (décision 4). Erreur réseau ou JSON absent → exception ; le runner réessaie une fois, puis `onFailed` met `status = failed`, `note = "SGT injoignable"`.
-2. Correspondance (décision 4). Aucune → `not_found`. Plusieurs → `choose_course` avec `candidates`. Une → `sgt_course_id`.
+1. Lire le par total du round le plus récent de la paire. Sans round sur la paire (supprimé ou renommé depuis) → `manual`, note « Aucun round sur ce parcours », sans requête ni exception. Charger la liste SGT (décision 4). Erreur réseau ou JSON absent → exception ; le runner réessaie une fois, puis `onFailed` met `status = failed`, `note = "SGT injoignable"`.
+2. Correspondance (décision 4). Aucune → `not_found`. Plusieurs → `choose_course` avec `candidates`. Une → `sgt_course_id`, `sgt_course_name` et `sgt_course_location`.
 3. Sans IA, ou budget insuffisant pour `MAX_RATING_COST` → `manual` avec la note (« Lecture IA désactivée » ou « Budget IA du mois atteint ») ; la page donne le lien de la carte SGT.
 4. Télécharger `scorecard_{id}.jpg` et le lire avec `ClaudeRatingReader` (décision 5). Enregistrer l'usage, même en cas d'échec. Erreur, refus ou réponse invalide → `manual`, note « Lecture IA impossible ».
 5. Associer le tee (décision 4). Trouvé → `proposed` avec `proposed_tee`. Sinon → `choose_tee`.
@@ -75,9 +76,9 @@ Le job n'écrit jamais `rating_t` / `slope`. Il est mis en file :
 
 - à l'enregistrement d'un round (création ou correction) dont la paire (nom, tees) n'a pas encore de ligne : `saveRound` insère la ligne `pending` et le job dans la même transaction ;
 - au démarrage du web, après les migrations : une ligne `pending` et un job par paire de `knownCourses` sans ligne (les rounds existants) ;
-- par « Relancer la recherche » et par le choix d'un candidat SGT (l'étape 2 est alors sautée).
+- par « Relancer la recherche » (id, nom et lieu SGT effacés) et par le choix d'un candidat SGT (id, nom et lieu du candidat écrits ; l'étape 2 est alors sautée).
 
-Variable `SGT_LOOKUP` du worker (`on` par défaut, `off` possible, validée dans `src/lib/env.ts`) : à `off`, le job s'arrête avant l'étape 1 avec `status = manual` et la note « Recherche SGT désactivée ». Les e2e et la CI la mettent à `off`, pour ne jamais appeler SGT ; un groupe auto-hébergé qui ne veut aucune requête sortante fait de même.
+Variable `SGT_LOOKUP` du worker (`on` par défaut, `off` possible, validée dans `src/lib/env.ts`) : à `off`, le job s'arrête avant l'étape 1 avec `status = manual` et la note « Recherche SGT désactivée ». Les e2e et la CI la mettent à `off`, pour ne jamais appeler SGT ; un groupe auto-hébergé qui ne veut aucune requête sortante fait de même. `createJobHandlers` sans options désactive aussi la recherche : seul `src/worker.ts` passe `SGT_LOOKUP`, et un test ou un script qui crée les gestionnaires n'appelle jamais SGT.
 
 Alternative écartée : faire la recherche dans la requête web d'enregistrement. Elle ajoute jusqu'à une minute d'appel IA à l'enregistrement d'un round, et le web n'a pas la clé IA (`golf-web` ne reçoit pas `ANTHROPIC_API_KEY`).
 
@@ -117,7 +118,7 @@ La spec `app-shell` fixe cinq sections et la barre du bas est pleine à 320 px. 
 
 - [SGT change le format de sa page ou de ses cartes] → la validation zod échoue, la ligne passe `failed` avec « SGT injoignable » ou `manual`, et la saisie manuelle reste possible. Test de parsing sur une copie réduite de la page dans `tests/fixtures/sgt/`.
 - [Récupérer des données de SGT sans accord explicite] → une requête par parcours nouveau, avec un `User-Agent` qui nomme l'app, liste gardée 24 h ; le volume du groupe est de quelques parcours par mois. Si SGT le demande, le job s'arrête à l'étape 2 et la saisie manuelle reste.
-- [Mauvais parcours SGT homonyme] → par identique exigé, et la confirmation montre le nom SGT, le lieu et le lien de la carte.
+- [Mauvais parcours SGT homonyme] → par identique exigé, et la page Parcours montre « SGT : <nom> · <lieu> » à côté du lien de la carte.
 - [Lecture IA fausse] → rien n'est utilisé sans confirmation ; la page montre l'image SGT à côté des valeurs.
 - [Les nombres de la prod changent d'un coup] → voulu ; changement **BREAKING** dans le CHANGELOG (`feat!:` ou note), et chaque confirmation est un acte explicite, parcours par parcours.
 - [« Blue » et « Blue 6212yd » sont deux parcours] → chacun a sa ligne et sa confirmation ; la fusion des tees reste hors périmètre.
@@ -128,4 +129,4 @@ La spec `app-shell` fixe cinq sections et la barre du bas est pleine à 320 px. 
 1. Déployer : le web applique `0004`, puis met en file un job par paire existante (6 en prod). Le worker passe `EXPECTED_SCHEMA_VERSION` à la nouvelle version.
 2. Tant que rien n'est confirmé, tous les nombres restent identiques (décision 1).
 3. Ouvrir `/courses`, vérifier chaque proposition contre la carte SGT et confirmer.
-4. Retour arrière : redéployer l'image précédente. La table `course_ratings` reste et est ignorée ; `player_round_stats` est recalculée au prochain enregistrement de round. Pour tout recalculer tout de suite, supprimer les valeurs confirmées avant de revenir en arrière.
+4. Retour arrière : redéployer l'image précédente, sans autre étape. La migration `0004` n'ajoute que la table `course_ratings`, que l'ancienne version ignore. Les classements nets reviennent tout de suite à l'index arrondi, car ils sont calculés à l'affichage. Les différentiels et index, eux, sont stockés par joueur, et l'ancienne version ne recalcule l'historique d'un joueur qu'à l'enregistrement, la correction ou la suppression d'un de ses rounds : d'ici là, un joueur qui a joué un parcours confirmé garde les différentiels et index calculés avec sa rating.

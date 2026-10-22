@@ -3,6 +3,7 @@ import sharp from "sharp";
 import {
   referenceRound,
   seedFailedImport,
+  seedProposedBethpageRed,
   seedReadyImport,
   seedRound,
   setImportCreatedAt,
@@ -156,14 +157,17 @@ appTest.describe("cibles tactiles sur iPhone", () => {
   );
 
   appTest(
-    "aucun contrôle visible d'Importer, Joueurs, Coups et de la correction ne fait moins de 44 px",
-    async ({ page }) => {
+    "aucun contrôle visible d'Importer, Joueurs, Coups, Parcours et de la correction ne fait moins de 44 px",
+    async ({ page, players }) => {
       const readyId = seedReadyImport();
       seedFailedImport();
+      seedProposedBethpageRed();
+      seedRound(referenceRound(players));
       const pages: Record<string, () => Promise<unknown>> = {
         "/import": () => expect(page.getByRole("link", { name: "Vérifier" })).toBeVisible(),
         "/players": () => expect(page.getByLabel("Nouveau joueur")).toBeVisible(),
         "/strokes": () => expect(page.getByLabel("Parcours", { exact: true })).toBeVisible(),
+        "/courses": () => expect(page.getByRole("button", { name: /^Confirmer/ })).toBeVisible(),
         [`/imports/${readyId}`]: () =>
           expect(page.getByRole("img", { name: "Carte importée" })).toBeVisible(),
       };
@@ -179,6 +183,7 @@ appTest.describe("cibles tactiles sur iPhone", () => {
         "/import": [],
         "/players": [],
         "/strokes": [],
+        "/courses": [],
         [`/imports/${readyId}`]: [],
       });
     },
@@ -289,6 +294,13 @@ appTest.describe("section courante", () => {
     expect(await currentLinks(page)).toEqual(["Rounds"]);
   });
 
+  // Spec `course-rating`, « Navigation ». Mutation : `/courses` absent de `SECTION_PREFIXES`.
+  appTest("sur la page Parcours, seul « Rounds » est marqué", async ({ page }) => {
+    await page.goto("/courses");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Parcours");
+    expect(await currentLinks(page)).toEqual(["Rounds"]);
+  });
+
   appTest("sur la correction d'un import, seul « Importer » est marqué", async ({ page }) => {
     await page.goto(`/imports/${seedReadyImport()}`);
     await expect(page.getByLabel("Parcours", { exact: true })).toBeVisible();
@@ -396,6 +408,8 @@ appTest.describe("rien de coupé sur téléphone", () => {
       `à ${width} px, aucune page, ni le calendrier ni le dialogue, n'élargit la page`,
       async ({ page, players }) => {
         await page.setViewportSize({ width, height });
+        // Une proposition à confirmer : la carte la plus chargée de la page Parcours.
+        seedProposedBethpageRed();
         const roundId = seedRound(referenceRound(players));
         const importId = seedReadyImport();
         seedFailedImport();
@@ -419,6 +433,7 @@ appTest.describe("rien de coupé sur téléphone", () => {
           ["/players"],
           ["/handicaps"],
           ["/strokes"],
+          ["/courses"],
         ];
         for (const [path, open] of pages) {
           await page.goto(path);

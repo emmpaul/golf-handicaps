@@ -4,6 +4,8 @@ import {
   AI_MODEL,
   LOCATE_MAX_INPUT_TOKENS,
   LOCATE_MAX_TOKENS,
+  RATING_MAX_INPUT_TOKENS,
+  RATING_MAX_TOKENS,
 } from "./model";
 
 /** Tarifs en micro-dollars par token (= $ par million de tokens). */
@@ -32,4 +34,10 @@ export const MAX_CALL_COST = callCost(AI_MODEL, {
 export const MAX_LOCATE_COST = callCost(AI_MODEL, {
   input_tokens: LOCATE_MAX_INPUT_TOKENS,
   output_tokens: LOCATE_MAX_TOKENS,
+});
+
+/** Coût de la pire lecture de carte SGT, réservé avant de lire la rating et le slope. */
+export const MAX_RATING_COST = callCost(AI_MODEL, {
+  input_tokens: RATING_MAX_INPUT_TOKENS,
+  output_tokens: RATING_MAX_TOKENS,
 });

@@ -178,3 +178,61 @@ export const jobs = sqliteTable(
   },
   (t) => [index("jobs_status_run_after_idx").on(t.status, t.runAfter)],
 );
+
+export const courseRatingStatuses = [
+  "pending",
+  "proposed",
+  "choose_course",
+  "choose_tee",
+  "manual",
+  "not_found",
+  "failed",
+  "confirmed",
+] as const;
+
+export const courseRatingSources = ["sgt", "manual"] as const;
+
+/**
+ * Course rating et slope d'un parcours, une ligne par paire (nom, tees) sans tenir compte de
+ * la casse ni des espaces (design `add-course-rating`, décision 2). Seuls `rating_t` et `slope`,
+ * écrits à la confirmation, entrent dans les calculs ; la proposition vit dans `tees_read`.
+ */
+export const courseRatings = sqliteTable(
+  "course_ratings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** Nom et tees tels que vus sur le premier round de la paire. */
+    courseName: text("course_name").notNull(),
+    tees: text("tees").notNull(),
+    /** Rating confirmée en dixièmes (71,4 → 714), `null` tant que rien n'est confirmé. */
+    ratingT: integer("rating_t"),
+    slope: integer("slope"),
+    source: text("source", { enum: courseRatingSources }),
+    status: text("status", { enum: courseRatingStatuses }).notNull().default("pending"),
+    /** Parcours SGT retenu : id, nom et lieu (lien The Course View, confirmation). */
+    sgtCourseId: integer("sgt_course_id"),
+    sgtCourseName: text("sgt_course_name"),
+    sgtCourseLocation: text("sgt_course_location"),
+    /** Parcours SGT possibles (`choose_course`). */
+    candidates: text("candidates", { mode: "json" }).$type<
+      { id: number; name: string; location: string; par: number }[]
+    >(),
+    /** Tees lus sur la carte SGT. */
+    teesRead: text("tees_read", { mode: "json" }).$type<
+      { name: string; ratingT: number; slope: number }[]
+    >(),
+    /** Tee de `tees_read` qui correspond aux tees du round. */
+    proposedTee: text("proposed_tee"),
+    /** Raison affichée (« Budget IA du mois atteint », « SGT injoignable »…). */
+    note: text("note"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex("course_ratings_course_tees_unique").on(
+      sql`lower(trim(${t.courseName}))`,
+      sql`lower(trim(${t.tees}))`,
+    ),
+  ],
+);

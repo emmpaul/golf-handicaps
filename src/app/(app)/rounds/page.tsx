@@ -15,9 +15,14 @@ export default async function RoundsPage() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTitle>Rounds</PageTitle>
-        <Link href="/rounds/new" className={cn(ACTION_LINK, "text-sm")}>
-          Saisie manuelle
-        </Link>
+        <div className="flex flex-wrap gap-x-4">
+          <Link href="/courses" className={cn(ACTION_LINK, "text-sm")}>
+            Parcours
+          </Link>
+          <Link href="/rounds/new" className={cn(ACTION_LINK, "text-sm")}>
+            Saisie manuelle
+          </Link>
+        </div>
       </div>
       {rounds.length === 0 ? (
         <p className="text-muted-foreground">Aucun round enregistré.</p>

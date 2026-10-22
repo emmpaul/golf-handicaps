@@ -53,6 +53,21 @@ test(
   },
 );
 
+// Spec `rounds`, « Round sans rating » et « Round avec rating » ; spec `course-rating`,
+// « Navigation ». Mutation : par en dur, ligne absente ou lien vers une autre page.
+test("sans rating confirmée, le round affiche « Sans rating (par 71, slope 113) » et mène aux Parcours", async ({
+  page,
+  players,
+}) => {
+  const id = seedRound(referenceRound(players));
+  await page.goto(`/rounds/${id}`);
+  const rating = page.getByTestId("round-rating");
+  await expect(rating).toHaveText("Sans rating (par 71, slope 113)");
+  await rating.click();
+  await page.waitForURL("**/courses");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Parcours");
+});
+
 test("un joueur sans index n'a ni net ni rang : « — » et « pas encore d'index »", async ({
   page,
   players,
