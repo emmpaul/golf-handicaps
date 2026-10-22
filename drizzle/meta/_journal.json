@@ -29,6 +29,13 @@
       "when": 1792324813948,
       "tag": "0003_auto_detect_corners",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792624190600,
+      "tag": "0004_course_ratings",
+      "breakpoints": true
     }
   ]
 }

@@ -61,7 +61,8 @@ export default defineConfig({
       wait: { stdout: /\[worker\] Démarré/ },
       reuseExistingServer: false,
       timeout: 60_000,
-      env: serverEnv,
+      // Les e2e n'appellent jamais Simulator Golf Tour (design `add-course-rating`, décision 3).
+      env: { ...serverEnv, SGT_LOOKUP: "off" },
     },
   ],
 });

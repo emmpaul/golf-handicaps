@@ -33,6 +33,11 @@ describe("adjustedScore", () => {
   });
 });
 
+/** Repli sans rating confirmée : course rating = par total (71), slope 113. */
+const unrated = { ratingT: 710, slope: 113 };
+/** Bethpage Black / Red confirmé : rating 71,4, slope 144. */
+const bethpageRed = { ratingT: 714, slope: 144 };
+
 describe("differentialTenths", () => {
   // Mutation : différentiel en unités (1, 17) au lieu de dixièmes, ou brut au lieu d'ajusté.
   it.each([
@@ -45,6 +50,20 @@ describe("differentialTenths", () => {
     },
     { name: "un round sous le par", strokes: [3, ...scores.gab.slice(1)], expected: -10 },
   ])("$name obtient $expected dixièmes sur la carte de référence", ({ strokes, expected }) => {
-    expect(differentialTenths(strokes, pars)).toBe(expected);
+    expect(differentialTenths(strokes, pars, unrated)).toBe(expected);
   });
+});
+
+describe("differentialTenths avec rating", () => {
+  // Mutations : slope et 113 inversés (8 et 189), rating ignorée (10 et 170 au lieu de 5 et 130),
+  // Math.floor sans + 0,5 (4 pour Gab).
+  it.each([
+    { name: "Gab", strokes: scores.gab, expected: 5 },
+    { name: "Manu", strokes: scores.manu, expected: 130 },
+  ])(
+    "$name obtient $expected dixièmes sur Bethpage Black / Red (71,4 / 144)",
+    ({ strokes, expected }) => {
+      expect(differentialTenths(strokes, pars, bethpageRed)).toBe(expected);
+    },
+  );
 });

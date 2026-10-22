@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { type Db, openDatabase } from "../../src/db/client";
 import { prepareDatabase } from "../../src/db/prepare";
-import { imports, rounds } from "../../src/db/schema";
+import { courseRatings, imports, rounds } from "../../src/db/schema";
 import type { ImportStatus } from "../../src/jobs/imports";
 import type { RoundForm } from "../../src/scorecard/checks";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
@@ -16,6 +16,7 @@ import referenceDraft from "../fixtures/scorecards/gspro-img3064.draft.json";
 /** Tables vidées entre deux tests, enfants avant parents. */
 const TABLES = [
   "jobs",
+  "course_ratings",
   "imports",
   "player_round_stats",
   "scores",
@@ -123,12 +124,15 @@ export function referenceRound(
 const REFERENCE_PARS = referenceDraft.par.holes;
 
 /**
- * Scores sur la carte de référence (par 71) pour `over` coups au-dessus du par (0 à 36) :
- * un coup de plus sur chacun des `over` premiers trous, deux au-delà de 18.
+ * Scores sur la carte de référence (par 71) pour `over` coups au-dessus du par (−18 à 36) :
+ * un coup de plus sur chacun des `over` premiers trous, deux au-delà de 18 ; sous le par, un
+ * coup de moins sur chacun des `−over` premiers trous.
  */
 export function scoresOverPar(over: number) {
-  const holes = REFERENCE_PARS.map(
-    (par, hole) => par + (hole < over ? 1 : 0) + (hole < over - 18 ? 1 : 0),
+  const holes = REFERENCE_PARS.map((par, hole) =>
+    over < 0
+      ? par - (hole < -over ? 1 : 0)
+      : par + (hole < over ? 1 : 0) + (hole < over - 18 ? 1 : 0),
   );
   const out = holes.slice(0, 9).reduce((total, value) => total + value, 0);
   return { holes, out, in: 71 + over - out, total: 71 + over };
@@ -217,4 +221,40 @@ export function importCorners(id: number) {
 /** Change l'état d'un import en base, comme le ferait le worker. */
 export function setImportStatus(id: number, status: ImportStatus) {
   withDb((db) => db.update(imports).set({ status }).where(eq(imports.id, id)).run());
+}
+
+/** Tees lus sur la carte SGT de Bethpage Black (id 30), en dixièmes (design, Context). */
+const BETHPAGE_TEES = (
+  [
+    ["Blue", 775, 155],
+    ["White", 742, 148],
+    ["Red", 714, 144],
+    ["Junior", 710, 120],
+    ["PAR3", 540, 120],
+  ] as const
+).map(([name, ratingT, slope]) => ({ name, ratingT, slope }));
+
+/**
+ * Ligne de rating « proposed » de « Bethpage Black / Red » (tee Red, 71,4 / 144), comme la
+ * laisse le job `course-rating` après lecture de la carte SGT 30 « Bethpage Black » (Farmingdale,
+ * NY, comme dans `tests/fixtures/sgt/courses.html`). À appeler avant `seedRound` :
+ * le round trouve la ligne et ne met aucune recherche en file. Renvoie son id.
+ */
+export function seedProposedBethpageRed(): number {
+  return withDb((db) =>
+    db
+      .insert(courseRatings)
+      .values({
+        courseName: "Bethpage Black",
+        tees: "Red",
+        status: "proposed",
+        sgtCourseId: 30,
+        sgtCourseName: "Bethpage Black",
+        sgtCourseLocation: "Farmingdale, NY",
+        teesRead: BETHPAGE_TEES,
+        proposedTee: "Red",
+      })
+      .returning({ id: courseRatings.id })
+      .get(),
+  ).id;
 }

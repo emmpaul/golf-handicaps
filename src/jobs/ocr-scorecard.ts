@@ -11,6 +11,12 @@ import type { GrayImage } from "@/ocr/image";
 import { readScorecard, readScorecardPanel, type ScorecardReading } from "@/ocr/read-scorecard";
 import { checkDraft } from "@/scorecard/checks";
 import type { ScorecardDraft } from "@/scorecard/draft";
+import { SgtClient } from "@/server/courses/sgt";
+import {
+  COURSE_RATING_JOB,
+  type CourseRatingOptions,
+  createCourseRatingHandler,
+} from "./course-rating";
 import { type ImportStatus, OCR_SCORECARD_JOB, type OcrScorecardPayload } from "./imports";
 import { type AiFallback, locatePanel, recordUsage } from "./locate-panel";
 import type { JobHandlers } from "./runner";
@@ -29,6 +35,8 @@ export type JobHandlerOptions = {
   ai?: AiFallback | null;
   /** Horloge du budget mensuel. */
   now?: () => Date;
+  /** Recherche de rating sur SGT ; par défaut désactivée (`lookup: false`), sans IA. */
+  courseRating?: Omit<CourseRatingOptions, "now">;
 };
 
 type ImportValues = {
@@ -78,7 +86,8 @@ async function complete(
  * enregistre le brouillon, complété par l'IA en repli : « Lecture en cours », puis « Prêt à
  * vérifier », ou « Échec ». Sans cadrage trouvé, l'import passe en « Échec » sans coins
  * (« Panneau introuvable ») et le job se termine sans lever : une relance donnerait le même
- * résultat, et un second appel IA coûterait pour rien.
+ * résultat, et un second appel IA coûterait pour rien. `course-rating` cherche la rating d'un
+ * parcours sur SGT (`./course-rating`).
  */
 export function createJobHandlers(
   db: Db,
@@ -89,6 +98,8 @@ export function createJobHandlers(
     readPanel = readScorecardPanel,
     ai = null,
     now = () => new Date(),
+    // Sans options, aucune requête vers SGT : seul le worker active la recherche (`SGT_LOOKUP`).
+    courseRating = { sgt: new SgtClient(), ai: null, lookup: false },
   }: JobHandlerOptions = {},
 ): JobHandlers {
   /** Lecture selon les coins de l'import, ou selon le cadrage trouvé ; `null` sans cadrage. */
@@ -127,5 +138,6 @@ export function createJobHandlers(
         setImport(db, (payload as OcrScorecardPayload).importId, { status: "failed" });
       },
     },
+    [COURSE_RATING_JOB]: createCourseRatingHandler(db, { ...courseRating, now }),
   };
 }

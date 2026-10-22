@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ImportNotFoundError, RoundCheckError, saveRound } from "@/server/rounds/save";
-import { referenceForm, seededTestDbPerTest } from "../../factories";
+import { referenceForm, roundForm, seededTestDbPerTest, strokesOverPar } from "../../factories";
 
 const testDb = seededTestDbPerTest();
 
@@ -127,5 +127,63 @@ describe("saveRound — refus", () => {
       /FOREIGN KEY constraint failed/,
     );
     expect(roundCount()).toBe(0);
+  });
+});
+
+/** Lignes de `course_ratings` et jobs en file, dans l'ordre d'insertion. */
+const ratingRows = () =>
+  all("SELECT id, course_name, tees, status, rating_t, slope FROM course_ratings ORDER BY id");
+const jobRows = () =>
+  (all("SELECT type, payload, status FROM jobs ORDER BY id") as { payload: string }[]).map(
+    (row) => ({ ...row, payload: JSON.parse(row.payload) }),
+  );
+
+describe("saveRound — recherche de rating", () => {
+  // Mutation : aucune ligne insérée, statut autre que `pending`, job d'un autre type ou sans
+  // `courseRatingId`.
+  it("insère une ligne pending et un job course-rating pour une paire sans ligne", () => {
+    saveRound(testDb.db, referenceForm([testDb.ids.Gab, testDb.ids.Manu]));
+    const rows = ratingRows();
+    expect(rows).toEqual([
+      {
+        id: expect.any(Number),
+        course_name: "BETHPAGE BLACK",
+        tees: "Red",
+        status: "pending",
+        rating_t: null,
+        slope: null,
+      },
+    ]);
+    expect(jobRows()).toEqual([
+      {
+        type: "course-rating",
+        payload: { courseRatingId: (rows[0] as { id: number }).id },
+        status: "queued",
+      },
+    ]);
+  });
+
+  // Mutation : job mis en file même quand la ligne existe déjà (onConflictDoNothing ignoré).
+  it("n'ajoute ni ligne ni job pour un deuxième round sur la même paire, en autre casse", () => {
+    const { Gab, Manu } = testDb.ids;
+    saveRound(testDb.db, referenceForm([Gab, Manu]));
+    saveRound(
+      testDb.db,
+      roundForm("2026-10-18", [{ playerId: Gab, strokes: strokesOverPar(3) }], {
+        courseName: " bethpage black ",
+        tees: "RED",
+      }),
+    );
+    expect(ratingRows()).toHaveLength(1);
+    expect(jobRows()).toHaveLength(1);
+  });
+
+  // Mutation : mise en file hors de la transaction du round (avant elle).
+  it("ne met rien en file quand l'écriture du round échoue", () => {
+    expect(() => saveRound(testDb.db, referenceForm([testDb.ids.Gab, 999]))).toThrow(
+      /FOREIGN KEY constraint failed/,
+    );
+    expect(ratingRows()).toEqual([]);
+    expect(jobRows()).toEqual([]);
   });
 });

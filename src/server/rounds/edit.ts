@@ -2,7 +2,13 @@ import { asc, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { imports, players, roundHoles, roundPlayers, rounds, scores } from "@/db/schema";
 import { type RoundForm, withTotals } from "@/scorecard/checks";
-import { assertCoherent, formPlayerIds, roundColumns, writeRoundCard } from "./save";
+import {
+  assertCoherent,
+  enqueueRoundCourse,
+  formPlayerIds,
+  roundColumns,
+  writeRoundCard,
+} from "./save";
 import { recomputeStats, type Tx } from "./stats";
 
 export class RoundNotFoundError extends Error {
@@ -68,7 +74,8 @@ export function getRoundForm(db: Db, roundId: number): RoundForm {
 
 /**
  * Corrige un round (mêmes contrôles que l'import), puis recalcule les stats des joueurs
- * du round avant et après la correction, dans la même transaction.
+ * du round avant et après la correction, dans la même transaction. Un nouveau parcours ou de
+ * nouveaux tees mettent leur recherche de rating en file.
  */
 export function updateRound(db: Db, roundId: number, form: RoundForm) {
   assertCoherent(form);
@@ -81,6 +88,7 @@ export function updateRound(db: Db, roundId: number, form: RoundForm) {
     tx.delete(roundHoles).where(eq(roundHoles.roundId, roundId)).run();
     writeRoundCard(tx, roundId, form);
     recomputeStats(tx, [...previous, ...formPlayerIds(form)]);
+    enqueueRoundCourse(tx, form);
   });
 }
 
