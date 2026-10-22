@@ -20,6 +20,7 @@ The image holds no secret: everything comes from the environment at startup. The
 3. Create the `golf-worker` application:
    - same image, **same host**, **same volume** `golf-data:/data`, same variables;
    - plus `ANTHROPIC_API_KEY`, `AI_MONTHLY_BUDGET_USD` and `AI_BUDGET_TIME_ZONE` if you want the [AI fallback](ai-fallback.md);
+   - `SGT_LOOKUP=off` if the worker must make no request to Simulator Golf Tour (see [Outgoing requests](#outgoing-requests));
    - command `node worker.js`, no port, no domain;
    - the health check from [Worker health](#worker-health).
 
@@ -30,6 +31,17 @@ The image holds no secret: everything comes from the environment at startup. The
 By hand in Dokploy. Pick the tag (`vX.Y.Z`, or keep `latest`), then redeploy **both** applications, `golf-web` and `golf-worker`.
 
 The web process applies migrations at startup. On a database with no player, it creates the players listed in `INITIAL_PLAYERS`, or none if the variable is missing or empty. A database that already has players is left alone, so `INITIAL_PLAYERS` does nothing on an existing install. The worker waits until the migrations are in the database.
+
+## Outgoing requests
+
+The web process makes no outgoing request. The worker makes two kinds, and only these:
+
+- to `api.anthropic.com`, when `ANTHROPIC_API_KEY` is set (see [AI fallback](ai-fallback.md));
+- to `simulatorgolftour.com`, when `SGT_LOOKUP` is `on`, the default: the course list page `https://simulatorgolftour.com/courses` (about 665 KB, kept in the worker's memory for 24 h) and one scorecard image per course searched, `https://simulatorgolftour.com/public/assets/courseImages/scorecards/scorecard_<id>.jpg`. The scorecard is downloaded only when the AI can read it, so a worker without a key fetches the list alone. Each request sends `User-Agent: golf-handicaps (+https://github.com/emmpaul/golf-handicaps)` and gives up after 20 s.
+
+A search starts for each new course and tees, and once at the first startup after the update for the courses already played. That is a handful of requests a month for one group. The worker must be able to reach both hosts over HTTPS. Behind a firewall that blocks them, a failed SGT request is retried once, then the course shows "SGT injoignable" (SGT unreachable) and its rating is entered by hand on `/courses`.
+
+With `SGT_LOOKUP=off` the worker contacts SGT for nothing. Each course search stops with "Recherche SGT désactivée" (SGT lookup off), and ratings are entered by hand. The e2e tests and the CI compose run use `off`.
 
 ## Worker health
 
@@ -57,6 +69,16 @@ In Dokploy, open `golf-worker` → Advanced → Swarm Settings → Health Check,
 ```
 
 Then redeploy `golf-worker`. The command must stay identical to the one in `docker-compose.yml`. If you change the threshold, change `STALE_AFTER_MS` too.
+
+## Course ratings update
+
+The release that adds course ratings (migration `0004`) changes no number by itself:
+
+1. Back up the volume, then redeploy `golf-web` and `golf-worker`. The web applies `0004`, then queues one rating search per known course and tees. Its log shows "Recherches de rating mises en file : N", 6 on the current production database. The worker picks the searches up once it sees the migration.
+2. Until a rating is confirmed, every differential, index, playing handicap and net leaderboard stays the same.
+3. Open `/courses` (the "Parcours" link at the top of the rounds list). Check that the SGT course shown ("SGT : <name> · <location>") is the right one and each proposal matches its SGT scorecard, then confirm it, or enter the values by hand. Each confirmation recomputes the history of every player who played that course, so the numbers change course by course.
+
+To roll back, see [Rollback](#rollback).
 
 ## Check what is running
 
@@ -98,5 +120,7 @@ docker run --rm -v golf-data:/data -v "$PWD":/backup debian:trixie-slim \
 Back up the volume before every deploy. To go back, set the `vX.Y.Z` tag of the previous release on both applications in Dokploy, then redeploy them.
 
 A version without the worker heartbeat (v0.7.0 and earlier) writes no `/tmp/golf-worker-heartbeat`, so its worker would turn `unhealthy` and Swarm would restart it again and again. When you roll back to such a version, remove the health check from `golf-worker` in Dokploy before redeploying it.
+
+Migration `0004` adds the `course_ratings` table and changes nothing else. A previous version ignores it, so the rollback itself needs no step. The numbers are another matter. After a rollback, net leaderboards go back at once to the rounded index, since they are computed at display time. Differentials and indexes are stored per player, and the old version only recomputes a player's history when it saves, corrects or deletes a round with that player. Until then, a player who played a rated course keeps the differentials and indexes computed with its rating.
 
 Migration `0003` rebuilds the `imports` table and makes `corners` optional. An import sent without corners since that deploy and still queued stays stuck after a rollback, because the old worker cannot read it. You would need to write a reverse migration that sets `corners` back to NOT NULL, then re-frame those imports by hand.
