@@ -61,3 +61,6 @@ next-env.d.ts
 
 # Worktrees des agents Claude Code
 .claude/worktrees/
+
+# Playwright MCP (captures et scripts locaux)
+/.playwright-mcp/
