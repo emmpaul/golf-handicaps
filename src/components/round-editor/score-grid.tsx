@@ -1,5 +1,6 @@
 "use client";
 
+import { ScrollFrame } from "@/components/scroll-frame";
 import { cn } from "@/lib/utils";
 import type { DraftValue } from "@/scorecard/draft";
 import { parseCell } from "./form-state";
@@ -79,7 +80,7 @@ function GridCell({
       value={value ?? ""}
       onChange={(event) => onChange(parseCell(event.currentTarget.value))}
       className={cn(
-        "h-9 w-11 rounded-md lg:w-full border border-input bg-transparent px-0.5 text-center text-base tabular-nums outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm",
+        "h-9 w-11 rounded-md lg:w-full border border-input bg-transparent px-0.5 text-center text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm",
         "aria-invalid:border-destructive aria-invalid:bg-destructive/10 aria-invalid:ring-2 aria-invalid:ring-destructive/30",
         readOnly && "border-transparent bg-muted font-medium",
         ai && AI_CELL_CLASS,
@@ -110,11 +111,14 @@ export function ScoreGrid({
   }
 
   return (
-    <div className="max-w-full overflow-x-auto rounded-lg border">
-      <table className="border-separate border-spacing-0.5 p-1 text-sm lg:w-full">
+    <ScrollFrame label="Carte à corriger" labelWidth="6rem">
+      <table className="border-separate border-spacing-0.5 p-1 text-sm tabular-nums lg:w-full">
         <thead>
           <tr>
-            <th scope="col" className="sticky left-0 z-10 bg-background px-2 text-left">
+            <th
+              scope="col"
+              className="sticky left-0 z-10 w-24 min-w-24 max-w-24 truncate bg-background px-2 text-left"
+            >
               Trou
             </th>
             {COLUMNS.map((column) => (
@@ -129,7 +133,7 @@ export function ScoreGrid({
             <tr key={row.key}>
               <th
                 scope="row"
-                className="sticky left-0 z-10 bg-background px-2 text-left font-medium whitespace-nowrap"
+                className="sticky left-0 z-10 w-24 min-w-24 max-w-24 truncate bg-background px-2 text-left font-medium whitespace-nowrap"
               >
                 {row.label}
               </th>
@@ -161,6 +165,6 @@ export function ScoreGrid({
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollFrame>
   );
 }

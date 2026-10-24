@@ -139,3 +139,40 @@ test("supprimer un round importé retire aussi son import de la liste des import
     page.getByRole("list", { name: "Imports" }).getByRole("heading", { level: 3 }),
   ).toHaveText([`Import n°${otherId}`]);
 });
+
+test("round scorecard shows hole scores, totals and marks in a sticky mobile frame", async ({
+  page,
+  players,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/rounds/${seedRound(referenceRound(players))}`);
+  const table = page.getByRole("table", { name: "Carte de score", exact: true });
+  const gab = table
+    .getByRole("row")
+    .filter({ has: page.getByRole("rowheader", { name: "Gab", exact: true }) });
+  const cells = gab.getByRole("cell");
+  await expect(cells.nth(0)).toHaveText("5, bogey");
+  await expect(cells.nth(6).locator('[data-mark="birdie"]')).toHaveText("4, birdie");
+  await expect(cells.nth(0).locator('[data-mark="bogey"]')).toBeVisible();
+  await expect(cells.nth(9)).toHaveText("38");
+  await expect(cells.nth(19)).toHaveText("34");
+  await expect(cells.nth(20)).toHaveText("72");
+  await expect(
+    table
+      .getByRole("row")
+      .filter({ has: page.getByRole("rowheader", { name: "Manu", exact: true }) })
+      .getByRole("cell")
+      .last(),
+  ).toHaveText("88");
+  const frame = page.locator('[data-slot="scroll-viewport"]');
+  await frame.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+  });
+  const bounds = await frame.boundingBox();
+  if (!bounds) throw new Error("Missing bounds bounds");
+  const label = await table.getByRole("rowheader", { name: "Gab", exact: true }).boundingBox();
+  if (!label) throw new Error("Missing label bounds");
+  expect(label.x).toBeGreaterThanOrEqual(bounds.x);
+  expect(label.x + label.width).toBeLessThan(bounds.x + bounds.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

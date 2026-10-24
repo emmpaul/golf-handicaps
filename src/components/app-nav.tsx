@@ -1,37 +1,33 @@
 import { Camera, Flag, ListOrdered, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
+import { BrandMark } from "@/components/brand-mark";
 import { NavLink } from "@/components/nav-link";
 
-/** Sections de l'app, reprises par la navigation et la page d'accueil (qui ignore `icon`). */
+/** Sections de l'app, partagées par les navigations du haut et du bas. */
 export const LINKS = [
   {
     href: "/import",
     label: "Importer",
-    description: "Envoyer la photo d'une carte de score.",
     icon: Camera,
   },
   {
     href: "/rounds",
     label: "Rounds",
-    description: "Rounds enregistrés et classement net.",
     icon: ListOrdered,
   },
   {
     href: "/handicaps",
     label: "Handicaps",
-    description: "Index simulateur et son évolution.",
     icon: TrendingUp,
   },
   {
     href: "/strokes",
     label: "Coups",
-    description: "Coups à donner avant une partie.",
     icon: Flag,
   },
   {
     href: "/players",
     label: "Joueurs",
-    description: "Joueurs du groupe et leurs alias.",
     icon: Users,
   },
 ] as const;
@@ -49,8 +45,11 @@ export function AppNav() {
           aria-label="Navigation principale"
           className="mx-auto flex w-full max-w-7xl items-center gap-1 px-4 py-2"
         >
-          <Link href="/" className="mr-2 shrink-0 font-heading font-semibold">
-            ⛳ Golf
+          <Link
+            href="/"
+            className="mr-2 flex shrink-0 items-center gap-2 font-heading font-semibold"
+          >
+            <BrandMark /> Golf
           </Link>
           {LINKS.map(({ href, label }) => (
             <NavLink
@@ -73,9 +72,14 @@ export function AppNav() {
             <li key={href} className="flex">
               <NavLink
                 href={href}
-                className="flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground"
+                className="group flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground aria-[current=page]:font-medium aria-[current=page]:text-primary"
               >
-                <Icon aria-hidden className="size-5" />
+                <span
+                  data-slot="tab-pill"
+                  className="flex h-7 w-12 items-center justify-center rounded-full group-aria-[current=page]:bg-primary/12"
+                >
+                  <Icon aria-hidden className="size-5" />
+                </span>
                 {label}
               </NavLink>
             </li>

@@ -93,7 +93,7 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
       </label>
       {/* Champ natif (« Choose File ») remplacé par un bouton ; son nom reste « Photo de la carte ». */}
       <Field>
-        <FieldTitle>Photo de la carte</FieldTitle>
+        <FieldTitle className="sr-only">Photo de la carte</FieldTitle>
         <label className={cn(buttonVariants({ variant: "outline" }), PICK_BUTTON, "md:w-fit")}>
           <ImageIcon aria-hidden="true" />
           Choisir une photo

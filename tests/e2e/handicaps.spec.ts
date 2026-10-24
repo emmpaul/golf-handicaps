@@ -23,11 +23,9 @@ test("index affiché, mention « provisoire », « — » sans round, un point p
   seedRound({ ...both, playedOn: "2026-10-17", players: [both.players[0]] });
 
   await page.goto("/handicaps");
-  await expect(section(page, "Gab").getByTestId("player-index")).toHaveText("Index -1,0");
-  await expect(section(page, "Manu").getByTestId("player-index")).toHaveText(
-    "Index 14,5 (provisoire)",
-  );
-  await expect(section(page, "Sean").getByTestId("player-index")).toHaveText("Index —");
+  await expect(section(page, "Gab").getByTestId("player-index")).toHaveText("-1,0");
+  await expect(section(page, "Manu").getByTestId("player-index")).toHaveText("14,5");
+  await expect(section(page, "Sean").getByTestId("player-index")).toHaveText("pas encore d'index");
 
   const gabCurve = page.getByRole("figure", { name: "Courbe de l'index de Gab" });
   await expect(gabCurve.locator(".recharts-line-dot")).toHaveCount(3);
@@ -62,7 +60,7 @@ test("sur 6 rounds, les 2 meilleurs différentiels sont marqués comme comptant"
     seedRound({ ...round, players: [{ ...round.players[0], scores: scoresOverPar(over) }] });
   }
   await page.goto("/handicaps");
-  await expect(section(page, "Gab").getByTestId("player-index")).toHaveText("Index 12,0");
+  await expect(section(page, "Gab").getByTestId("player-index")).toHaveText("12,0");
   const counted = differentialRows(page, "Gab").filter({ hasText: "Compte" });
   await expect(counted).toHaveCount(2);
   await expect(counted.nth(0).getByRole("cell")).toHaveText(
@@ -73,4 +71,55 @@ test("sur 6 rounds, les 2 meilleurs différentiels sont marqués comme comptant"
     ["2 octobre 2026", "12,0", "14,5", "Compte"],
     VISIBLE_TEXT,
   );
+});
+
+test("mobile player selection persists and desktop shows every player", async ({
+  page,
+  players,
+}) => {
+  seedRound(referenceRound(players, { playedOn: "2026-10-01" }));
+  seedRound(referenceRound(players, { playedOn: "2026-10-17" }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/handicaps");
+  const selector = page.getByRole("navigation", { name: "Choisir un joueur" });
+  await expect(selector.getByRole("link", { name: "Gab" })).toHaveAttribute("aria-current", "page");
+  await expect(section(page, "Gab")).toBeVisible();
+  await expect(section(page, "Manu")).toBeHidden();
+  await expect(section(page, "Sean")).toBeHidden();
+  await expect(section(page, "Gab").getByTestId("player-index")).toHaveText("1,0");
+  await expect(section(page, "Gab").getByTestId("index-delta")).toHaveText("=");
+  await selector.getByRole("link", { name: "Manu" }).click();
+  await expect(page).toHaveURL(new RegExp(`joueur=${players.Manu}$`));
+  await expect(section(page, "Manu")).toBeVisible();
+  await expect(section(page, "Manu").getByTestId("player-index")).toHaveText("17,0");
+  await expect(section(page, "Manu").getByTestId("index-delta")).toHaveText("=");
+  await expect(section(page, "Manu").getByText("provisoire", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(section(page, "Manu")).toBeVisible();
+  await expect(section(page, "Gab")).toBeHidden();
+  await page.goto("/handicaps?joueur=999");
+  await expect(section(page, "Gab")).toBeVisible();
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(selector).toBeHidden();
+  for (const name of ["Gab", "Manu", "Sean"]) await expect(section(page, name)).toBeVisible();
+});
+
+test("at 320px the retained differential date and Compte share a row", async ({
+  page,
+  players,
+}) => {
+  for (const day of [1, 2, 3]) seedRound(referenceRound(players, { playedOn: `2026-10-0${day}` }));
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto("/handicaps");
+  const mark = section(page, "Gab").getByText("Compte", { exact: true }).filter({ visible: true });
+  const date = mark.locator("..").locator("span").first();
+  const a = await mark.boundingBox();
+  if (!a) throw new Error("Missing a bounds");
+  const b = await date.boundingBox();
+  if (!b) throw new Error("Missing b bounds");
+  expect(Math.abs(a.y + a.height / 2 - b.y - b.height / 2)).toBeLessThanOrEqual(2);
+  const table = page.getByRole("table", { name: "Différentiels de Gab" });
+  expect(
+    await table.evaluate((element) => element.getBoundingClientRect().right <= innerWidth),
+  ).toBe(true);
 });

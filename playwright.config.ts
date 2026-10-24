@@ -23,7 +23,7 @@ const serverEnv = {
 
 /** Parcours d'import, de correction et de prise de photo vérifiés aussi sur iPhone. */
 const MOBILE_SPECS =
-  /(access|ai-marking|app-shell|camera-capture|correction-autosave|date-picker|home|loading|mobile)\.spec\.ts$/;
+  /(access|ai-marking|app-shell|camera-capture|correction-autosave|date-picker|home|loading|mobile|theme)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./tests/e2e",

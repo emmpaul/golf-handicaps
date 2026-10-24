@@ -36,7 +36,7 @@ export default async function PlayersPage() {
           className="grid min-w-0 grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3"
         >
           {players.map((player) => (
-            <li key={player.id} className="flex flex-col gap-3 rounded-lg border p-3">
+            <li key={player.id} className="flex flex-col gap-2 rounded-lg border p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <h2 className="font-heading text-lg font-semibold">{player.name}</h2>
                 <span data-testid="player-index" className="text-sm text-muted-foreground">

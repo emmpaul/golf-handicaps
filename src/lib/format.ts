@@ -43,3 +43,9 @@ export function formatIndex(indexT: number | null, provisional: boolean): string
   if (indexT === null) return NO_VALUE;
   return provisional ? `${formatTenths(indexT)} (provisoire)` : formatTenths(indexT);
 }
+
+/** Écart en dixièmes : signe explicite, ou égalité. */
+export function formatSignedTenths(tenths: number): string {
+  if (tenths === 0) return "=";
+  return `${tenths < 0 ? "−" : "+"}${formatTenths(Math.abs(tenths))}`;
+}

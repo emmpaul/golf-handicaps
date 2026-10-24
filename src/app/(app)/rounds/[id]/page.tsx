@@ -4,17 +4,20 @@ import { notFound } from "next/navigation";
 import { PageTitle } from "@/components/page-title";
 import { DeleteRound } from "@/components/rounds/delete-round";
 import { NetLeaderboard } from "@/components/rounds/net-leaderboard";
+import { RoundScorecard } from "@/components/rounds/round-scorecard";
 import { buttonVariants } from "@/components/ui/button";
 import { formatPlayedOn, formatTenths } from "@/lib/format";
 import { requestDb } from "@/lib/request-db";
 import { ACTION_LINK, cn } from "@/lib/utils";
 import { roundDetail } from "@/server/rounds/detail";
+import { getRoundForm } from "@/server/rounds/edit";
 
 export const metadata: Metadata = { title: "Round · Handicaps golf" };
 
 export default async function RoundPage({ params }: PageProps<"/rounds/[id]">) {
   const { id } = await params;
-  const round = /^\d+$/.test(id) ? roundDetail(await requestDb(), Number(id)) : undefined;
+  const db = await requestDb();
+  const round = /^\d+$/.test(id) ? roundDetail(db, Number(id)) : undefined;
   if (!round) notFound();
   return (
     <>
@@ -60,6 +63,7 @@ export default async function RoundPage({ params }: PageProps<"/rounds/[id]">) {
           </a>
         ) : null}
       </div>
+      <RoundScorecard round={getRoundForm(db, round.id)} />
     </>
   );
 }

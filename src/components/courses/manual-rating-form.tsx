@@ -42,10 +42,10 @@ export function ManualRatingForm({
             aria-label={`Rating de ${course}`}
             aria-invalid={invalid}
             defaultValue={defaultRating}
-            placeholder="71,4"
+            placeholder="ex. 71,4"
           />
         </Field>
-        <Field className="w-20" data-invalid={invalid}>
+        <Field className="w-24" data-invalid={invalid}>
           <FieldLabel htmlFor={`slope-${courseId}`}>Slope</FieldLabel>
           <Input
             key={`slope-${state.done}`}
@@ -56,7 +56,7 @@ export function ManualRatingForm({
             aria-label={`Slope de ${course}`}
             aria-invalid={invalid}
             defaultValue={defaultSlope}
-            placeholder="144"
+            placeholder="ex. 144"
           />
         </Field>
         <Button type="submit" variant="outline" disabled={pending}>

@@ -10,8 +10,9 @@ export type ImportListItem = ReturnType<typeof listImports>[number];
 /**
  * Derniers imports, du plus récent au plus ancien, avec leur état affiché. `panelNotFound` :
  * import en « Échec » sans coins, aucun cadrage trouvé sur la photo (design, décision 5).
+ * `limit: -1` lit tous les imports pour compter ceux qui attendent une vérification.
  */
-export function listImports(db: Db) {
+export function listImports(db: Db, limit = LISTED_IMPORTS) {
   return db
     .select({
       id: imports.id,
@@ -22,7 +23,7 @@ export function listImports(db: Db) {
     })
     .from(imports)
     .orderBy(desc(imports.id))
-    .limit(LISTED_IMPORTS)
+    .limit(limit)
     .all()
     .map((row) => ({
       id: row.id,

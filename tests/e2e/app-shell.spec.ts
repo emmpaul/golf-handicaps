@@ -50,7 +50,9 @@ test.describe("installation sur l'écran d'accueil, sans session", () => {
     );
     await expect(page.locator('link[rel="manifest"]')).toHaveCount(1);
     await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
-    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#ffffff");
+    await expect(
+      page.locator('meta[name="theme-color"][media="(prefers-color-scheme: light)"]'),
+    ).toHaveAttribute("content", "#F7F5EF");
   });
 });
 
@@ -259,7 +261,7 @@ appTest.describe("navigation sur iPhone", () => {
       // Gab et Manu à 6 rounds : courbe et table chacun, la page dépasse l'écran.
       seedSixRounds(players);
       await page.goto("/handicaps");
-      await expect(page.getByRole("table", { name: "Différentiels de Manu" })).toBeVisible();
+      await expect(page.getByRole("table", { name: "Différentiels de Gab" })).toBeVisible();
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       const lastBottom = await page
         .getByRole("main")
@@ -491,4 +493,24 @@ appTest.describe("rien de coupé sur téléphone", () => {
       await expect(file).toBeFocused();
     },
   );
+});
+
+appTest("Fairway brand and current tab pill", async ({ page, players }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/rounds/${seedRound(referenceRound(players))}`);
+  const brand = page
+    .getByRole("navigation", { name: "Navigation principale" })
+    .getByRole("link", { name: "Golf", exact: true });
+  await expect(brand).toBeVisible();
+  await expect(brand).not.toContainText("⛳");
+  // Mutation: unconditional bg-primary/12 makes every tab show a pill.
+  const links = sectionsBar(page).getByRole("link");
+  for (const link of await links.all()) {
+    const pill = link.locator('[data-slot="tab-pill"]');
+    await expect(pill).toBeVisible();
+    const background = await pill.evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(background === "rgba(0, 0, 0, 0)").toBe(
+      (await link.getAttribute("aria-current")) !== "page",
+    );
+  }
 });

@@ -30,11 +30,9 @@ export function NetLeaderboard({ entries }: { entries: Entry[] }) {
         {entries.map((entry) => (
           <TableRow key={entry.playerId}>
             <TableCell className="font-medium">{entry.name}</TableCell>
-            <TableCell className="text-right tabular-nums">{entry.gross}</TableCell>
-            <TableCell className="text-right tabular-nums">
-              {orDash(entry.playingHandicap)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
+            <TableCell className="text-right">{entry.gross}</TableCell>
+            <TableCell className="text-right">{orDash(entry.playingHandicap)}</TableCell>
+            <TableCell className="text-right">
               {entry.net === null ? (
                 <>
                   {`${NO_VALUE} `}
@@ -44,7 +42,7 @@ export function NetLeaderboard({ entries }: { entries: Entry[] }) {
                 entry.net
               )}
             </TableCell>
-            <TableCell className="text-right tabular-nums">{orDash(entry.rank)}</TableCell>
+            <TableCell className="text-right">{orDash(entry.rank)}</TableCell>
           </TableRow>
         ))}
       </TableBody>

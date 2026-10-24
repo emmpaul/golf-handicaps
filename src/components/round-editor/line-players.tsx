@@ -35,7 +35,10 @@ function NewPlayerForm({
   }
 
   return (
-    <form onSubmit={(event) => void submit(event)} className="flex basis-full flex-col gap-1">
+    <form
+      onSubmit={(event) => void submit(event)}
+      className="col-span-2 flex min-w-0 flex-col gap-1"
+    >
       <div className="flex gap-2">
         <Input
           name="name"
@@ -90,10 +93,15 @@ function LinePlayer({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-sm font-medium">Ligne {number}</span>
-      {line.name ? <span className="text-sm text-muted-foreground">lu « {line.name} »</span> : null}
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+      <div className="col-span-2 flex flex-wrap items-baseline gap-x-2">
+        <span className="w-16 text-sm font-medium">Ligne {number}</span>
+        {line.name ? (
+          <span className="text-sm text-muted-foreground">lu « {line.name} »</span>
+        ) : null}
+      </div>
       <NativeSelect
+        className="min-w-0 w-full"
         aria-label={`Joueur de la ligne ${number}`}
         aria-invalid={invalid || undefined}
         value={creating ? NEW_PLAYER : (line.playerId ?? "")}
