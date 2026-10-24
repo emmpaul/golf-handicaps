@@ -17,7 +17,8 @@
       "!**/playwright-report",
       "!**/drizzle",
       "!**/migrations",
-      "!src/components/ui"
+      "!src/components/ui",
+      "!.agents/skills"
     ]
   },
   "formatter": {
