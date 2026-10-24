@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/emmpaul/golf-handicaps/compare/v0.7.0...v0.8.0) (2026-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* confirming a course rating changes stored differentials, indexes, playing handicaps and net rankings for every round on that course.
+
+### Features
+
+* harden self-hosting for other groups and hosts ([#41](https://github.com/emmpaul/golf-handicaps/issues/41)) ([208905f](https://github.com/emmpaul/golf-handicaps/commit/208905f63a75cb342c8fb8327f0329bf2efc60a9))
+* rate courses with course rating and slope from SGT ([#47](https://github.com/emmpaul/golf-handicaps/issues/47)) ([75feda0](https://github.com/emmpaul/golf-handicaps/commit/75feda05d142e395a34217fb75d65033a39c5685))
+* **ui:** refresh mobile experience with Fairway theme ([#50](https://github.com/emmpaul/golf-handicaps/issues/50)) ([212a29f](https://github.com/emmpaul/golf-handicaps/commit/212a29f6f59ce2d0f19fd17123acf4a3786f2b07))
+
 ## [0.7.0](https://github.com/emmpaul/golf-handicaps/compare/v0.6.0...v0.7.0) (2026-10-19)
 
 
