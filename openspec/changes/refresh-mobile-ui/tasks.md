@@ -54,4 +54,4 @@
 ## 10. Vérification d'ensemble
 
 - [x] 10.1 `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e`, `pnpm jscpd` passent (`layout-width.spec.ts` couvre toutes les pages à 320 et 390 px).
-- [ ] 10.2 Captures à 390 px, en clair et en sombre, de l'accueil, Importer, la correction, Rounds, un round, Handicaps, Coups, Joueurs et Parcours, jointes à la PR.
+- [x] 10.2 Captures à 390 px, en clair et en sombre, de l'accueil, Importer, la correction, Rounds, un round, Handicaps, Coups, Joueurs et Parcours, jointes à la PR.
