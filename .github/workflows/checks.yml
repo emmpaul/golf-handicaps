@@ -152,6 +152,8 @@ jobs:
           tesseract --version
       - name: Versions exactes
         run: pnpm check:pins
+      - name: Exclude private documents from Git history
+        run: sh scripts/check-private-docs.sh history
       - name: Commitlint
         env:
           FROM: ${{ inputs.commit-from }}

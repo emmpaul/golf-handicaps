@@ -6,6 +6,8 @@
 pre-commit:
   parallel: true
   jobs:
+    - name: private-docs
+      run: sh scripts/check-private-docs.sh index
     - name: biome
       glob: "*.{js,jsx,ts,tsx,mjs,cjs,json,jsonc,css}"
       run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
@@ -23,6 +25,8 @@ commit-msg:
 pre-push:
   parallel: true
   jobs:
+    - name: private-docs
+      run: sh scripts/check-private-docs.sh history
     - name: test
       glob: &code_files
         - "src/**"
