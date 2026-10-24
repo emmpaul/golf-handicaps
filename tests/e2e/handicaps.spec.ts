@@ -119,7 +119,9 @@ test("at 320px the retained differential date and Compte share a row", async ({
   if (!b) throw new Error("Missing b bounds");
   expect(Math.abs(a.y + a.height / 2 - b.y - b.height / 2)).toBeLessThanOrEqual(2);
   const table = page.getByRole("table", { name: "Différentiels de Gab" });
-  expect(
-    await table.evaluate((element) => element.getBoundingClientRect().right <= innerWidth),
-  ).toBe(true);
+  const t = await table.boundingBox();
+  if (!t) throw new Error("Missing table bounds");
+  const wrapper = await table.locator("..").boundingBox();
+  if (!wrapper) throw new Error("Missing wrapper bounds");
+  expect(t.x + t.width).toBeLessThanOrEqual(wrapper.x + wrapper.width);
 });

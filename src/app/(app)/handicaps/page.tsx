@@ -79,12 +79,18 @@ function PlayerHandicap({ player, selected }: { player: PlayerOverview; selected
           />
           <Table
             aria-label={`Différentiels de ${player.name}`}
-            className="max-md:text-xs max-md:[&_td]:px-1 max-md:[&_th]:px-1"
+            className="max-md:text-xs max-md:[&_td]:px-1 max-md:[&_th]:px-1 max-md:[&_th]:whitespace-normal"
           >
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead className="text-right">Différentiel</TableHead>
+                <TableHead className="text-right">
+                  {/* « Différentiel » ne se coupe pas : abrégé sous `md` pour tenir dans 320 px. */}
+                  <span aria-hidden className="md:hidden">
+                    Diff.
+                  </span>
+                  <span className="max-md:sr-only">Différentiel</span>
+                </TableHead>
                 <TableHead className="text-right">Index après</TableHead>
                 <TableHead className="hidden md:table-cell">
                   <span className="sr-only">Retenu dans l'index actuel</span>
