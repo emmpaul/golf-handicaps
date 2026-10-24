@@ -64,3 +64,6 @@ next-env.d.ts
 
 # Playwright MCP (captures et scripts locaux)
 /.playwright-mcp/
+
+# Private reference documents must stay out of this repository.
+/docs/imarcom-core/
