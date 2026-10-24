@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { isoToLocalDate, localDateToIso } from "@/lib/format";
+import { formatSignedTenths, isoToLocalDate, localDateToIso } from "@/lib/format";
 
 const ORIGINAL_TZ = process.env.TZ;
 
@@ -41,4 +41,14 @@ describe("localDateToIso à l'heure de Paris", () => {
   it("garde les zéros de tête du mois et du jour", () => {
     expect(localDateToIso(new Date(2025, 2, 4))).toBe("2025-03-04");
   });
+});
+
+// Mutation: ASCII hyphen instead of U+2212.
+it.each([
+  [3, "+0,3"],
+  [-3, "−0,3"],
+  [0, "="],
+  [158, "+15,8"],
+] as const)("signed tenths %i → %s", (value, expected) => {
+  expect(formatSignedTenths(value)).toBe(expected);
 });

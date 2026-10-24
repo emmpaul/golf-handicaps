@@ -82,7 +82,7 @@ test("confirmer 71,4 / 144 met Manu premier en net (65) et lui donne 21 coups en
       .getByRole("list", { name: "Coups reçus" })
       .getByRole("listitem")
       .getByTestId("strokes-total"),
-  ).toHaveText(["Gab reçoit 0 coup", "Manu reçoit 21 coups"]);
+  ).toHaveText(["Gab ne reçoit aucun coup", "Manu reçoit 21 coups"]);
 });
 
 // Spec `course-rating`, « Valeurs hors bornes ». Mutation : borne du slope à 160, ou message
@@ -95,6 +95,14 @@ test("un slope de 160 est refusé avec « Slope entre 55 et 155 » et rien n'est
   seedRound(referenceRound(players));
   await page.goto("/courses");
   const bethpage = courseCard(page, "Bethpage Black / Red");
+  await expect(bethpage.getByLabel("Rating de Bethpage Black / Red")).toHaveAttribute(
+    "placeholder",
+    "ex. 71,4",
+  );
+  await expect(bethpage.getByLabel("Slope de Bethpage Black / Red")).toHaveAttribute(
+    "placeholder",
+    "ex. 144",
+  );
   await bethpage.getByLabel("Rating de Bethpage Black / Red").fill("71,4");
   await bethpage.getByLabel("Slope de Bethpage Black / Red").fill("160");
   await bethpage.getByRole("button", { name: "Enregistrer" }).click();

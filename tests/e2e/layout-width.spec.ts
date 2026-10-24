@@ -39,3 +39,59 @@ test("à 1440×900, <main> et la navigation ont la même largeur sur toutes les 
     [`/imports/${importId}`]: [CONTENT_WIDTH, CONTENT_WIDTH],
   });
 });
+
+test.describe("mobile review", () => {
+  test.use({ hasTouch: true, isMobile: true });
+  for (const width of [320, 390]) {
+    for (const colorScheme of ["light", "dark"] as const) {
+      test(`${width}px ${colorScheme}: every page fits, with mobile review captures`, async ({
+        page,
+        players,
+      }, testInfo) => {
+        await page.setViewportSize({ width, height: 844 });
+        await page.emulateMedia({ colorScheme });
+        seedRound(referenceRound(players, { playedOn: "2026-10-01" }));
+        const roundId = seedRound(referenceRound(players));
+        const importId = seedReadyImport();
+        const pages = [
+          ["home", "/"],
+          ["import", "/import"],
+          ["correction", `/imports/${importId}`],
+          ["rounds", "/rounds"],
+          ["round", `/rounds/${roundId}`],
+          ["handicaps", "/handicaps"],
+          ["strokes", "/strokes"],
+          ["players", "/players"],
+          ["courses", "/courses"],
+        ];
+        for (const [name, path] of pages) {
+          await page.setViewportSize({ width, height: 844 });
+          await page.goto(path);
+          await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+          if (name === "strokes") {
+            await page.getByRole("checkbox", { name: /^Gab/ }).check();
+            await page.getByRole("checkbox", { name: /^Manu/ }).check();
+            await page.getByLabel("Parcours").selectOption({ label: "Bethpage Black / Red" });
+          }
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+            path,
+          ).toBe(true);
+          if (width === 390) {
+            await page.evaluate(() => document.fonts.ready);
+            // A tall viewport puts fixed bars below the content in a full-page review image.
+            // Layout assertions above still run at the phone's 844px viewport height.
+            const height = await page.evaluate(() => document.documentElement.scrollHeight);
+            await page.setViewportSize({ width, height });
+            const screenshot = testInfo.outputPath(`${name}-${colorScheme}.png`);
+            await page.screenshot({ path: screenshot, fullPage: true, animations: "disabled" });
+            await testInfo.attach(`${name}-${colorScheme}`, {
+              path: screenshot,
+              contentType: "image/png",
+            });
+          }
+        }
+      });
+    }
+  }
+});

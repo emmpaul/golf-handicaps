@@ -22,11 +22,19 @@ export function IndexCurve({ name, points }: { name: string; points: CurvePoint[
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-          <YAxis tick={{ fontSize: 12 }} domain={["auto", "auto"]} />
+          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+          <YAxis
+            tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+            domain={["auto", "auto"]}
+          />
           <Tooltip
             formatter={(value) => [String(value).replace(".", ","), "Index"]}
             labelClassName="text-foreground"
+            contentStyle={{
+              background: "var(--popover)",
+              borderColor: "var(--border)",
+              color: "var(--popover-foreground)",
+            }}
           />
           <Line
             type="monotone"

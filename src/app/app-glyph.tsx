@@ -13,7 +13,7 @@ export function AppGlyph({ side }: { side: number }) {
         position: "relative",
         width: "100%",
         height: "100%",
-        background: "#14532d",
+        background: "#1F5E3B",
       }}
     >
       {/* Green */}
@@ -25,7 +25,7 @@ export function AppGlyph({ side }: { side: number }) {
           width: at(64),
           height: at(18),
           borderRadius: "50%",
-          background: "#22c55e",
+          background: "#D9C9A3",
         }}
       />
       {/* Trou */}
@@ -37,7 +37,7 @@ export function AppGlyph({ side }: { side: number }) {
           width: at(10),
           height: at(5),
           borderRadius: "50%",
-          background: "#052e16",
+          background: "#15201A",
         }}
       />
       {/* Mât */}
@@ -48,7 +48,7 @@ export function AppGlyph({ side }: { side: number }) {
           top: at(16),
           width: at(4),
           height: at(59),
-          background: "#f8fafc",
+          background: "#F7F5EF",
         }}
       />
       {/* Fanion : un rectangle, le moteur de `next/og` ne trace pas de triangle en bordures */}
@@ -59,7 +59,7 @@ export function AppGlyph({ side }: { side: number }) {
           top: at(16),
           width: at(28),
           height: at(20),
-          background: "#ef4444",
+          background: "#C8372D",
         }}
       />
     </div>

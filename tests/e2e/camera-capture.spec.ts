@@ -36,6 +36,12 @@ test.describe("pointeur grossier (iPhone)", () => {
     const file = page.getByLabel("Photo de la carte");
     await expect(file).toBeVisible();
     await expect(file).not.toHaveAttribute("capture");
+    await expect(page.getByText("Photo de la carte", { exact: true })).toHaveClass(/sr-only/);
+    const camera = await page.getByText(CAMERA, { exact: true }).boundingBox();
+    if (!camera) throw new Error("Missing camera bounds");
+    const picker = await page.getByText("Choisir une photo", { exact: true }).boundingBox();
+    if (!picker) throw new Error("Missing picker bounds");
+    expect(picker.y).toBeGreaterThan(camera.y);
   });
 
   test("la photo prise part en file sans cadrage, comme une photo choisie", async ({ page }) => {

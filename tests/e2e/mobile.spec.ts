@@ -119,3 +119,54 @@ test("accueil à 390 px, en bas de page : « Se déconnecter » fait 44 px et fi
   expect(logout.y + logout.height).toBeLessThanOrEqual(bar.y);
   await expectNoHorizontalScroll(page);
 });
+
+for (const width of [390, 320]) {
+  test(`editor player rows stay together at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(`/imports/${seedReadyImport()}`);
+    for (const n of [1, 2]) {
+      const select = await page.getByLabel(`Joueur de la ligne ${n}`).boundingBox();
+      if (!select) throw new Error("Missing select bounds");
+      const remove = await page
+        .getByRole("button", { name: `Retirer la ligne ${n}` })
+        .boundingBox();
+      if (!remove) throw new Error("Missing remove bounds");
+      expect(select).not.toBeNull();
+      expect(remove).not.toBeNull();
+      expect(Math.abs(select.y - remove.y)).toBeLessThanOrEqual(2);
+    }
+    await expectNoHorizontalScroll(page);
+  });
+}
+
+test("correction fades follow scrolling and disappear when all holes fit", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/imports/${seedReadyImport()}`);
+  const frame = page.locator('[data-slot="scroll-frame"]');
+  const viewport = frame.locator('[data-slot="scroll-viewport"]');
+  await expect(frame).toHaveAttribute("data-overflow-end", "true");
+  await expect(frame).not.toHaveAttribute("data-overflow-start");
+  await viewport.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+  });
+  await expect(frame).toHaveAttribute("data-overflow-start", "true");
+  await expect(frame).not.toHaveAttribute("data-overflow-end");
+  const par = await page.getByRole("rowheader", { name: "Par", exact: true }).boundingBox();
+  if (!par) throw new Error("Missing par bounds");
+  const bounds = await viewport.boundingBox();
+  if (!bounds) throw new Error("Missing bounds bounds");
+  expect(par.x).toBeGreaterThanOrEqual(bounds.x);
+  expect(par.x + par.width).toBeLessThan(bounds.x + bounds.width);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(frame).not.toHaveAttribute("data-overflow-start");
+  await expect(frame).not.toHaveAttribute("data-overflow-end");
+});
+
+test("alias removal remains a 44px touch target", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/players");
+  const buttons = page.getByRole("button", { name: /^Retirer l'alias/ });
+  expect(await buttons.count()).toBeGreaterThan(0);
+  for (const button of await buttons.all())
+    expect((await button.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+});

@@ -9,6 +9,7 @@ import { allocateStrokes, matchStrokes, type StrokeMode } from "@/domain/strokes
 import { formatTenths, NO_INDEX } from "@/lib/format";
 import { ACTION_LINK, cn } from "@/lib/utils";
 import type { RoundRating } from "@/server/courses/ratings";
+import { StrokesGrid } from "./strokes-grid";
 
 export type PlannerPlayer = { id: number; name: string; indexT: number | null };
 
@@ -26,19 +27,10 @@ const MODES: { mode: StrokeMode; label: string }[] = [
 const plural = (count: number) => (Math.abs(count) > 1 ? "coups" : "coup");
 
 function totalLabel(name: string, strokes: number) {
+  if (strokes === 0) return `${name} ne reçoit aucun coup`;
   return strokes < 0
     ? `${name} rend ${-strokes} ${plural(strokes)}`
     : `${name} reçoit ${strokes} ${plural(strokes)}`;
-}
-
-/** « Trous : 4 (×2), 15 (×2), 1, … » dans l'ordre des trous, ou « Aucun coup ». */
-function holesLabel(perHole: number[]) {
-  const holes = perHole.flatMap((count, i) => {
-    if (count === 0) return [];
-    const times = Math.abs(count);
-    return [times > 1 ? `${i + 1} (×${times})` : String(i + 1)];
-  });
-  return holes.length === 0 ? "Aucun coup" : `Trous : ${holes.join(", ")}`;
 }
 
 /**
@@ -168,9 +160,9 @@ export function StrokesPlanner({
               <span data-testid="strokes-total" className="font-medium">
                 {totalLabel(player.name, strokes[i])}
               </span>
-              <span data-testid="strokes-holes" className="text-sm text-muted-foreground">
-                {holesLabel(allocateStrokes(strokes[i], course.strokeIndexes))}
-              </span>
+              {strokes[i] !== 0 ? (
+                <StrokesGrid perHole={allocateStrokes(strokes[i], course.strokeIndexes)} />
+              ) : null}
             </li>
           ))}
         </ul>
