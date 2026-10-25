@@ -54,7 +54,7 @@ L'app SHALL occuper tout l'écran, encoche et barre d'accueil comprises. L'en-t�
 - **THEN** « ⛳ Golf » s'affiche sous l'îlot, pas derrière
 
 ### Requirement: Pas de défilement horizontal de la page
-Sur un écran de 320 px de large ou plus, aucune page ni aucun état ouvert (calendrier, dialogue, photo choisie) MUST NOT élargir la page au-delà de l'écran. Sous 768 px, aucun contenu MUST NOT défiler horizontalement dans son propre cadre non plus : grilles et tableaux se réorganisent pour tenir dans la largeur (aller et retour empilés, une ligne par trou). À partir de 768 px, un contenu plus large que l'écran, comme la grille des 18 trous, SHALL défiler dans son propre cadre. Aucune information MUST NOT être masquée sans possibilité de la voir.
+Sur un écran de 320 px de large ou plus, aucune page ni aucun état ouvert (calendrier, dialogue, photo choisie) MUST NOT élargir la page au-delà de l'écran. Sous 768 px, aucun contenu MUST NOT défiler horizontalement dans son propre cadre : grilles et tableaux se réorganisent pour tenir dans la largeur. À partir de 768 px, un contenu plus large que l'écran SHALL défiler dans son propre cadre. Aucune information MUST NOT être masquée sans possibilité de la voir.
 
 #### Scenario: Calendrier à 320 px
 - **WHEN** l'utilisateur ouvre le calendrier de la date de jeu sur un écran de 320 px de large
