@@ -71,7 +71,7 @@ export async function addAliasAction(
   formData: FormData,
 ): Promise<PlayerFormState> {
   const alias = text(formData, "alias");
-  if (!alias) return { ...previous, error: "L'alias est obligatoire" };
+  if (!alias) return { ...previous, error: "L’alias est obligatoire" };
   return attempt(previous, () => learnAlias(getDb(), Number(formData.get("id")), alias));
 }
 

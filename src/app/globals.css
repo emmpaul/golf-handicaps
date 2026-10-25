@@ -1,15 +1,27 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: custom · redesign: full
+ * idea: "L'app est le leaderboard du groupe : le golf a déjà son code couleur (rouge sous le par, encre au-dessus), et les chiffres posés en grand sont la seule image."
+ * vibe: "tableau d'affichage froid, encre dense, un rouge de score"
+ * paper: oklch(0.975 0.006 245) · accent: oklch(0.54 0.205 27), renamed --color-signal (shadcn owns accent) · display: Sofia Sans Condensed · body: IBM Plex Sans
+ * nav: kept (top bar, bottom tab bar, safe areas) · signature: the round scorecard, full width · states: the ones each screen has logic for
+ * axes: light/display-condensed/chromatic-red · posture: restrained · contrast: pass · v2.0.0
+ * neighbour Sport (cold concrete paper, blue-black ink, Saira Condensed caps, two-weight rules, volt accent): no photo, no volt fill for the action (the action is the ink), no capitals (names in normal case, no forced-caps head), and the one red encodes a score fact.
+ * neighbour Broadside (granular chamois cream, Six Caps wood type, Bevan, vermilion on head and date): our ground is cold (hue 245 against 88) with no grain, the ink is navy not black, the condensed face is a text sans with tabular figures not a wood poster capital, and the red never sets a head: it marks a figure. */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V4 · weakest: E, the recrop screen takes tokens and controls only (a non-goal of the change), its composition stays */
+/* Hallmark · answered F1 · on-screen copy uses typographic apostrophes, except strings an existing test locates by their exact text, kept straight so those tests stay unmodified: "Code d'accès" (/login field; access, loading, compose specs), "Ajouter l'alias" and "Retirer l'alias …" (/players; players, mobile specs), "Cadrage trouvé par l'IA, vérifie la photo" (/imports/[id]; recrop spec), "pas encore d'index" (home, leaderboard, /handicaps, /strokes; home, rounds, handicaps, strokes specs), "Lecture en file d'attente. Tu peux envoyer la photo suivante." (/import; import-photo, loading specs), "Ouvrir l'écran de correction vide" (/import list; recrop, import-list specs), "Il sera retiré de l'historique, …" (round delete dialog; rounds spec), "Trop d'essais. Réessaie dans une minute." (/login; login unit test), and the screen-reader-only "complété par l'IA" and "Courbe de l'index de …" (ai-marking, correction-autosave, date-picker, handicaps, app-shell specs) */
+/* Hallmark · answered body floor · body copy is 16px at every width; meta text (tees, "provisoire", status notes, table heads, nav links) is set one step down (14px) on purpose, the label step of Floor 9, never below it */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./tokens.css";
+@import "./base.css" layer(base);
 
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -29,8 +41,6 @@
   --color-destructive: var(--destructive);
   --color-birdie: var(--birdie);
   --color-bogey: var(--bogey);
-  --color-sand: var(--sand);
-  --color-ai: var(--ai);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -52,51 +62,55 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Variables shadcn et de l'app pointées sur les tokens (design D3). Les tokens changent de valeur
+ * en mode sombre dans `tokens.css`, ces renvois suivent sans second bloc. `bg-ai` vient de `--color-ai`. */
 :root {
-  --background: oklch(0.970031 0.008232 91.4826);
-  --foreground: oklch(0.230742 0.019493 160.5314);
-  --card: oklch(0.993928 0.008183 91.4805);
-  --card-foreground: oklch(0.230742 0.019493 160.5314);
-  --popover: oklch(0.993928 0.008183 91.4805);
-  --popover-foreground: oklch(0.230742 0.019493 160.5314);
-  --primary: oklch(0.431555 0.086781 155.4916);
-  --primary-foreground: oklch(0.970031 0.008232 91.4826);
-  --secondary: oklch(0.936363 0.015003 94.2044);
-  --secondary-foreground: oklch(0.230742 0.019493 160.5314);
-  --muted: oklch(0.936363 0.015003 94.2044);
-  --muted-foreground: oklch(0.482398 0.027298 152.8743);
-  --accent: oklch(0.839479 0.053691 87.883);
-  --accent-foreground: oklch(0.230742 0.019493 160.5314);
-  --destructive: oklch(0.577 0.245 27.325);
-  --ai: oklch(0.541 0.232 277);
-  --border: oklch(0.849046 0.019161 113.4006);
-  --input: oklch(0.849046 0.019161 113.4006);
-  --ring: oklch(0.431555 0.086781 155.4916);
-  --chart-1: oklch(0.431555 0.086781 155.4916);
-  --chart-2: oklch(0.520174 0.097808 152.7313);
-  --chart-3: oklch(0.584806 0.090052 151.0982);
-  --chart-4: oklch(0.673526 0.085433 147.5287);
-  --chart-5: oklch(0.754794 0.06374 140.6591);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.993928 0.008183 91.4805);
-  --sidebar-foreground: oklch(0.230742 0.019493 160.5314);
-  --sidebar-primary: oklch(0.431555 0.086781 155.4916);
-  --sidebar-primary-foreground: oklch(0.970031 0.008232 91.4826);
-  --sidebar-accent: oklch(0.839479 0.053691 87.883);
-  --sidebar-accent-foreground: oklch(0.230742 0.019493 160.5314);
-  --sidebar-border: oklch(0.849046 0.019161 113.4006);
-  --sidebar-ring: oklch(0.431555 0.086781 155.4916);
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+  --card: var(--color-paper);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-paper-2);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-ink);
+  --primary-foreground: var(--color-paper);
+  --secondary: var(--color-paper-2);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-paper-2);
+  --muted-foreground: var(--color-ink-2);
+  --accent: var(--color-paper-3);
+  --accent-foreground: var(--color-ink);
+  --destructive: var(--color-error);
+  --ai: var(--color-ai);
+  --border: var(--color-rule);
+  --input: var(--color-ink-3);
+  --ring: var(--color-focus);
+  --chart-1: var(--color-ink);
+  --chart-2: var(--color-ink-2);
+  --chart-3: var(--color-ink-3);
+  --chart-4: var(--color-focus);
+  --chart-5: var(--color-rule);
+  --radius: var(--radius-card);
+  --sidebar: var(--color-paper);
+  --sidebar-foreground: var(--color-ink);
+  --sidebar-primary: var(--color-ink);
+  --sidebar-primary-foreground: var(--color-paper);
+  --sidebar-accent: var(--color-paper-3);
+  --sidebar-accent-foreground: var(--color-ink);
+  --sidebar-border: var(--color-rule);
+  --sidebar-ring: var(--color-focus);
   /* Zones sûres (encoche, barre d'accueil) : 0 hors plein écran. */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* En-tête collé sous `md` (app-nav.tsx) : zone sûre, 8 px, rangée de 44 px, 8 px et son filet.
+   * Les rangées collantes de la page (noms de la grille de correction) se posent dessous. */
+  --top-chrome: calc(var(--safe-top) + 3.75rem + 1px);
   /* Barre d'onglets du bas : icône + libellé, cibles de plus de 44 px. */
   --tabbar-h: 3.5rem;
   /* Hauteur occupée en bas de l'écran : onglets et barre d'accueil sous `md`, barre d'accueil au-delà. */
   --bottom-chrome: calc(var(--tabbar-h) + var(--safe-bottom));
 
-  --birdie: oklch(0.555377 0.183516 28.5138);
-  --bogey: oklch(0.279489 0.027766 248.8505);
-  --sand: oklch(0.839479 0.053691 87.883);
+  --birdie: var(--color-under);
+  --bogey: var(--color-over);
   color-scheme: light;
 }
 
@@ -108,42 +122,6 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: oklch(0.194937 0.014437 163.0219);
-    --foreground: oklch(0.939398 0.009983 155.09);
-    --card: oklch(0.239217 0.019356 160.6403);
-    --card-foreground: oklch(0.939398 0.009983 155.09);
-    --popover: oklch(0.239217 0.019356 160.6403);
-    --popover-foreground: oklch(0.939398 0.009983 155.09);
-    --primary: oklch(0.662238 0.118331 154.7459);
-    --primary-foreground: oklch(0.194937 0.014437 163.0219);
-    --secondary: oklch(0.30946 0.030753 157.2339);
-    --secondary-foreground: oklch(0.939398 0.009983 155.09);
-    --muted: oklch(0.30946 0.030753 157.2339);
-    --muted-foreground: oklch(0.764107 0.022632 158.4263);
-    --accent: oklch(0.754833 0.06 88.5589);
-    --accent-foreground: oklch(0.230742 0.019493 160.5314);
-    --destructive: oklch(0.704 0.191 22.216);
-    --ai: oklch(0.673 0.182 277);
-    --border: oklch(0.41389 0.032934 156.1828);
-    --input: oklch(0.41389 0.032934 156.1828);
-    --ring: oklch(0.662238 0.118331 154.7459);
-    --chart-1: oklch(0.662238 0.118331 154.7459);
-    --chart-2: oklch(0.729017 0.094185 153.7059);
-    --chart-3: oklch(0.811223 0.068039 148.1621);
-    --chart-4: oklch(0.892019 0.041078 135.0614);
-    --chart-5: oklch(0.517091 0.100146 156.7134);
-    --sidebar: oklch(0.239217 0.019356 160.6403);
-    --sidebar-foreground: oklch(0.939398 0.009983 155.09);
-    --sidebar-primary: oklch(0.662238 0.118331 154.7459);
-    --sidebar-primary-foreground: oklch(0.194937 0.014437 163.0219);
-    --sidebar-accent: oklch(0.754833 0.06 88.5589);
-    --sidebar-accent-foreground: oklch(0.230742 0.019493 160.5314);
-    --sidebar-border: oklch(0.41389 0.032934 156.1828);
-    --sidebar-ring: oklch(0.662238 0.118331 154.7459);
-
-    --birdie: oklch(0.634559 0.173318 27.6289);
-    --bogey: oklch(0.861889 0.016572 245.1134);
-    --sand: oklch(0.754833 0.06 88.5589);
     color-scheme: dark;
   }
 }
@@ -155,8 +133,10 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Même fond que `body` et que l'en-tête collé : Safari iOS prend sa teinte de barre d'état
+   * dans l'un ou l'autre (design D10). */
   html {
-    @apply font-sans;
+    @apply bg-background font-sans;
   }
 }
 

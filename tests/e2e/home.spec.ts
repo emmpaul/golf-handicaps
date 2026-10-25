@@ -37,7 +37,10 @@ test("dashboard indexes, previous-round deltas, latest round and import action",
   players,
 }) => {
   seedRound(referenceRound(players, { playedOn: "2026-10-01" }));
-  const latest = seedRound(referenceRound(players, { playedOn: "2026-10-17" }));
+  // Nom du parcours tel que l'OCR le lit sur la carte (spec `home-dashboard`, « Dernier round affiché »).
+  const latest = seedRound(
+    referenceRound(players, { playedOn: "2026-10-17", courseName: "BETHPAGE BLACK" }),
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const main = page.getByRole("main");
@@ -53,14 +56,13 @@ test("dashboard indexes, previous-round deltas, latest round and import action",
   await expect(manu).toContainText("provisoire");
   await expect(sean).toContainText("pas encore d'index");
   const round = main.locator(`a[href="/rounds/${latest}"]`);
-  for (const text of [
-    "Bethpage Black · Red",
-    "17 octobre 2026",
-    "Gab 72",
-    "Manu 88",
-    "Gagnant net : Gab, Manu",
-  ])
+  // Parcours et tees en deux éléments, sans point médian. Mutation : `{courseName} · {tees}`
+  // remis dans un seul élément → « BETHPAGE BLACK » et « Tees Red » introuvables seuls, et « · ».
+  for (const element of ["BETHPAGE BLACK", "Tees Red", "17 octobre 2026"])
+    await expect(round.getByText(element, { exact: true })).toBeVisible();
+  for (const text of ["Gab 72", "Manu 88", "Gagnant net : Gab, Manu"])
     await expect(round).toContainText(text);
+  await expect(round).not.toContainText("·");
   await expect(main.getByRole("link", { name: /import.*à vérifier/ })).toHaveCount(0);
   await main.getByRole("link", { name: "Importer une carte" }).click();
   await expect(page).toHaveURL(/\/import$/);

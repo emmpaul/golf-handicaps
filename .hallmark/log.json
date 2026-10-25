@@ -1,0 +1,18 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "genre": "modern-minimal",
+  "theme": "custom",
+  "axes": "light/display-condensed/chromatic-red",
+  "nav": "kept (top bar, bottom tab bar, safe areas)",
+  "signature": "the round scorecard, full width",
+  "imagery": "none (figures are the image)",
+  "photos": [],
+  "waived": [],
+  "prompt": "/hallmark redesign src/app",
+  "date": "2026-10-24"
+ }
+]

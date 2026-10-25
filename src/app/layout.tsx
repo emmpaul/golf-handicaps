@@ -1,15 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans, Sofia_Sans_Condensed } from "next/font/google";
+import { BRAND_COLORS } from "./brand-colors";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-sans",
-  subsets: ["latin"],
+// Polices variables auto-hébergées ; `tokens.css` les nomme `--font-display` et `--font-body`.
+// Sofia Sans Condensed porte les noms, les index et les scores (chiffres tabulaires) ;
+// IBM Plex Sans le texte, les libellés et les boutons.
+const display = Sofia_Sans_Condensed({
+  variable: "--font-sofia-sans-condensed",
+  subsets: ["latin", "latin-ext"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const body = IBM_Plex_Sans({
+  variable: "--font-ibm-plex-sans",
+  subsets: ["latin", "latin-ext"],
 });
 
 export const metadata: Metadata = {
@@ -26,14 +30,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F7F5EF" },
-    { media: "(prefers-color-scheme: dark)", color: "#0F1713" },
+    { media: "(prefers-color-scheme: light)", color: BRAND_COLORS.paper },
+    { media: "(prefers-color-scheme: dark)", color: BRAND_COLORS.paperDark },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="fr" className={`${display.variable} ${body.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

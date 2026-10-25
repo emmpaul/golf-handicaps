@@ -96,12 +96,18 @@ test.describe("clavier sur écran tactile", () => {
     await page.goto("/import");
     const camera = page.getByLabel(CAMERA);
     const button = page.getByText(CAMERA);
-    expect(await button.evaluate((label) => getComputedStyle(label).boxShadow)).toBe("none");
+    // Contour de focus en `outline` plein de 2 px (DESIGN.md, Controls), plus en ombre `ring`.
+    expect(await button.evaluate((label) => getComputedStyle(label).outlineStyle)).toBe("none");
     for (let presses = 0; presses < 20; presses++) {
       await page.keyboard.press("Tab");
       if (await camera.evaluate((input) => input === document.activeElement)) break;
     }
     await expect(camera).toBeFocused();
-    expect(await button.evaluate((label) => getComputedStyle(label).boxShadow)).not.toBe("none");
+    expect(
+      await button.evaluate((label) => {
+        const style = getComputedStyle(label);
+        return { style: style.outlineStyle, width: style.outlineWidth };
+      }),
+    ).toEqual({ style: "solid", width: "2px" });
   });
 });

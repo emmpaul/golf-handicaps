@@ -1,54 +1,73 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { contrast, hex } from "./palette";
 
-const css = readFileSync("src/app/globals.css", "utf8");
-const light = css.match(/:root\s*\{([^}]+)\}/)?.[1] ?? "";
-const dark =
-  css.match(/@media\s*\(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]+)\}/)?.[1] ?? "";
+// Mutation: dark --color-ink-2 set to the dark paper + 0.1 L, oklch(0.28 0.03 262) → the ink-2 and
+// muted-foreground text pairs go red.
+const textPairs = [
+  ["foreground", "background"],
+  ["foreground", "popover"],
+  ["foreground", "accent"],
+  ["muted-foreground", "background"],
+  ["muted-foreground", "muted"],
+  ["muted-foreground", "accent"],
+  ["color-ink-3", "background"],
+  ["color-ink-3", "muted"],
+  ["primary-foreground", "primary"],
+  ["sidebar-primary-foreground", "sidebar-primary"],
+  ["color-band-ink", "color-band"],
+  ["birdie", "background"],
+  ["birdie", "muted"],
+  ["destructive", "background"],
+  ["destructive", "muted"],
+  ["background", "destructive"],
+] as const;
 
-// OKLCH → linear sRGB. Contrast is measured before gamma encoding.
-function rgb(block: string, token: string) {
-  const value = block.match(new RegExp(`--${token}: oklch\\(([^)]+)\\)`))?.[1];
-  if (!value) throw new Error(`Missing OKLCH token: ${token}`);
-  const [l, c, hue] = value.split(/\s+/).map(Number);
-  const a = c * Math.cos((hue * Math.PI) / 180);
-  const b = c * Math.sin((hue * Math.PI) / 180);
-  const x = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const y = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const z = (l - 0.0894841775 * a - 1.291485548 * b) ** 3;
-  return [
-    4.0767416621 * x - 3.3077115913 * y + 0.2309699292 * z,
-    -1.2684380046 * x + 2.6097574011 * y - 0.3413193965 * z,
-    -0.0041960863 * x - 0.7034186147 * y + 1.707614701 * z,
-  ];
-}
-function luminance(block: string, token: string) {
-  const [r, g, b] = rgb(block, token);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
+// Non-text marks and edges: 3:1 (WCAG 1.4.11).
+const markPairs = [
+  ["bogey", "background"],
+  ["ai", "background"],
+  ["input", "background"],
+  ["ring", "background"],
+  ["ring", "muted"],
+  ["ring", "accent"],
+] as const;
 
-describe("Fairway contrast", () => {
-  for (const [mode, block] of [
-    ["light", light],
-    ["dark", dark],
-  ]) {
-    for (const [fg, bg] of [
-      ["foreground", "background"],
-      ["muted-foreground", "background"],
-      ["primary-foreground", "primary"],
-    ]) {
-      // Mutation: dark --muted-foreground reset to oklch(0.45 0 0).
+describe("score-board palette contrast", () => {
+  for (const mode of ["light", "dark"] as const) {
+    for (const [fg, bg] of textPairs) {
       it(`${mode}: ${fg}/${bg} >= 4.5:1`, () => {
-        const a = luminance(block, fg);
-        const b = luminance(block, bg);
-        expect((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(mode, fg, bg)).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+    for (const [fg, bg] of markPairs) {
+      it(`${mode}: ${fg}/${bg} >= 3:1`, () => {
+        expect(contrast(mode, fg, bg)).toBeGreaterThanOrEqual(3);
       });
     }
   }
-  it("uses warm paper #F7F5EF", () => {
-    const encoded = rgb(light, "background").map((v) =>
-      Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055)),
-    );
-    expect(encoded).toEqual([247, 245, 239]);
-  });
+});
+
+// Values approved at gate 2.1 (picks.md), written by hand.
+// Mutation: light --color-paper back to Fairway oklch(0.970031 0.008232 91.4826) → red.
+describe("score-board palette values", () => {
+  for (const [mode, name, expected] of [
+    ["light", "background", "#F4F7FB"],
+    ["dark", "background", "#0A111F"],
+    ["light", "foreground", "#0F1D3E"],
+    ["dark", "foreground", "#EAEFF4"],
+    ["light", "primary", "#0F1D3E"],
+    ["dark", "primary", "#EAEFF4"],
+    ["light", "birdie", "#CB1E21"],
+    ["dark", "birdie", "#F86B65"],
+    ["light", "bogey", "#46566E"],
+    ["dark", "bogey", "#A9B9CA"],
+    ["light", "destructive", "#9B540C"],
+    ["dark", "destructive", "#EB9854"],
+    ["light", "color-band", "#0F1D3E"],
+    ["dark", "color-band", "#223251"],
+  ] as const) {
+    it(`${mode}: --${name} is ${expected}`, () => {
+      expect(hex(mode, name)).toBe(expected);
+    });
+  }
 });

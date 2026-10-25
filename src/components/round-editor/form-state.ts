@@ -1,4 +1,11 @@
-import { MAX_PLAYERS, type RoundForm, type RoundFormRow } from "@/scorecard/checks";
+import {
+  EMPTY,
+  MAX_PLAYERS,
+  type Problem,
+  type RoundForm,
+  type RoundFormRow,
+  UNASSIGNED,
+} from "@/scorecard/checks";
 import type { DraftHoleRow, DraftValue } from "@/scorecard/draft";
 import type { SavedCorrection } from "@/scorecard/form-schema";
 
@@ -218,4 +225,24 @@ export function lineLabel(
   if (player) return player.name;
   if (line.name) return `${line.name} ?`;
   return `Ligne ${position + 1}`;
+}
+
+/**
+ * Cases à marquer en erreur (spec « Saisie manuelle neuve sans alerte »). Un contrôle en défaut
+ * marque toujours ses cases. Une case obligatoire vide (ou une ligne sans joueur) ne l'est
+ * qu'une fois quittée (`touched`), sauf si `flagUntouchedEmpty` (import lu par OCR, round
+ * enregistré) : elle l'est alors dès l'ouverture. Le compte des problèmes, lui, ne change pas.
+ */
+export function shownInvalidCells(
+  problems: readonly Problem[],
+  { touched, flagUntouchedEmpty }: { touched: ReadonlySet<string>; flagUntouchedEmpty: boolean },
+): Set<string> {
+  const shown = new Set<string>();
+  for (const { message, cells } of problems) {
+    const toFill = message === EMPTY || message === UNASSIGNED;
+    for (const cell of cells) {
+      if (!toFill || flagUntouchedEmpty || touched.has(cell)) shown.add(cell);
+    }
+  }
+  return shown;
 }

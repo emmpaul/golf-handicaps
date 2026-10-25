@@ -1,5 +1,8 @@
+import { BRAND_COLORS } from "./brand-colors";
+
 /**
- * Icône de l'app pour `next/og` : un drapeau de green sur fond vert foncé, dessiné en blocs.
+ * Icône de l'app pour `next/og` : un drapeau de green sur fond d'encre, dessiné en blocs, dans
+ * les couleurs de la palette (`brand-colors.ts`, `next/og` ne lit pas le CSS).
  * Ni emoji ni police : `ImageResponse` irait les chercher sur le réseau et casserait le build
  * hors ligne. Tout tient dans les 80 % du centre, pour les masques ronds d'Android.
  */
@@ -13,7 +16,7 @@ export function AppGlyph({ side }: { side: number }) {
         position: "relative",
         width: "100%",
         height: "100%",
-        background: "#1F5E3B",
+        background: BRAND_COLORS.ink,
       }}
     >
       {/* Green */}
@@ -25,7 +28,7 @@ export function AppGlyph({ side }: { side: number }) {
           width: at(64),
           height: at(18),
           borderRadius: "50%",
-          background: "#D9C9A3",
+          background: BRAND_COLORS.ink2,
         }}
       />
       {/* Trou */}
@@ -37,7 +40,7 @@ export function AppGlyph({ side }: { side: number }) {
           width: at(10),
           height: at(5),
           borderRadius: "50%",
-          background: "#15201A",
+          background: BRAND_COLORS.paper,
         }}
       />
       {/* Mât */}
@@ -48,7 +51,7 @@ export function AppGlyph({ side }: { side: number }) {
           top: at(16),
           width: at(4),
           height: at(59),
-          background: "#F7F5EF",
+          background: BRAND_COLORS.paper,
         }}
       />
       {/* Fanion : un rectangle, le moteur de `next/og` ne trace pas de triangle en bordures */}
@@ -59,7 +62,7 @@ export function AppGlyph({ side }: { side: number }) {
           top: at(16),
           width: at(28),
           height: at(20),
-          background: "#C8372D",
+          background: BRAND_COLORS.signal,
         }}
       />
     </div>

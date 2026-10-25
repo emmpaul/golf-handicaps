@@ -7,7 +7,7 @@ import { courseRatings, imports, rounds } from "../../src/db/schema";
 import type { ImportStatus } from "../../src/jobs/imports";
 import type { RoundForm } from "../../src/scorecard/checks";
 import type { ScorecardDraft } from "../../src/scorecard/draft";
-import { listPlayers } from "../../src/server/players/players";
+import { addPlayer, listPlayers } from "../../src/server/players/players";
 import { DEV_PLAYERS } from "../../src/server/players/seed";
 import { saveRound } from "../../src/server/rounds/save";
 import referenceCorners from "../fixtures/scorecards/gspro-img3064.corners.json";
@@ -122,6 +122,45 @@ export function referenceRound(
 }
 
 const REFERENCE_PARS = referenceDraft.par.holes;
+
+/** Ajoute un joueur en base (mise en place d'un test) ; renvoie son id. */
+export function seedPlayer(name: string): number {
+  return withDb((db) => addPlayer(db, name)).id;
+}
+
+/**
+ * Carte de référence lue avec 4 lignes, le cas le plus large : GAB 72 et MANU 88 comme lus,
+ * plus SEAN 81 et ALEX 91 (scores au-dessus du par, voir `scoresOverPar`).
+ */
+export function fourPlayerDraft(): ScorecardDraft {
+  const draft = structuredClone(referenceDraft) as ScorecardDraft;
+  return {
+    ...draft,
+    players: [
+      ...draft.players,
+      { name: "SEAN", scores: scoresOverPar(10) },
+      { name: "ALEX", scores: scoresOverPar(20) },
+    ],
+  };
+}
+
+/**
+ * Round de 4 joueurs sur la carte de référence (Bethpage Black, tees Red) : Gab 72, Manu 88,
+ * Sean 81 et Alex 91, dans cet ordre de lignes.
+ */
+export function fourPlayerRound(
+  ids: { Gab: number; Manu: number; Sean: number; Alex: number },
+  overrides: Partial<RoundForm> = {},
+): RoundForm {
+  const draft = fourPlayerDraft();
+  const order = [ids.Gab, ids.Manu, ids.Sean, ids.Alex];
+  return {
+    ...draft,
+    courseName: "Bethpage Black",
+    players: draft.players.map((row, line) => ({ ...row, playerId: order[line] })),
+    ...overrides,
+  };
+}
 
 /**
  * Scores sur la carte de référence (par 71) pour `over` coups au-dessus du par (−18 à 36) :

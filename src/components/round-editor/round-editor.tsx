@@ -26,6 +26,7 @@ import {
   newLine,
   type PlayerOption,
   removeLine,
+  shownInvalidCells,
   toRoundForm,
   withoutAiCell,
 } from "./form-state";
@@ -114,6 +115,13 @@ function gridRows(state: EditorState, players: readonly PlayerOption[]): GridRow
 }
 
 /**
+ * Import (lu par OCR, ou à saisir après un échec) ou round enregistré : les cases vides sont
+ * marquées dès l'ouverture. Saisie manuelle : seulement une fois quittées.
+ */
+const flagsUntouchedEmpty = (target: SaveTarget) =>
+  target.kind === "update" || target.importId !== undefined;
+
+/**
  * Écran de correction, partagé par l'import, la saisie manuelle et la correction d'un
  * round. Les contrôles de cohérence se recalculent à chaque modification ; le bouton
  * d'enregistrement compte les problèmes restants. `notes` : messages de l'IA (cadrage,
@@ -145,13 +153,23 @@ export function RoundEditor({
   const [saving, setSaving] = useState(false);
   const form = useMemo(() => toRoundForm(state), [state]);
   const problems = useMemo(() => checkRoundForm(form), [form]);
-  const invalid = useMemo(() => new Set(problems.flatMap(({ cells }) => cells)), [problems]);
+  // Cases quittées au moins une fois : une case vide n'est marquée qu'après (saisie manuelle).
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const flagUntouchedEmpty = flagsUntouchedEmpty(target);
+  const invalid = useMemo(
+    () => shownInvalidCells(problems, { touched, flagUntouchedEmpty }),
+    [problems, touched, flagUntouchedEmpty],
+  );
   const aiCells = useMemo(() => new Set(state.aiCells), [state.aiCells]);
   // Sauvegarde automatique : correction d'un import seulement.
   const autosave = useCorrectionAutosave(
     target.kind === "create" ? (target.importId ?? null) : null,
     state,
   );
+
+  function leave(cell: string) {
+    setTouched((current) => (current.has(cell) ? current : new Set(current).add(cell)));
+  }
 
   function change(next: EditorState) {
     setState(next);
@@ -218,7 +236,7 @@ export function RoundEditor({
               <img
                 src={photoUrl}
                 alt="Carte importée"
-                className="max-h-72 w-full rounded-lg border object-contain lg:h-72 lg:w-auto"
+                className="max-h-72 w-full border object-contain lg:h-72 lg:w-auto"
               />
             </a>
             {recropUrl ? (
@@ -274,6 +292,7 @@ export function RoundEditor({
                       aria-description={aiCells.has(field) ? AI_DESCRIPTION : undefined}
                       className={cn(aiCells.has(field) && AI_CELL_CLASS)}
                       onChange={(event) => setField(field, event.currentTarget.value)}
+                      onBlur={() => leave(field)}
                     />
                     {aiCells.has(field) ? <AiMark /> : null}
                   </div>
@@ -297,6 +316,7 @@ export function RoundEditor({
             invalid={invalid}
             canAdd={state.lines.length < MAX_LINES}
             onAssociate={associate}
+            onLeave={leave}
             onCreate={createPlayer}
             onRemove={(key) => change(removeLine(state, key))}
             onAdd={() => change({ ...state, lines: [...state.lines, newLine()] })}
@@ -308,13 +328,14 @@ export function RoundEditor({
           <AlertTitle>{note}</AlertTitle>
         </Alert>
       ))}
+      <ProblemList problems={problems} />
       <ScoreGrid
         rows={gridRows(state, playerOptions)}
         invalid={invalid}
         aiCells={aiCells}
         onCell={(row, column, value) => change(updateCell(state, row, column, value))}
+        onLeave={leave}
       />
-      <ProblemList problems={problems} />
       {notice?.kind === "duplicate" ? (
         <Alert>
           <AlertTitle>{notice.message}</AlertTitle>
@@ -339,8 +360,9 @@ export function RoundEditor({
         </Alert>
       ) : null}
       {/* Collée juste au-dessus des onglets sous `md`, au-dessus de la barre d'accueil au-delà ;
-          déborde de `main` jusqu'au bord de l'écran sous `lg` seulement. */}
-      <div className="sticky bottom-(--bottom-chrome) z-20 flex flex-col gap-2 border-t bg-background/95 px-4 py-2 sm:flex-row sm:items-center max-lg:-mx-4 md:pt-3 md:pb-[calc(--spacing(3)+var(--safe-bottom))]">
+          déborde de `main` jusqu'au bord de l'écran sous `lg` seulement ; à partir de `lg`, le
+          bouton s'aligne sur le bord du conteneur, comme les champs et la grille. */}
+      <div className="sticky bottom-(--bottom-chrome) z-20 flex flex-col gap-2 border-t bg-background px-4 py-2 sm:flex-row sm:items-center max-lg:-mx-4 md:pt-3 lg:px-0 md:pb-[calc(--spacing(3)+var(--safe-bottom))]">
         <Button
           size="lg"
           className="w-full sm:w-auto"

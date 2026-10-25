@@ -36,3 +36,24 @@ test("en saisie manuelle, choisir « Bethpage Black / Red » pré-remplit pars, 
   await page.waitForURL("**/rounds");
   await expect(page.getByTestId("round-gross")).toHaveText(["Sean 90", "Gab 72", "Manu 88"]);
 });
+
+// Spec `scorecard-import` « Saisie manuelle neuve sans alerte » : aucune case en erreur avant d'être
+// quittée, le bouton compte quand même les problèmes. Mutation : ignorer l'état « touché » dans
+// l'éditeur (toute case vide marquée) → le premier test rougit.
+test("une saisie manuelle neuve n'a aucune case en erreur, le bouton compte les problèmes", async ({
+  page,
+}) => {
+  await page.goto("/rounds/new");
+  await expect(cell(page, "Par", 1)).toBeVisible();
+  await expect(page.getByRole("table").locator('[aria-invalid="true"]')).toHaveCount(0);
+  await expect(saveButton(page)).toHaveText("57 problèmes à corriger");
+});
+
+test("le par du trou 1 quitté vide est la seule case en erreur", async ({ page }) => {
+  await page.goto("/rounds/new");
+  await cell(page, "Par", 1).focus();
+  await cell(page, "Par", 1).blur();
+  await expect(cell(page, "Par", 1)).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("table").locator('[aria-invalid="true"]')).toHaveCount(1);
+  await expect(saveButton(page)).toHaveText("57 problèmes à corriger");
+});

@@ -115,7 +115,7 @@ export function CornerEditor({
             type="button"
             aria-label={label}
             data-corner={corner}
-            className="absolute size-11 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-primary bg-background/40 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing"
+            className="absolute size-11 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-primary bg-background/40 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring active:cursor-grabbing"
             style={{ left: `${corners[corner].x * 100}%`, top: `${corners[corner].y * 100}%` }}
             onPointerDown={(event) => start(corner, event)}
             onPointerMove={move}

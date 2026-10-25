@@ -29,10 +29,25 @@ const shownRgb = (field: Locator) =>
     return [r, g, b];
   });
 
-/** Teinte IA bleu-violet : le bleu dépasse le rouge et le vert d'au moins 10 sur 255. */
+/**
+ * Teinte IA sarcelle : `--color-ai` clair (#018090) à 15 % sur du blanc, soit [217, 236, 238],
+ * à 2 près par canal (arrondis du mélange `color-mix` et du canevas). Le gris des cases en lecture
+ * seule (#E8EEF3, [232, 238, 243]) et l'ardoise « au-dessus du par » (#46566E à 15 %,
+ * [227, 229, 233]) en sont loin sur le rouge.
+ * Mutation : `AI_CELL_CLASS` vidé dans `score-grid.tsx` (plus de `bg-ai/15`) → blanc, rouge.
+ */
 async function expectAiTint(field: Locator) {
-  const [r, g, b] = await shownRgb(field);
-  expect(b - Math.max(r, g)).toBeGreaterThanOrEqual(10);
+  const expected = [217, 236, 238];
+  // Le serveur rend la grille du téléphone, l'hydratation la remplace par la grille large (design
+  // D9) : un champ lu pendant l'échange est détaché, son style calculé est vide et le canevas
+  // reste blanc. On relit donc jusqu'à obtenir le champ en place.
+  await expect(async () => {
+    const shown = await shownRgb(field);
+    expect(
+      shown.map((channel, index) => Math.abs(channel - expected[index]) <= 2),
+      `fond affiché ${shown.join(", ")}`,
+    ).toEqual([true, true, true]);
+  }).toPass({ timeout: 5_000 });
 }
 
 test("la case remplie par l'IA porte la marque visible et la description, elle seule", async ({
@@ -47,7 +62,7 @@ test("la case remplie par l'IA porte la marque visible et la description, elle s
   expect(await background(gab9)).not.toBe(await background(cell(page, "Ligne 1", 8)));
 });
 
-test("la case remplie par l'IA a un fond bleuté, distinct du gris des cases en lecture seule", async ({
+test("la case remplie par l'IA a un fond sarcelle, distinct du gris des cases en lecture seule", async ({
   page,
 }) => {
   await openAiImport(page, ["player0:9"]);
@@ -56,7 +71,7 @@ test("la case remplie par l'IA a un fond bleuté, distinct du gris des cases en 
   expect(await background(gab9)).not.toBe(await background(cell(page, "Ligne 1", "OUT")));
 });
 
-test("le champ Tees rempli par l'IA a le même fond bleuté", async ({ page }) => {
+test("le champ Tees rempli par l'IA a le même fond sarcelle", async ({ page }) => {
   await openAiImport(page, ["tees"]);
   await expectAiTint(page.getByLabel("Tees"));
 });

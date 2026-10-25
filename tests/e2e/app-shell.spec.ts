@@ -52,7 +52,31 @@ test.describe("installation sur l'écran d'accueil, sans session", () => {
     await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
     await expect(
       page.locator('meta[name="theme-color"][media="(prefers-color-scheme: light)"]'),
-    ).toHaveAttribute("content", "#F7F5EF");
+    ).toHaveAttribute("content", "#F4F7FB");
+  });
+
+  // Spec `visual-theme`, « Couleurs du manifest ». Mutation : `theme_color` remis à `#ffffff` dans
+  // `manifest.ts` → rouge.
+  test("le manifest prend le fond clair de la palette", async ({ request }) => {
+    const manifest = await (await request.get("/manifest.webmanifest")).json();
+    expect({ theme: manifest.theme_color, background: manifest.background_color }).toEqual({
+      theme: "#F4F7FB",
+      background: "#F4F7FB",
+    });
+  });
+
+  // Spec `visual-theme`, « Même marque sur l'écran d'accueil ». Mutation : fond d'`AppGlyph`
+  // remis au vert Fairway `#1F5E3B` → rouge.
+  test("/icon/192 répond 200 sur le fond d'encre de la palette", async ({ request }) => {
+    const response = await request.get("/icon/192", { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    // Coin haut gauche : hors du dessin, c'est le fond.
+    const { data } = await sharp(await response.body())
+      .extract({ left: 0, top: 0, width: 1, height: 1 })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    expect([...data]).toEqual([0x0f, 0x1d, 0x3e]);
   });
 });
 
@@ -155,6 +179,21 @@ appTest.describe("cibles tactiles sur iPhone", () => {
       expect(await heightOf(page.getByRole("link", { name: "Vérifier" }))).toBeGreaterThanOrEqual(
         MIN_TOUCH_TARGET,
       );
+    },
+  );
+
+  // Scénario « Case de score sur iPhone ». Mutation : `h-9` (36 px) ou `md:text-sm` appliqué
+  // sous 768 px sur les cases de la grille de téléphone → rouge.
+  appTest(
+    "à 390 px, la case du score du trou 1 de la ligne 1 fait 44 px de haut et un texte de 16 px",
+    async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`/imports/${seedReadyImport()}`);
+      const score = page.getByRole("textbox", { name: "Ligne 1 trou 1", exact: true });
+      expect({
+        tall: (await heightOf(score)) >= MIN_TOUCH_TARGET,
+        fontSize: await score.evaluate((element) => getComputedStyle(element).fontSize),
+      }).toEqual({ tall: true, fontSize: "16px" });
     },
   );
 
@@ -495,6 +534,43 @@ appTest.describe("rien de coupé sur téléphone", () => {
   );
 });
 
+// Spec `visual-theme`, « Focus visible au clavier » : le contour paraît dans la même image, sans
+// transition. Mutation : `transition-all` remis sur le lien d'onglet (`app-nav.tsx`) → la durée
+// de transition du contour passe à 0.15s, rouge.
+appTest(
+  "au clavier, l'onglet « Handicaps » montre son contour de focus sans transition",
+  async ({ page, isMobile, browserName }) => {
+    await page.goto("/rounds");
+    // WebKit, comme Safari, ne passe sur les liens qu'avec Option + Tab.
+    const tabKey = browserName === "webkit" ? "Alt+Tab" : "Tab";
+    const nav = isMobile
+      ? sectionsBar(page)
+      : page.getByRole("navigation", { name: "Navigation principale" });
+    const tab = nav.getByRole("link", { name: "Handicaps" });
+    await expect(tab).toBeVisible();
+    for (let presses = 0; presses < 30; presses++) {
+      if (await tab.evaluate((element) => element === document.activeElement)) break;
+      await page.keyboard.press(tabKey);
+    }
+    await expect(tab).toBeFocused();
+    const outline = await tab.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const properties = style.transitionProperty.split(",").map((value) => value.trim());
+      const durations = style.transitionDuration.split(",").map((value) => value.trim());
+      // Durée qui s'applique à la couleur du contour : celle de `all`, `outline` ou `outline-color`.
+      const index = properties.findIndex((name) =>
+        ["all", "outline", "outline-color"].includes(name),
+      );
+      return {
+        style: style.outlineStyle,
+        duration: index === -1 ? "0s" : durations[index % durations.length],
+      };
+    });
+    expect(outline.style).not.toBe("none");
+    expect(outline.duration).toBe("0s");
+  },
+);
+
 appTest("Fairway brand and current tab pill", async ({ page, players }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/rounds/${seedRound(referenceRound(players))}`);
@@ -514,3 +590,55 @@ appTest("Fairway brand and current tab pill", async ({ page, players }) => {
     );
   }
 });
+
+/** Opacité d'une couleur calculée : `rgba(r, g, b, a)`, `oklch(l c h / a)`… ; 1 sans alpha écrit. */
+function alphaOf(color: string) {
+  const slash = color.match(/\/\s*([\d.]+)\s*\)$/);
+  if (slash) return Number(slash[1]);
+  const rgba = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/);
+  return rgba ? Number(rgba[1]) : 1;
+}
+
+// Spec `app-shell`, « En-tête opaque » (design D10). Mutation : fond `bg-background/80` sur le
+// `header` de `app-nav.tsx` → alpha 0,8 et couleur différente de `html` / `body`, rouge.
+for (const colorScheme of ["light", "dark"] as const) {
+  appTest(
+    `à 390 px en ${colorScheme === "light" ? "clair" : "sombre"}, après défilement de Rounds, l'en-tête reste collé, opaque, de la couleur de html et body`,
+    async ({ page, players }) => {
+      // Douze rounds : la liste dépasse les 844 px de l'écran, la page défile.
+      for (const day of [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]) {
+        seedRound(referenceRound(players, { playedOn: `2026-10-${day}` }));
+      }
+      await page.emulateMedia({ colorScheme });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto("/rounds");
+      await expect(page.getByRole("list", { name: "Rounds" }).getByRole("listitem")).toHaveCount(
+        12,
+      );
+      // En bas de page : plus de 100 px défilés, un en-tête non collé serait hors de l'écran.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+      const header = page.locator("header");
+      expect((await header.boundingBox())?.y).toBe(0);
+      const measured = await header.evaluate((element) => {
+        const background = (node: Element) => getComputedStyle(node).backgroundColor;
+        const brand = element.querySelector("a")?.getBoundingClientRect().top ?? 0;
+        return {
+          header: background(element),
+          html: background(document.documentElement),
+          body: background(document.body),
+          backdrop: getComputedStyle(element).backdropFilter,
+          brandTop: brand - element.getBoundingClientRect().top,
+        };
+      });
+      expect(alphaOf(measured.header)).toBe(1);
+      expect(measured.backdrop).toBe("none");
+      expect({ html: measured.html, body: measured.body }).toEqual({
+        html: measured.header,
+        body: measured.header,
+      });
+      // Zone sûre nulle hors plein écran : la marque commence au moins 8 px sous le haut.
+      expect(measured.brandTop).toBeGreaterThanOrEqual(8);
+    },
+  );
+}

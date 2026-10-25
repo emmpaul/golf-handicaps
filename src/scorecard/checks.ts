@@ -14,7 +14,10 @@ export type RoundForm = Omit<ScorecardDraft, "players"> & { players: RoundFormRo
 export type Problem = { message: string; cells: string[] };
 
 export const MAX_PLAYERS = 4;
-const EMPTY = "Case vide";
+/** Message d'une case obligatoire vide. */
+export const EMPTY = "Case vide";
+/** Message d'une ligne de joueur sans joueur associé (choix obligatoire encore vide). */
+export const UNASSIGNED = "Ligne sans joueur";
 
 type Range = { min: number; max: number; label: string };
 const PAR_RANGE: Range = { min: 3, max: 5, label: "Par" };
@@ -127,9 +130,7 @@ function playerScoreProblems(row: DraftPlayerRow, position: number): Problem[] {
 
 function unassignedRowProblems(rows: readonly RoundFormRow[]): Problem[] {
   return rows.flatMap(({ playerId }, position) =>
-    playerId === null
-      ? [{ message: "Ligne sans joueur", cells: [`player${position}:player`] }]
-      : [],
+    playerId === null ? [{ message: UNASSIGNED, cells: [`player${position}:player`] }] : [],
   );
 }
 

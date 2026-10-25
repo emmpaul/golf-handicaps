@@ -54,9 +54,12 @@ test("confirmer 71,4 / 144 met Manu premier en net (65) et lui donne 21 coups en
     "href",
     "https://simulatorgolftour.com/public/assets/courseImages/scorecards/scorecard_30.jpg",
   );
-  await expect(bethpage.getByTestId("course-sgt")).toHaveText(
-    "SGT : Bethpage Black · Farmingdale, NY",
-  );
+  // Change `hallmark-custom-redesign`, tâche 4.8 : nom et lieu SGT en deux éléments, sans « · ».
+  // Mutation : `[nom, lieu].join(" · ")` remis → « Farmingdale, NY » introuvable seul, rouge.
+  const sgt = bethpage.getByTestId("course-sgt");
+  await expect(sgt.getByText("SGT : Bethpage Black", { exact: true })).toBeVisible();
+  await expect(sgt.getByText("Farmingdale, NY", { exact: true })).toBeVisible();
+  await expect(sgt).not.toContainText("·");
   await expect(bethpage.getByRole("link", { name: "The Course View" })).toHaveAttribute(
     "href",
     "https://thecourseview.com/courses/bethpage-black",
@@ -66,7 +69,12 @@ test("confirmer 71,4 / 144 met Manu premier en net (65) et lui donne 21 coups en
   await expect(bethpage.getByTestId("course-status")).toHaveText("Confirmé");
 
   await page.goto(`/rounds/${roundId}`);
-  await expect(page.getByTestId("round-rating")).toHaveText("Rating 71,4 · slope 144");
+  // Change `hallmark-custom-redesign`, tâche 5.2 : rating et slope du round en deux éléments.
+  // Mutation : `Rating … · slope …` remis en une seule chaîne → éléments introuvables, rouge.
+  const roundRating = page.getByTestId("round-rating");
+  await expect(roundRating.getByText("Rating 71,4", { exact: true })).toBeVisible();
+  await expect(roundRating.getByText("Slope 144", { exact: true })).toBeVisible();
+  await expect(roundRating).not.toContainText("·");
   // Handicaps de parcours : 10 × 144 / 113 + 4 → 2 ; 175 × 144 / 113 + 4 → 23.
   await expect(page.getByRole("table", { name: "Classement net" }).getByRole("row")).toHaveText([
     "JoueurBrutHcp de jeuNetRang",
@@ -76,7 +84,12 @@ test("confirmer 71,4 / 144 met Manu premier en net (65) et lui donne 21 coups en
 
   // Index actuels, 3 rounds (meilleur − 2,0) : Gab −6,0 → −7 ; Manu 11,0 → 14 sur 71,4 / 144.
   await planGabAndManuOnBethpage(page);
-  await expect(page.getByTestId("course-rating")).toHaveText("Rating 71,4 · slope 144");
+  // Change `hallmark-custom-redesign`, tâche 4.7 : rating et slope en deux éléments, sans « · ».
+  // Mutation : `Rating … · slope …` remis en une seule chaîne → éléments introuvables, rouge.
+  const strokesRating = page.getByTestId("course-rating");
+  await expect(strokesRating.getByText("Rating 71,4", { exact: true })).toBeVisible();
+  await expect(strokesRating.getByText("Slope 144", { exact: true })).toBeVisible();
+  await expect(strokesRating).not.toContainText("·");
   await expect(
     page
       .getByRole("list", { name: "Coups reçus" })
@@ -127,4 +140,31 @@ test("le lien « Parcours » de la liste des rounds ouvre la page Parcours", asy
   await expect(courseCard(page, "Bethpage Black / Red").getByTestId("course-rating")).toHaveText(
     "sans rating",
   );
+});
+
+// Tâche 5.2 (revue de finition) : à 1 440 px, sans carte, proposition, tees ni candidats SGT sur
+// aucune rangée, la colonne « Simulator Golf Tour » disparaît (l'état reste sous la rating) ; elle
+// revient avec une proposition. Mutation : colonne SGT toujours rendue → quatre têtes, rouge.
+test("à 1440 px, la colonne SGT n'apparaît que si une rangée a une carte ou une proposition", async ({
+  page,
+  players,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  seedPaynesValleyRounds(players);
+  await page.goto("/courses");
+  const heads = page
+    .locator("main div[aria-hidden]")
+    .filter({ hasText: "Rating / slope" })
+    .locator(":scope > span");
+  await expect(heads).toHaveText(["Parcours", "Rating / slope", "Saisie à la main"]);
+
+  seedProposedBethpageRed();
+  seedRound(referenceRound(players));
+  await page.reload();
+  await expect(heads).toHaveText([
+    "Parcours",
+    "Rating / slope",
+    "Simulator Golf Tour",
+    "Saisie à la main",
+  ]);
 });
