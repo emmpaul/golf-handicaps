@@ -1,6 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { referenceRound, seedFailedImport, seedReadyImport, seedRound } from "./data";
-import { expect, expectNoHorizontalScroll, test } from "./fixtures";
+import { expect, expectNoHorizontalScroll, expectNoSideScroll, test } from "./fixtures";
 import { HANDLE_NAMES } from "./import";
 
 /** Tâche 8.9 : projet WebKit iPhone uniquement (voir playwright.config.ts). */
@@ -53,22 +53,18 @@ test("recadrage sur iPhone : pas de défilement horizontal, poignées de 44 px d
   expect(after.y - before.y).toBeCloseTo(20, 0);
 });
 
-test("correction sur iPhone : pas de défilement horizontal, la grille défile seule", async ({
-  page,
-}) => {
+// Spec `app-shell` « Pas de défilement horizontal de la page » (modifiée) : sous 768 px, la grille
+// ne défile plus dans son cadre, elle passe à une ligne par trou.
+test("correction sur iPhone : ni la page ni la grille ne défilent de côté", async ({ page }) => {
   const id = seedReadyImport();
   await page.goto(`/imports/${id}`);
   await expect(page.getByLabel("Parcours", { exact: true })).toHaveValue("BETHPAGE BLACK");
-  await expectNoHorizontalScroll(page);
+  await expectNoSideScroll(page);
 
-  const grid = page.getByRole("table");
-  const scroller = grid.locator("xpath=..");
-  const overflow = await scroller.evaluate((element) => element.scrollWidth > element.clientWidth);
-  expect(overflow).toBe(true);
   const cell = page.getByRole("textbox", { name: "Ligne 1 trou 18", exact: true });
   await cell.fill("4");
   await expect(cell).toHaveValue("4");
-  await expectNoHorizontalScroll(page);
+  await expectNoSideScroll(page);
 });
 
 test("liste des imports à 375 px : « Supprimer » ne fait pas déborder la ligne d'un import en échec", async ({
@@ -139,8 +135,11 @@ for (const width of [390, 320]) {
   });
 }
 
-test("correction fades follow scrolling and disappear when all holes fit", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+// Spec `app-shell` « Contenu défilant signalé » (modifiée) : le fondu ne sert qu'à partir de 768 px.
+test("correction fades follow scrolling at 800px and disappear when all holes fit", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 800, height: 900 });
   await page.goto(`/imports/${seedReadyImport()}`);
   const frame = page.locator('[data-slot="scroll-frame"]');
   const viewport = frame.locator('[data-slot="scroll-viewport"]');

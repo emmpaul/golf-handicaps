@@ -1,0 +1,108 @@
+@theme static {
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.44rem;
+  --text-2xl: 1.728rem;
+  --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem;
+  --text-display: 1.728rem;
+  --text-section: 1.2rem;
+  --text-title: 1rem;
+  --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Le tableau des scores : papier bleuté froid, encre bleu-nuit, un seul rouge porteur de sens. */
+  --color-paper: oklch(0.975 0.006 245);
+  --color-paper-2: oklch(0.945 0.01 248);
+  --color-paper-3: oklch(0.905 0.014 250);
+  --color-ink: oklch(0.24 0.065 264);
+  --color-ink-2: oklch(0.45 0.045 258);
+  /* `muted` de Hallmark, renommé pour ne pas croiser `muted` de shadcn (design D3). */
+  --color-ink-3: oklch(0.51 0.03 255);
+  --color-rule: oklch(0.86 0.014 250);
+  --color-rule-strong: var(--color-ink);
+  --color-band: var(--color-ink);
+  --color-band-ink: var(--color-paper);
+  /* `accent` de Hallmark, renommé pour ne pas croiser `accent` de shadcn (design D3). Le rouge « sous le par ». */
+  --color-signal: oklch(0.54 0.205 27);
+  --color-signal-ink: var(--color-paper);
+  --color-under: var(--color-signal);
+  --color-over: var(--color-ink-2);
+  --color-error: oklch(0.52 0.12 58);
+  --color-ai: oklch(0.55 0.095 210);
+  --color-focus: oklch(0.53 0.19 258);
+  --font-display: var(--font-sofia-sans-condensed), "Arial Narrow", ui-sans-serif, sans-serif;
+  --font-body: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-outlier: var(--font-body);
+  --radius-card: 0;
+  --radius-pill: 999px;
+  --shadow-card: none;
+  --tracking-display: -0.02em;
+}
+:root {
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 144px;
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+  --container: 1440px;
+  --gutter: 64px;
+  --gap-columns: 32px;
+  --section-gap-s: 120px;
+  --section-gap: 144px;
+  --section-gap-l: 176px;
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-sticky-nav: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+  --rule-hair: 1px;
+}
+@media (max-width: 60rem) {
+  :root {
+    --gutter: 24px;
+    --section-gap-s: 80px;
+    --section-gap: 96px;
+    --section-gap-l: 120px;
+  }
+}
+@media (max-width: 40rem) {
+  :root {
+    --gutter: 16px;
+    --section-gap-s: 56px;
+    --section-gap: 72px;
+    --section-gap-l: 96px;
+    --gap-columns: 16px;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: oklch(0.18 0.03 262);
+    --color-paper-2: oklch(0.22 0.035 262);
+    --color-paper-3: oklch(0.27 0.04 262);
+    --color-ink: oklch(0.95 0.008 245);
+    --color-ink-2: oklch(0.78 0.03 250);
+    --color-ink-3: oklch(0.7 0.03 252);
+    --color-rule: oklch(0.34 0.035 258);
+    --color-band: oklch(0.32 0.06 262);
+    --color-band-ink: var(--color-ink);
+    --color-signal: oklch(0.7 0.175 25);
+    --color-error: oklch(0.75 0.13 58);
+    --color-ai: oklch(0.76 0.1 210);
+    --color-focus: oklch(0.74 0.125 250);
+  }
+}

@@ -70,7 +70,8 @@ export function StrokesPlanner({
       <div className="flex flex-col gap-4">
         <FieldSet>
           <FieldLegend variant="label">Joueurs (2 à 4)</FieldLegend>
-          <div className="flex flex-col gap-2">
+          {/* Une rangée réglée par joueur, sous un filet d'encre : pas de cartes. */}
+          <div className="flex flex-col border-t-2 border-foreground">
             {players.map((player) => {
               const disabled =
                 player.indexT === null ||
@@ -81,8 +82,8 @@ export function StrokesPlanner({
                   data-testid={`player-choice-${player.name}`}
                   data-disabled={player.indexT === null || undefined}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-lg border px-3",
-                    player.indexT === null && "opacity-50",
+                    "flex min-h-11 items-center gap-3 border-b px-2 py-1.5 transition-[background-color] duration-(--dur-micro) ease-out hover:bg-muted has-checked:bg-accent",
+                    player.indexT === null && "opacity-55",
                   )}
                 >
                   <input
@@ -92,8 +93,8 @@ export function StrokesPlanner({
                     checked={selected.includes(player.id)}
                     onChange={(event) => toggle(player.id, event.currentTarget.checked)}
                   />
-                  <span className="font-medium">{player.name}</span>
-                  <span className="ml-auto text-sm text-muted-foreground">
+                  <span className="font-heading text-xl font-semibold">{player.name}</span>
+                  <span className="ml-auto text-sm text-muted-foreground tabular-nums">
                     {player.indexT === null ? NO_INDEX : `Index ${formatTenths(player.indexT)}`}
                   </span>
                 </label>
@@ -125,25 +126,31 @@ export function StrokesPlanner({
           <Link
             href="/courses"
             data-testid="course-rating"
-            className={cn(ACTION_LINK, "-mt-2 w-fit text-sm")}
+            className={cn(ACTION_LINK, "-mt-2 w-fit gap-x-4 text-sm tabular-nums")}
           >
-            {course.rating.rated
-              ? `Rating ${formatTenths(course.rating.ratingT)} · slope ${course.rating.slope}`
-              : "sans rating"}
+            {course.rating.rated ? (
+              <>
+                <span>Rating {formatTenths(course.rating.ratingT)}</span>
+                <span>Slope {course.rating.slope}</span>
+              </>
+            ) : (
+              "sans rating"
+            )}
           </Link>
         ) : null}
         <FieldSet>
           <FieldLegend variant="label">Mode</FieldLegend>
-          <div className="flex gap-2">
+          {/* Segments carrés : le bouton radio couvre tout le segment, le mode choisi est en encre pleine. */}
+          <div className="grid w-full auto-cols-fr grid-flow-col border border-foreground sm:w-fit">
             {MODES.map((option) => (
               <label
                 key={option.mode}
-                className="flex min-h-11 items-center gap-2 rounded-lg border px-3 has-checked:border-primary"
+                className="relative flex min-h-11 items-center justify-center px-5 font-medium transition-[color,background-color] duration-(--dur-micro) ease-out not-last:border-r not-last:border-foreground has-checked:bg-primary has-checked:text-primary-foreground has-focus-visible:outline-2 has-focus-visible:-outline-offset-4 has-focus-visible:outline-ring not-has-checked:hover:bg-muted md:min-h-8"
               >
                 <input
                   type="radio"
                   name="mode"
-                  className="size-4 accent-primary"
+                  className="absolute inset-0 cursor-pointer appearance-none opacity-0 focus-visible:outline-none"
                   checked={mode === option.mode}
                   onChange={() => setMode(option.mode)}
                 />
@@ -154,10 +161,10 @@ export function StrokesPlanner({
         </FieldSet>
       </div>
       {ready ? (
-        <ul aria-label="Coups reçus" className="flex flex-col gap-2">
+        <ul aria-label="Coups reçus" className="flex flex-col gap-6">
           {chosen.map((player, i) => (
-            <li key={player.id} className="flex flex-col gap-1 rounded-lg border p-3">
-              <span data-testid="strokes-total" className="font-medium">
+            <li key={player.id} className="flex flex-col gap-2 border-t-2 border-foreground pt-2">
+              <span data-testid="strokes-total" className="font-heading text-2xl font-bold">
                 {totalLabel(player.name, strokes[i])}
               </span>
               {strokes[i] !== 0 ? (

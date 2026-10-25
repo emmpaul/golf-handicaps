@@ -1,18 +1,19 @@
 import { referenceRound, seedRound } from "./data";
 import { expect, test } from "./fixtures";
 
-// Mutation: themeColor reset to "#ffffff" loses both media-specific tags.
-test("Fairway follows the system theme and status bar", async ({ page }) => {
+// Mutation: themeColor reset to "#ffffff" loses both media-specific tags. Mutation: body back on
+// the Fairway paper (--color-paper oklch(0.970031 0.008232 91.4826)) → the light rgb goes red.
+test("the score-board palette follows the system theme and status bar", async ({ page }) => {
   await page.goto("/rounds");
   const tags = page.locator('meta[name="theme-color"]');
   await expect(tags).toHaveCount(2);
   await expect(tags.nth(0)).toHaveAttribute("media", "(prefers-color-scheme: light)");
-  await expect(tags.nth(0)).toHaveAttribute("content", "#F7F5EF");
+  await expect(tags.nth(0)).toHaveAttribute("content", "#F4F7FB");
   await expect(tags.nth(1)).toHaveAttribute("media", "(prefers-color-scheme: dark)");
-  await expect(tags.nth(1)).toHaveAttribute("content", "#0F1713");
+  await expect(tags.nth(1)).toHaveAttribute("content", "#0A111F");
   for (const [colorScheme, expected] of [
-    ["light", [247, 245, 239]],
-    ["dark", [15, 23, 19]],
+    ["light", [244, 247, 251]],
+    ["dark", [10, 17, 31]],
   ] as const) {
     await page.emulateMedia({ colorScheme });
     const rgb = await page.locator("body").evaluate((body) => {
@@ -23,7 +24,12 @@ test("Fairway follows the system theme and status bar", async ({ page }) => {
       context.fillRect(0, 0, 1, 1);
       return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
     });
-    expect(rgb).toEqual(expected);
+    // Chromium renders the OKLCH token through Tailwind's lab() at 243 for the 244 red channel:
+    // each channel may differ from the hand-written hex by one step.
+    expect(
+      rgb.map((channel, index) => Math.abs(channel - expected[index]) <= 1),
+      `${colorScheme} body ${rgb.join(", ")}`,
+    ).toEqual([true, true, true]);
   }
 });
 

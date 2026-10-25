@@ -77,4 +77,17 @@ test.describe("1440×900, sans défilement vertical", () => {
     expect(bottom).toBeLessThanOrEqual(bar.y);
     expect(bottom).toBeLessThanOrEqual(900);
   });
+
+  // Tâche 5.2 (revue de finition) : à 1 440 px, le conteneur commence à 96 px ((1440 − 1280) / 2
+  // + 16) ; le bouton s'aligne sur ce bord comme le champ « Parcours ». Mutation : `lg:px-0` retiré
+  // de la barre → bouton à 112 px, rouge.
+  test("le bouton d'enregistrement s'aligne sur le bord gauche des champs", async ({ page }) => {
+    await page.goto("/rounds/new");
+    const field = await page.getByLabel("Parcours", { exact: true }).boundingBox();
+    const button = await saveButton(page).boundingBox();
+    expect({ field: Math.round(field?.x ?? 0), button: Math.round(button?.x ?? 0) }).toEqual({
+      field: 96,
+      button: 96,
+    });
+  });
 });

@@ -15,7 +15,7 @@ export function DeleteImport({ importId, onDone }: { importId: number; onDone: (
       title="Supprimer cet import ?"
       description="La photo et la correction en cours seront effacées."
       url={`/api/imports/${importId}`}
-      pendingLabel="Suppression de l'import…"
+      pendingLabel="Suppression de l’import…"
       onDeleted={onDone}
       onRefused={onDone}
     />

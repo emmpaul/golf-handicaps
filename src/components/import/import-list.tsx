@@ -54,7 +54,7 @@ function ImportAction({ item, reload }: { item: ImportListItem; reload: () => vo
   // Une lecture en cours ne se supprime pas (spec « Suppression d'un import »).
   if (item.status === "reading") return null;
   return (
-    <span className="flex flex-wrap items-center gap-x-3">
+    <span className="flex flex-wrap items-center justify-end gap-x-4">
       {/* Sans round, un import lu ou en échec se recadre (spec « Nouvelle lecture après recadrage »). */}
       {item.status === "ready" ? (
         <>
@@ -106,16 +106,17 @@ export function ImportList({
   if (items.length === 0) return null;
   return (
     <section aria-labelledby="imports-title" className="flex flex-col gap-3">
-      <h2 id="imports-title" className="font-heading text-lg font-semibold">
+      <h2 id="imports-title" className="font-heading text-xl font-extrabold">
         Imports
       </h2>
-      <ul aria-labelledby="imports-title" className="flex flex-col gap-2">
+      {/* Registre réglé : filet d'encre en tête, une rangée par import sur un filet fin. */}
+      <ul aria-labelledby="imports-title" className="flex flex-col border-t-2 border-foreground">
         {items.map((item) => (
           <li
             key={item.id}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border p-3 text-sm"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-2 text-sm"
           >
-            <h3 className="font-medium">Import n°{item.id}</h3>
+            <h3 className="font-heading text-base font-semibold">Import n°{item.id}</h3>
             <time
               dateTime={item.createdAt}
               className="text-muted-foreground"
@@ -125,8 +126,8 @@ export function ImportList({
             </time>
             {/* Orbe seule, sans `role="status"` : le badge change déjà à chaque rafraîchissement. */}
             <ImportOrb item={item} />
-            {/* Badge et action vont à la ligne ensemble, l'action toujours à droite. */}
-            <span className="flex flex-auto flex-nowrap items-center gap-x-3">
+            {/* Statut à gauche, actions à droite, sur leur propre ligne sous le numéro et la date. */}
+            <span className="flex basis-full items-baseline justify-between gap-x-3">
               <Badge
                 data-testid="import-status"
                 variant={item.status === "failed" ? "destructive" : "secondary"}

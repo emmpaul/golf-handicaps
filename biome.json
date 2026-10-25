@@ -18,7 +18,8 @@
       "!**/drizzle",
       "!**/migrations",
       "!src/components/ui",
-      "!.agents/skills"
+      "!.agents/skills",
+      "!.hallmark"
     ]
   },
   "formatter": {

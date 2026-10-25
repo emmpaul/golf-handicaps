@@ -37,7 +37,7 @@ export function RecropImport({
     <div className="flex flex-col gap-4">
       {failed ? (
         <Alert variant="destructive">
-          <AlertTitle>L'envoi a échoué, réessaie.</AlertTitle>
+          <AlertTitle>L’envoi a échoué, réessaie.</AlertTitle>
         </Alert>
       ) : null}
       {hasCorrection ? (

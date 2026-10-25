@@ -72,6 +72,7 @@ function LinePlayer({
   players,
   invalid,
   onAssociate,
+  onLeave,
   onRemove,
   onCreate,
 }: {
@@ -80,6 +81,7 @@ function LinePlayer({
   players: PlayerOption[];
   invalid: boolean;
   onAssociate: (key: string, playerId: number | null) => void;
+  onLeave?: (cell: string) => void;
   onRemove: (key: string) => void;
   onCreate: CreatePlayer;
 }) {
@@ -104,6 +106,7 @@ function LinePlayer({
         className="min-w-0 w-full"
         aria-label={`Joueur de la ligne ${number}`}
         aria-invalid={invalid || undefined}
+        onBlur={() => onLeave?.(`player${position}:player`)}
         value={creating ? NEW_PLAYER : (line.playerId ?? "")}
         onChange={(event) => {
           const { value } = event.currentTarget;
@@ -139,6 +142,7 @@ export function LinePlayers({
   invalid,
   canAdd,
   onAssociate,
+  onLeave,
   onCreate,
   onRemove,
   onAdd,
@@ -148,6 +152,7 @@ export function LinePlayers({
   invalid: ReadonlySet<string>;
   canAdd: boolean;
   onAssociate: (key: string, playerId: number | null) => void;
+  onLeave?: (cell: string) => void;
   onCreate: CreatePlayer;
   onRemove: (key: string) => void;
   onAdd: () => void;
@@ -162,6 +167,7 @@ export function LinePlayers({
           players={players}
           invalid={invalid.has(`player${position}:player`)}
           onAssociate={onAssociate}
+          onLeave={onLeave}
           onRemove={onRemove}
           onCreate={onCreate}
         />

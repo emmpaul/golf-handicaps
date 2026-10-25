@@ -5,7 +5,7 @@ L'app SHALL utiliser une palette propre, commune à toutes les pages, choisie pe
 
 #### Scenario: Plus de vert Fairway
 - **WHEN** l'utilisateur ouvre l'écran d'import en mode clair après la refonte
-- **THEN** le fond de la page n'est pas `#F7F5EF` et le bouton principal n'a pas un fond `#1F5E3B`
+- **THEN** le fond de la page est `#F4F7FB` et non `#F7F5EF`, et le bouton principal a un fond `#0F1D3E` et non `#1F5E3B`
 
 #### Scenario: Contraste du texte en mode clair
 - **WHEN** la page Rounds s'affiche en mode clair
@@ -58,11 +58,11 @@ Partout où l'app affiche un score par trou d'un round enregistré, un score sou
 
 #### Scenario: Birdie
 - **WHEN** Gab joue 3 sur un par 4
-- **THEN** sa case montre « 3 » dans un cercle de la couleur « sous le par », annoncée « 3, birdie »
+- **THEN** sa case montre « 3 » dans un cercle de la couleur « sous le par » (`#CB1E21` en clair, `#F86B65` en sombre), annoncée « 3, birdie »
 
 #### Scenario: Bogey
 - **WHEN** Manu joue 5 sur un par 4
-- **THEN** sa case montre « 5 » dans un carré de la couleur « au-dessus du par », annoncée « 5, bogey »
+- **THEN** sa case montre « 5 » dans un carré de la couleur « au-dessus du par » (`#46566E` en clair, `#A9B9CA` en sombre), annoncée « 5, bogey »
 
 #### Scenario: Par
 - **WHEN** Gab joue 4 sur un par 4

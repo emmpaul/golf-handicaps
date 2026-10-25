@@ -21,49 +21,77 @@ export default async function RoundPage({ params }: PageProps<"/rounds/[id]">) {
   if (!round) notFound();
   return (
     <>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <PageTitle>{round.courseName}</PageTitle>
-        <p data-testid="round-summary" className="text-muted-foreground">
-          Tees {round.tees} · {formatPlayedOn(round.playedOn)} · Par {round.par}
+        {/* Tees, date et par en trois éléments, sans points médians (spec `rounds`, « En-tête d'un round »). */}
+        <p
+          data-testid="round-summary"
+          className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground"
+        >
+          <span>Tees {round.tees}</span>
+          <time dateTime={round.playedOn}>{formatPlayedOn(round.playedOn)}</time>
+          <span>Par {round.par}</span>
         </p>
-        {/* Rating des différentiels et du classement net, lien vers la page Parcours (spec `rounds`). */}
+        {/* Rating des différentiels et du classement net, lien vers la page Parcours (spec `rounds`) ;
+            rating et slope en deux éléments, sans point médian (DESIGN.md, règles d'écran). */}
         <Link
           href="/courses"
           data-testid="round-rating"
-          className={cn(ACTION_LINK, "w-fit text-sm")}
+          className={cn(ACTION_LINK, "w-fit gap-x-4 text-sm tabular-nums")}
         >
-          {round.rating.rated
-            ? `Rating ${formatTenths(round.rating.ratingT)} · slope ${round.rating.slope}`
-            : `Sans rating (par ${round.par}, slope 113)`}
+          {round.rating.rated ? (
+            <>
+              <span>Rating {formatTenths(round.rating.ratingT)}</span>
+              <span>Slope {round.rating.slope}</span>
+            </>
+          ) : (
+            `Sans rating (par ${round.par}, slope 113)`
+          )}
         </Link>
       </div>
+      {/* Une colonne sous 1 024 px : classement, carte de score, photo, actions. À partir de
+          1 024 px, la photo se pose à côté du classement et la carte prend toute la largeur. */}
       <div
-        className={cn("grid grid-cols-1 gap-4 lg:items-start", round.photoPath && "lg:grid-cols-2")}
+        className={cn(
+          "grid grid-cols-1 gap-6 lg:items-start",
+          round.photoPath && "lg:grid-cols-[minmax(0,42rem)_minmax(0,1fr)]",
+        )}
       >
-        <div className="flex flex-col gap-4">
-          {/* Largeur bornée : à 1 440 px, cinq colonnes étirées sur 1 248 px se lisent mal. */}
-          <div className="max-w-2xl">
-            <NetLeaderboard entries={round.leaderboard} />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/rounds/${round.id}/edit`} className={buttonVariants({ size: "lg" })}>
-              Modifier
-            </Link>
-            <DeleteRound roundId={round.id} />
-          </div>
-        </div>
+        {/* Largeur bornée : à 1 440 px, cinq colonnes étirées sur 1 248 px se lisent mal. */}
+        <section
+          aria-labelledby="leaderboard-title"
+          className="flex max-w-2xl min-w-0 flex-col gap-2"
+        >
+          <h2 id="leaderboard-title" className="font-heading text-xl font-extrabold">
+            Classement net
+          </h2>
+          <NetLeaderboard entries={round.leaderboard} />
+        </section>
         {round.photoPath ? (
-          <a href={`/api/rounds/${round.id}/photo`} target="_blank" rel="noreferrer">
+          <a
+            href={`/api/rounds/${round.id}/photo`}
+            target="_blank"
+            rel="noreferrer"
+            className="block max-lg:order-1"
+          >
             {/* biome-ignore lint/performance/noImgElement: servie par une route authentifiée. */}
             <img
               src={`/api/rounds/${round.id}/photo`}
               alt="Carte du round"
-              className="w-full rounded-lg border"
+              className="w-full border object-contain lg:max-h-96"
             />
           </a>
         ) : null}
+        <div className="min-w-0 lg:col-span-full">
+          <RoundScorecard round={getRoundForm(db, round.id)} />
+        </div>
+        <div className="flex flex-wrap gap-2 border-t pt-4 max-lg:order-2 lg:col-span-full">
+          <Link href={`/rounds/${round.id}/edit`} className={buttonVariants({ size: "lg" })}>
+            Modifier
+          </Link>
+          <DeleteRound roundId={round.id} />
+        </div>
       </div>
-      <RoundScorecard round={getRoundForm(db, round.id)} />
     </>
   );
 }

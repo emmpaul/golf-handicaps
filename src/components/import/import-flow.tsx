@@ -15,7 +15,7 @@ import { UnreadablePhoto } from "./unreadable-photo";
  * focus clavier, dont le contour s'affiche sur le bouton.
  */
 const PICK_BUTTON =
-  "cursor-pointer focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50";
+  "cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-solid focus-within:outline-ring";
 
 type Step = "pick" | "preparing" | "sending" | "unreadable";
 
@@ -61,7 +61,7 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
       setMessage("Lecture en file d'attente. Tu peux envoyer la photo suivante.");
       onQueued();
     } else {
-      setMessage("L'envoi a échoué, réessaie.");
+      setMessage("L’envoi a échoué, réessaie.");
     }
   }
 
@@ -107,7 +107,7 @@ export function ImportFlow({ onQueued }: { onQueued: () => void }) {
           />
         </label>
         <FieldDescription id="photo-description">
-          Photo de l'écran de fin de round, prise au téléphone.
+          Photo de l’écran de fin de round, prise au téléphone.
         </FieldDescription>
       </Field>
       <Pending label={PENDING_LABEL[step] ?? null} orb={step === "sending" ? "send" : "prepare"} />

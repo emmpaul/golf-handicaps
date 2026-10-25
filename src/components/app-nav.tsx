@@ -33,21 +33,24 @@ export const LINKS = [
 ] as const;
 
 /**
- * Navigation entre sections : liens en haut à partir de `md`, barre d'onglets fixée en bas
- * en dessous. Les deux sont rendues, l'une ou l'autre masquée en CSS. Les marges de zone sûre
+ * Navigation entre sections : liens en haut à partir de `md` (le courant souligné d'un filet
+ * d'encre de 2 px), barre d'onglets fixée en bas en dessous (onglet courant : bloc d'encre plein
+ * sous l'icône). Les deux sont rendues, l'une ou l'autre masquée en CSS. Les marges de zone sûre
  * viennent des variables de `globals.css`.
  */
 export function AppNav() {
   return (
     <>
-      <header className="border-b pt-(--safe-top)">
+      {/* Collé en haut, fond plein du papier (= `html` et `body`) : Safari iOS y prend sa teinte et
+          rien ne passe flou dessous (design D10). La rangée de la marque commence 8 px sous la zone sûre. */}
+      <header className="sticky top-0 z-40 border-b bg-background pt-[calc(var(--safe-top)+--spacing(2))]">
         <nav
           aria-label="Navigation principale"
-          className="mx-auto flex w-full max-w-7xl items-center gap-1 px-4 py-2"
+          className="mx-auto flex w-full max-w-7xl items-center gap-4 px-4 pb-2"
         >
           <Link
             href="/"
-            className="mr-2 flex shrink-0 items-center gap-2 font-heading font-semibold"
+            className="mr-auto flex shrink-0 items-center gap-2 font-heading text-xl leading-none font-extrabold max-md:min-h-11"
           >
             <BrandMark /> Golf
           </Link>
@@ -55,7 +58,7 @@ export function AppNav() {
             <NavLink
               key={href}
               href={href}
-              className="hidden shrink-0 rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:font-medium aria-[current=page]:text-foreground md:flex"
+              className="hidden h-11 shrink-0 items-center border-y-2 border-transparent text-sm text-muted-foreground transition-[color,border-color] duration-(--dur-micro) ease-out hover:text-foreground aria-[current=page]:border-b-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground md:flex"
             >
               {label}
             </NavLink>
@@ -64,7 +67,7 @@ export function AppNav() {
       </header>
       <nav
         aria-label="Sections"
-        className="fixed inset-x-0 bottom-0 z-40 flex h-(--bottom-chrome) flex-col border-t bg-background pb-(--safe-bottom) md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex h-(--bottom-chrome) flex-col border-t-2 border-foreground bg-background pb-(--safe-bottom) md:hidden"
       >
         {/* Bordure comprise dans `--bottom-chrome` : la barre « Enregistrer » se pose au ras. */}
         <ul className="grid flex-1 grid-cols-5">
@@ -72,11 +75,11 @@ export function AppNav() {
             <li key={href} className="flex">
               <NavLink
                 href={href}
-                className="group flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground aria-[current=page]:font-medium aria-[current=page]:text-primary"
+                className="group flex flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground"
               >
                 <span
                   data-slot="tab-pill"
-                  className="flex h-7 w-12 items-center justify-center rounded-full group-aria-[current=page]:bg-primary/12"
+                  className="flex h-7 w-12 items-center justify-center group-aria-[current=page]:bg-primary group-aria-[current=page]:text-primary-foreground"
                 >
                   <Icon aria-hidden className="size-5" />
                 </span>
