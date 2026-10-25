@@ -37,12 +37,17 @@ const shownRgb = (field: Locator) =>
  * Mutation : `AI_CELL_CLASS` vidé dans `score-grid.tsx` (plus de `bg-ai/15`) → blanc, rouge.
  */
 async function expectAiTint(field: Locator) {
-  const shown = await shownRgb(field);
   const expected = [217, 236, 238];
-  expect(
-    shown.map((channel, index) => Math.abs(channel - expected[index]) <= 2),
-    `fond affiché ${shown.join(", ")}`,
-  ).toEqual([true, true, true]);
+  // Le serveur rend la grille du téléphone, l'hydratation la remplace par la grille large (design
+  // D9) : un champ lu pendant l'échange est détaché, son style calculé est vide et le canevas
+  // reste blanc. On relit donc jusqu'à obtenir le champ en place.
+  await expect(async () => {
+    const shown = await shownRgb(field);
+    expect(
+      shown.map((channel, index) => Math.abs(channel - expected[index]) <= 2),
+      `fond affiché ${shown.join(", ")}`,
+    ).toEqual([true, true, true]);
+  }).toPass({ timeout: 5_000 });
 }
 
 test("la case remplie par l'IA porte la marque visible et la description, elle seule", async ({

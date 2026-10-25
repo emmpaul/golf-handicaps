@@ -283,7 +283,16 @@ for (const width of [320, 390]) {
       for (const label of FOUR_PLAYER_ROWS) {
         const header = block.getByRole("rowheader", { name: label, exact: true });
         await header.scrollIntoViewIfNeeded();
-        await expect(header).toBeInViewport({ ratio: 1 });
+        // Libellé entier dans l'écran. Pas de `toBeInViewport({ ratio: 1 })` : quand le libellé
+        // chevauche le bas de l'écran, Chromium l'aligne sur le bord mais arrondit le défilement
+        // au pixel entier (13 px pour 13,3125 attendus), le laissant 0,3125 px sous le pli. En
+        // largeur, rien ne défile : bornes exactes ; en hauteur, 1 px de tolérance d'arrondi.
+        const box = await header.boundingBox();
+        if (!box) throw new Error(`Libellé ${label} absent`);
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        expect(box.y).toBeGreaterThanOrEqual(-1);
+        expect(box.y + box.height).toBeLessThanOrEqual(844 + 1);
       }
     }
     await expect(page.getByRole("table", { name: "Carte de score", exact: true })).toHaveCount(0);
