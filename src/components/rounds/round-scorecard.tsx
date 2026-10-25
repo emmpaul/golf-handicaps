@@ -43,10 +43,11 @@ function ScorecardTable({
   // « 42 » (IN) et « 77 » (TOT) ne se lisent jamais comme un seul nombre à 320 px.
   const totalClass = wide ? "border-l" : "border-l-2 px-1";
   // Bloc empilé : cercle et carré resserrés sous la taille de la case (22 px au lieu de 32,
-  // 18 px sous 360 px), pour que deux marques voisines gardent un blanc entre elles.
+  // 16 px sous 360 px), pour que deux marques voisines gardent un blanc entre elles. À 320 px,
+  // 18 px ne laissaient que 2 px (1,6 px sous Linux, aux métriques de police plus larges).
   const markClass = cn(
     "inline-flex justify-center",
-    !wide && "[&>span]:size-[1.375rem] max-[22.5rem]:[&>span]:size-[1.125rem]",
+    !wide && "[&>span]:size-[1.375rem] max-[22.5rem]:[&>span]:size-4",
   );
   return (
     <table
