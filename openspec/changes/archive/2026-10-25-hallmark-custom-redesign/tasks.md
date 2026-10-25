@@ -41,7 +41,7 @@
 - [x] 5.2 Revue de finition Hallmark en contexte neuf (`gates.md` § 6) avec les captures avant / après, 390 et 320 px jugées en premier ; appliquer sa décision (`fix` / `ship`) et noter le résultat dans le Picks block.
 - [x] 5.3 Vérification manuelle sur l'iPhone de l'utilisateur (design D10), une étape à la fois : `next dev` joignable sur le réseau local (ou l'aperçu déployé), puis Safari en clair, Safari en sombre, après défilement de Rounds, et app ajoutée à l'écran d'accueil ; à chaque étape, l'utilisateur confirme que la marque et « Golf » sont nets et que la zone sous la barre d'état a la couleur de l'en-tête. Noter la version d'iOS dans la PR.
 - [x] 5.4 `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm e2e` verts. Entrée de journal `theme.mjs log` avec `mode: redesign`, `depth: full`, `scope: app`.
-- [ ] 5.5 Ouvrir la PR (`feat(ui): …`) avec le relevé avant / après (Floor, Reflex, gardé / modifié / retiré) et `compare.html` en pièce jointe ; fusion quand la CI est verte.
+- [x] 5.5 Ouvrir la PR (`feat(ui): …`) avec le relevé avant / après (Floor, Reflex, gardé / modifié / retiré) et `compare.html` en pièce jointe ; fusion quand la CI est verte.
 
 ## Workflow follow-up
 
